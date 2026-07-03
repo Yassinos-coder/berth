@@ -1,0 +1,4 @@
+packages:
+  - "apps/berth-panel"
+  - "apps/berth-ui"
+  - "packages/*"

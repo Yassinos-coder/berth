@@ -1,0 +1,9 @@
+{
+  "name": "@berth/panel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Berth control plane — NestJS API + serves the UI. Not yet implemented.",
+  "dependencies": {
+    "@berth/protocol": "workspace:*"
+  }
+}
