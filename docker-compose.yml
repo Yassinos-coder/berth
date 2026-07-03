@@ -1,0 +1,38 @@
+# Local dev dependencies for berth-server. Postgres is the panel's source of
+# truth; Redis is optional (nestjs-shield uses in-memory storage by default).
+#   docker compose up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: berth-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-berth}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-berth}
+      POSTGRES_DB: ${POSTGRES_DB:-berth}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - berth-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-berth} -d ${POSTGRES_DB:-berth}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: berth-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - berth-redisdata:/data
+
+volumes:
+  berth-pgdata:
+  berth-redisdata:

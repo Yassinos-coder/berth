@@ -2,6 +2,7 @@
   "name": "berth",
   "version": "0.1.0",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "packageManager": "pnpm@11.9.0",
   "engines": {
     "node": ">=20"
@@ -9,6 +10,11 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:ui": "pnpm --filter @berth/ui dev",
+    "dev:server": "pnpm --filter @berth/server dev",
+    "dev:agent": "cargo run --manifest-path apps/berth-agent/Cargo.toml",
+    "build:ui": "pnpm --filter @berth/ui build",
+    "build:server": "pnpm --filter @berth/server build",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "type-check": "turbo run type-check"

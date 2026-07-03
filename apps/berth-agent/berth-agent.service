@@ -1,0 +1,17 @@
+[Unit]
+Description=Berth agent
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/berth/agent.env
+ExecStart=/usr/local/bin/berth-agent run
+Restart=always
+RestartSec=5
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

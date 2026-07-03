@@ -1,6 +1,6 @@
-# @berth/panel
+# @berth/server
 
-Berth control plane (NestJS). The orchestration brain — **no Docker/host access**; delegates every privileged operation to `berth-agent`.
+Berth control plane (NestJS). The orchestration brain — **no Docker/host access**; delegates every privileged operation to `berth-agent`. Persists state in plain PostgreSQL via Prisma.
 
 Responsibilities:
 - Auth (GitHub OAuth, SSO later), RBAC, teams

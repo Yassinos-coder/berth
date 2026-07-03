@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  owner
+  admin
+  deployer
+  viewer
+}
+
+enum MemberStatus {
+  active
+  invited
+  suspended
+}
+
+enum AgentStatus {
+  online
+  offline
+  enrolling
+  degraded
+}
+
+enum ServiceKind {
+  git
+  image
+  database
+  bucket
+}
+
+enum ServiceState {
+  building
+  starting
+  running
+  unhealthy
+  stopped
+  crashed
+}
+
+enum SourceKind {
+  git
+  image
+}
+
+enum Builder {
+  auto
+  nixpacks
+  dockerfile
+}
+
+enum DeploymentStatus {
+  queued
+  building
+  deploying
+  live
+  failed
+  canceled
+}
+
+enum DeploymentTrigger {
+  push
+  manual
+  rollback
+  redeploy
+}
+
+enum ActivityKind {
+  deploy
+  server
+  member
+  system
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users       User[]
+  servers     Server[]
+  services    Service[]
+  deployments Deployment[]
+  activities  Activity[]
+}
+
+model User {
+  id           String       @id @default(cuid())
+  orgId        String
+  name         String
+  email        String       @unique
+  passwordHash String
+  role         Role         @default(viewer)
+  status       MemberStatus @default(active)
+  avatarUrl    String?
+  lastActiveAt DateTime     @default(now())
+  createdAt    DateTime     @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+model Server {
+  id                String      @id @default(cuid())
+  orgId             String
+  name              String
+  region            String      @default("")
+  ip                String      @default("")
+  os                String      @default("")
+  agentVersion      String      @default("")
+  cpuCores          Int         @default(1)
+  memoryMb          Int         @default(1024)
+  diskGb            Int         @default(20)
+  status            AgentStatus @default(enrolling)
+  bootstrapToken    String?     @unique
+  bootstrapExpires  DateTime?
+  certSerial        String?
+  lastSeenAt        DateTime    @default(now())
+  createdAt         DateTime    @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  services Service[]
+
+  @@index([orgId])
+}
+
+model Service {
+  id             String       @id @default(cuid())
+  orgId          String
+  serverId       String
+  name           String
+  kind           ServiceKind
+  state          ServiceState @default(starting)
+  sourceKind     SourceKind
+  image          String?
+  tag            String?
+  repo           String?
+  branch         String?
+  builder        Builder?
+  dockerfilePath String?
+  cpuCores       Float        @default(1)
+  memoryMb       Int          @default(1024)
+  cpuShares      Int?
+  replicas       Int          @default(1)
+  domain         String?
+  specHash       String?
+  lastDeployedAt DateTime?
+  createdAt      DateTime     @default(now())
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  server      Server       @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  envVars     EnvVar[]
+  deployments Deployment[]
+
+  @@index([orgId])
+  @@index([serverId])
+}
+
+model EnvVar {
+  id        String  @id @default(cuid())
+  serviceId String
+  key       String
+  value     String
+  isSecret  Boolean @default(false)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, key])
+}
+
+model Deployment {
+  id              String            @id @default(cuid())
+  orgId           String
+  serviceId       String
+  status          DeploymentStatus  @default(queued)
+  trigger         DeploymentTrigger @default(manual)
+  branch          String?
+  commitSha       String?
+  commitMessage   String?
+  author          String?
+  durationSeconds Int?
+  createdAt       DateTime          @default(now())
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  service Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([serviceId])
+}
+
+model Activity {
+  id        String       @id @default(cuid())
+  orgId     String
+  kind      ActivityKind
+  title     String
+  detail    String       @default("")
+  actor     String       @default("system")
+  createdAt DateTime     @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}

@@ -19,12 +19,13 @@ Onboarding: user buys a cheap VPS → `curl -sSL berth.sh | sudo bash` → opens
    - Rejected: all-Rust stack (too slow for the integration-heavy 80%); all-TS (agent wants Rust's safety at root).
 4. **Deployment of Berth's own components:**
    - `berth-agent` → **native**, systemd, runs as **root** (needs Docker, cgroups, reverse proxy). NOT containerized.
-   - `berth-panel` (Nest+UI) + Postgres → **Docker containers**. They never touch the host (they delegate to the agent), so no access issue — and containers give trivial atomic upgrades (`docker pull` + restart). This was explicitly debated and decided.
+   - `berth-server` (NestJS) + `berth-ui` (React/Vite) + Postgres → **Docker containers**. They never touch the host (they delegate to the agent), so no access issue — and containers give trivial atomic upgrades (`docker pull` + restart). This was explicitly debated and decided.
 5. **Transport:** agent **dials out** to the panel (sidesteps NAT/firewall; agents may be behind changing IPs) and holds a **persistent WebSocket over mTLS**. Chosen over gRPC for v1 (simpler in both Nest and Rust). Panel pushes commands down the live channel.
 6. **Protocol is declarative (Kubernetes-style), not imperative.** Panel sends **desired state** `Reconcile(ServiceSpec[])`; agent diffs against actual Docker state and converges. Self-healing, idempotent, survives reboots. Postgres is the source of truth for desired state. NOT imperative Deploy/Stop/Restart commands.
 7. **Enrollment:** one-time, short-TTL, single-use bootstrap token → agent exchanges it for a long-lived client cert (revocable). Bootstrap token burned after use.
 8. **Builds:** Dockerfile if present, else **Nixpacks**. Don't build a build system from scratch. Build runs on the agent's server for v1.
 9. **Reverse proxy:** agent runs **Caddy** (auto-HTTPS via Let's Encrypt) to route app domains → containers.
+10. **ORM = Prisma** (plain Postgres, NOT Supabase). Berth is self-hosted, so the DB is a **local Postgres container** co-located with the panel on the customer's VPS — no hosted/Supabase dependency (would violate the no-phone-home principle). The Supabase repository pattern from the global conventions does NOT apply here: no Supabase client, no `.maybeSingle()`, no `schema`/`tableName` props. Keep the Controller→Service→Repository shape, but repositories wrap the Prisma client and talk to local Postgres. Prisma owns migrations + the generated typed client.
 
 ## Core abstraction: `ServiceSpec`
 
@@ -60,15 +61,17 @@ owner (billing/delete org) · admin (manage servers/members) · deployer (deploy
 
 ```
 apps/berth-agent/   — Rust: Tokio, bollard (Docker), tokio-tungstenite (WS), reconciler, Caddy mgmt
-apps/berth-panel/   — NestJS: auth, RBAC, GitHub OAuth+webhooks, Postgres, agent WS channel
-apps/berth-ui/      — React + TS dashboard
+apps/berth-server/  — NestJS: auth, RBAC, GitHub OAuth+webhooks, Postgres (Prisma), agent WS channel
+apps/berth-ui/      — React + TS dashboard (Vite, shadcn/ui, Tailwind CSS v4)
 packages/protocol/  — shared panel⇄agent message contract (source of truth for both sides)
 docs/architecture.md — full design
 ```
 
 ## Follow the global backend/frontend conventions from ~/.claude/CLAUDE.md
 
-Nest: Controller→Service→Repository→DB. Interfaces in `interfaces/` folders (never inline, never `types/`). Validators in `validators/` folders. Utilities as static-method classes. Early returns. NestJS built-in exceptions. No comments/JSDoc. `@` import alias. Supabase repo pattern (schema/tableName class props) — note: Berth panel uses plain **PostgreSQL**, confirm ORM choice (Prisma vs TypeORM vs Supabase) before writing repos.
+Nest: Controller→Service→Repository→DB. Interfaces in `interfaces/` folders (never inline, never `types/`). Validators in `validators/` folders. Utilities as static-method classes. Early returns. NestJS built-in exceptions. No comments/JSDoc. `@` import alias. **Berth panel uses plain PostgreSQL via Prisma** (settled decision #10) — repositories wrap the Prisma client. Ignore the Supabase repo pattern (schema/tableName class props) from the global conventions; it does not apply here.
+
+**API protection = `nestjs-shield`** (our own package, `yassinoscoder`) — NOT `@nestjs/throttler`. Covers rate limiting, IP allow/block lists, auto-ban, slow-down, UA filtering, burst caps, and payload limits, with pluggable memory/Redis storage. Guards the public panel surface: admin login (auto-ban + slow-down on repeated failures), GitHub webhook receiver, and the agent-facing endpoints.
 
 ## Current status
 
@@ -76,7 +79,6 @@ Nest: Controller→Service→Repository→DB. Interfaces in `interfaces/` folder
 
 ## Open questions to resolve before/while building
 
-- ORM for the panel (Prisma vs TypeORM vs Supabase client) — global conventions assume Supabase but Berth is plain Postgres in a container.
 - mTLS cert issuance mechanics (self-signed CA baked into panel? step-ca?).
 - Monorepo tooling (pnpm workspaces + Cargo for the Rust app, or Nx/Turborepo).
 - License choice (Apache-2.0 vs AGPL-3.0).

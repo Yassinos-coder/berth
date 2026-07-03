@@ -5,7 +5,8 @@
 ```
 Customer's VPS (where they ran the install)
 ├── berth-agent   (Rust, native/systemd, root)   ← Docker, cgroups, reverse proxy
-├── berth-panel   (NestJS API + React UI, container)
+├── berth-server  (NestJS API, container)
+├── berth-ui      (React + Vite UI, container)
 ├── postgres      (container)                     ← panel's source of truth
 └── docker        ← runs the customer's deployed services (berths)
 
