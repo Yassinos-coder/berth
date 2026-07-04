@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,7 +7,7 @@ import { AuthLayout } from '@/features/auth/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useLogin } from '@/hooks/useAuth';
+import { useAuth, useLogin, useSetupState } from '@/hooks/useAuth';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -17,12 +17,17 @@ const schema = z.object({
 type LoginForm = z.infer<typeof schema>;
 
 export function LoginPage() {
+  const { isAuthenticated } = useAuth();
+  const setup = useSetupState(!isAuthenticated);
   const login = useLogin();
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<LoginForm>({ resolver: zodResolver(schema) });
+
+  if (isAuthenticated) return <Navigate to="/" replace />;
+  if (setup.data?.needsSetup) return <Navigate to="/setup" replace />;
 
   return (
     <AuthLayout
@@ -31,7 +36,7 @@ export function LoginPage() {
       footer={
         <>
           First time here?{' '}
-          <Link to="/onboarding" className="text-primary font-medium">
+          <Link to="/setup" className="text-primary font-medium">
             Create the admin account
           </Link>
         </>

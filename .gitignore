@@ -19,6 +19,11 @@ target/
 .env.*
 !.env.example
 
+# generated TLS material (panel CA + agent certs)
+certs/
+panel-certs/
+*.pem
+
 # logs
 *.log
 npm-debug.log*

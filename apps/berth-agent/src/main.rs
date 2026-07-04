@@ -1,8 +1,13 @@
+#![forbid(unsafe_code)]
+
 mod config;
 mod docker;
+mod enroll;
 mod host;
 mod panel;
 mod protocol;
+mod tls;
+mod validators;
 
 use config::AgentConfig;
 use docker::{AgentResult, DockerReconciler};

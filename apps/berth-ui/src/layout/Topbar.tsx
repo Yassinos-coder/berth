@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { LogOut, Plus, Search, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,8 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ThemeToggle } from '@/layout/ThemeToggle';
-import { useAuth } from '@/hooks/useAuth';
-import { notify } from '@/lib/toast';
+import { useAuth, useLogout } from '@/hooks/useAuth';
 
 function initials(name: string) {
   return name
@@ -29,15 +28,9 @@ function initials(name: string) {
 }
 
 export function Topbar() {
-  const { user, clearSession } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const logout = useLogout();
   const displayName = user?.name ?? 'Admin';
-
-  const logout = () => {
-    clearSession();
-    notify.info('Signed out');
-    navigate('/login');
-  };
 
   return (
     <header className="bg-background/80 border-border sticky top-0 z-30 flex h-14 items-center gap-3 border-b px-4 backdrop-blur-md md:px-6">
@@ -88,7 +81,10 @@ export function Topbar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={logout}>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => logout.mutate()}
+            >
               <LogOut className="size-4" />
               Sign out
             </DropdownMenuItem>

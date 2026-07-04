@@ -1,5 +1,3 @@
-import { useAuthStore } from '@/store/authStore';
-
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api';
 
 export class ApiError extends Error {
@@ -19,25 +17,33 @@ export abstract class BaseApiClient {
     return `${API_BASE}/${this.resource}${path}`;
   }
 
-  private headers(): HeadersInit {
-    const token = useAuthStore.getState().token;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  }
-
   protected async request<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetch(this.url(path), {
       ...init,
-      headers: { ...this.headers(), ...init?.headers },
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Berth-Client': 'web',
+        ...init?.headers,
+      },
     });
     if (!res.ok) {
       const body = await res.text().catch(() => res.statusText);
-      throw new ApiError(res.status, body || res.statusText);
+      throw new ApiError(res.status, this.message(body, res.statusText));
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
+  }
+
+  private message(body: string, fallback: string): string {
+    try {
+      const parsed = JSON.parse(body) as { message?: string | string[] };
+      if (Array.isArray(parsed.message)) return parsed.message.join(', ');
+      if (parsed.message) return parsed.message;
+    } catch {
+      /* not JSON */
+    }
+    return body || fallback;
   }
 
   protected get<T>(path = ''): Promise<T> {

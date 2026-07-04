@@ -118,6 +118,7 @@ model Server {
   memoryMb          Int         @default(1024)
   diskGb            Int         @default(20)
   status            AgentStatus @default(enrolling)
+  isLocal           Boolean     @default(false)
   bootstrapToken    String?     @unique
   bootstrapExpires  DateTime?
   certSerial        String?

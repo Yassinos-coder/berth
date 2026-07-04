@@ -75,10 +75,22 @@ Nest: Controller→Service→Repository→DB. Interfaces in `interfaces/` folder
 
 ## Current status
 
-**Pre-alpha — design complete, scaffolding started.** Nothing functional yet. Immediate next step discussed: the **v1 milestone plan**, ordered so the risky part (agent WebSocket round-trip: command down, logs up) is proven FIRST, before OAuth/RBAC/UI. A thin vertical slice — Rust agent dials Nest over WS, runs a hardcoded `docker run hello-world`, streams output back — kills 80% of the technical risk.
+**Alpha — full vertical stack built and building green.** UI (all screens), NestJS panel (auth, RBAC, all feature modules, Prisma/Postgres), and the Rust agent (Docker reconciler, host specs) are implemented. The **agent↔panel mTLS WebSocket round-trip is wired end-to-end**: agent dials the panel `agent-gateway` over TLS, enrolls via CSR, reconnects with a client cert (mTLS), and the panel pushes `Reconcile(ServiceSpec[])` down the live channel. Security hardening (Phase C) and a zero-touch panel installer (Phase D) are in place. Not yet proven on a real VPS end-to-end; git-source builds (Nixpacks/Dockerfile) and log/metric streaming from the agent are still stubs.
+
+### mTLS / cert issuance (RESOLVED)
+
+Panel **self-signed CA** generated on first boot (`agent-gateway/pki/ca.service.ts`, node-forge); CA key encrypted at rest with `BERTH_MASTER_KEY`. Agent generates a keypair + CSR (rcgen), enrolls over TLS at `wss://panel:4443/enroll?bootstrap=<token>` (single-use token), receives a CA-signed client cert, then holds the persistent channel at `/agent` over **mTLS** (`requestCert` + per-path `socket.authorized` gate). Raw `ws` on a Node `https` server — NOT socket.io. Agent TLS = rustls with the **ring** provider, CA pinned (never `danger_accept_invalid_certs`).
+
+### Auth / security
+
+Sessions are **httpOnly + Secure + SameSite=strict cookies** (not localStorage). CSRF = SameSite + required `X-Berth-Client` header (`CsrfGuard`). `helmet`, CORS locked to the UI origin, prod-secret refusal at boot, env secrets encrypted via `SecretCipher` (AES-256-GCM). Rust agent: `#![forbid(unsafe_code)]`, clippy-clean, crash-proof reconnect (backoff+jitter, log-and-continue), hardened systemd unit.
+
+### Install
+
+`install.sh` (repo root = the `berth.sh` PANEL installer) is fully automated: Docker + `docker-compose.prod.yml` (postgres, redis, server, ui), generates strong secrets, runs `prisma migrate deploy`, installs the native local agent, and auto-provisions the local server on first `/setup` (zero-touch). `apps/berth-agent/install.sh` remains the agent-only installer for remote "Add Server". User's only step: open the panel and create the admin.
 
 ## Open questions to resolve before/while building
 
-- mTLS cert issuance mechanics (self-signed CA baked into panel? step-ca?).
-- Monorepo tooling (pnpm workspaces + Cargo for the Rust app, or Nx/Turborepo).
+- Monorepo tooling — using Turborepo + pnpm workspaces (settled in practice).
 - License choice (Apache-2.0 vs AGPL-3.0).
+- Git-source builds (Nixpacks/Dockerfile on the agent) and agent log/metric streaming are still stubs.

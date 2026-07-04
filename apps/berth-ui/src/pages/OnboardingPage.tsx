@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,7 +7,7 @@ import { AuthLayout } from '@/features/auth/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useRegister } from '@/hooks/useAuth';
+import { useAuth, useRegister } from '@/hooks/useAuth';
 
 const schema = z.object({
   name: z.string().min(2, 'Enter your name'),
@@ -18,12 +18,15 @@ const schema = z.object({
 type RegisterForm = z.infer<typeof schema>;
 
 export function OnboardingPage() {
+  const { isAuthenticated } = useAuth();
   const registerAdmin = useRegister();
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<RegisterForm>({ resolver: zodResolver(schema) });
+
+  if (isAuthenticated) return <Navigate to="/" replace />;
 
   return (
     <AuthLayout

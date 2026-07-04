@@ -46,6 +46,11 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   private extractToken(request: Request): string | null {
+    const cookies = (request as Request & { cookies?: Record<string, string> })
+      .cookies;
+    const cookieToken = cookies?.['berth_session'];
+    if (cookieToken) return cookieToken;
+
     const header = request.headers.authorization;
     if (!header) return null;
     const [scheme, token] = header.split(' ');

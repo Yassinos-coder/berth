@@ -4,9 +4,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { ShieldModule } from 'nestjs-shield';
 import configuration from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
+import { CryptoModule } from './common/crypto/crypto.module';
+import { AgentGatewayModule } from './agent-gateway/agent-gateway.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { CsrfGuard } from './common/guards/csrf.guard';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ServersModule } from './servers/servers.module';
 import { ServicesModule } from './services/services.module';
@@ -34,6 +37,8 @@ import { TeamModule } from './team/team.module';
       payload: { maxBodyBytes: 1_000_000 },
     }),
     PrismaModule,
+    CryptoModule,
+    AgentGatewayModule,
     AuthModule,
     DashboardModule,
     ServersModule,
@@ -43,6 +48,7 @@ import { TeamModule } from './team/team.module';
     TeamModule,
   ],
   providers: [
+    { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

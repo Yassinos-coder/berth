@@ -7,6 +7,7 @@ import {
 import { DeploymentRepository } from '../repositories/deployment.repository';
 import { DeploymentMapper } from '../mappers/deployment.mapper';
 import { ActivityService } from '../../activity/activity.service';
+import { AgentRegistry } from '../../agent-gateway/registry/agent-registry.service';
 import type { AuthenticatedUser } from '../../common/interfaces';
 import type { DeploymentDto } from '../interfaces';
 
@@ -15,6 +16,7 @@ export class DeploymentsService {
   constructor(
     private readonly repository: DeploymentRepository,
     private readonly activityService: ActivityService,
+    private readonly registry: AgentRegistry,
   ) {}
 
   async list(orgId: string): Promise<DeploymentDto[]> {
@@ -53,6 +55,8 @@ export class DeploymentsService {
       title: 'Rollback started',
       actor: user.id,
     });
+
+    await this.registry.reconcileForService(deployment.serviceId);
     return { ok: true };
   }
 }

@@ -15,6 +15,8 @@ import { ServiceSourceValidator } from '../validators/service-source.validator';
 import { ServerRepository } from '../../servers/repositories/server.repository';
 import { DeploymentRepository } from '../../deployments/repositories/deployment.repository';
 import { ActivityService } from '../../activity/activity.service';
+import { AgentRegistry } from '../../agent-gateway/registry/agent-registry.service';
+import { TelemetryBuffer } from '../../agent-gateway/buffers/telemetry-buffer.service';
 import { CreateServiceDto } from '../dto/create-service.dto';
 import type { AuthenticatedUser } from '../../common/interfaces';
 import type { LogLine, MetricPoint, ServiceDto } from '../interfaces';
@@ -35,6 +37,8 @@ export class ServicesService {
     private readonly servers: ServerRepository,
     private readonly deployments: DeploymentRepository,
     private readonly activityService: ActivityService,
+    private readonly registry: AgentRegistry,
+    private readonly telemetry: TelemetryBuffer,
   ) {}
 
   async list(orgId: string): Promise<ServiceDto[]> {
@@ -50,12 +54,12 @@ export class ServicesService {
 
   async logs(orgId: string, id: string): Promise<LogLine[]> {
     await this.getById(orgId, id);
-    return [];
+    return this.telemetry.getLogs(id);
   }
 
   async metrics(orgId: string, id: string): Promise<MetricPoint[]> {
     await this.getById(orgId, id);
-    return [];
+    return this.telemetry.getMetrics(id);
   }
 
   async create(
@@ -96,6 +100,7 @@ export class ServicesService {
       actor: user.id,
     });
 
+    await this.registry.reconcileServer(dto.serverId);
     return ServiceMapper.toDto(service);
   }
 
@@ -104,12 +109,10 @@ export class ServicesService {
     id: string,
     action: ServiceAction,
   ): Promise<{ ok: boolean }> {
-    const result = await this.repository.updateState(
-      user.orgId,
-      id,
-      ACTION_STATE[action],
-    );
-    if (result.count === 0) throw new NotFoundException('Service not found');
+    const service = await this.repository.findById(user.orgId, id);
+    if (!service) throw new NotFoundException('Service not found');
+
+    await this.repository.updateState(user.orgId, id, ACTION_STATE[action]);
 
     if (action === 'redeploy') {
       await this.deployments.create({
@@ -121,6 +124,12 @@ export class ServicesService {
       });
     }
 
+    if (action === 'stop') {
+      this.registry.removeService(service.serverId, id);
+    } else {
+      await this.registry.reconcileServer(service.serverId);
+    }
+
     await this.activityService.record(user.orgId, {
       kind: ActivityKind.deploy,
       title: `Service ${action} requested`,
@@ -130,7 +139,13 @@ export class ServicesService {
   }
 
   async remove(orgId: string, id: string): Promise<void> {
-    const removed = await this.repository.delete(orgId, id);
-    if (!removed) throw new NotFoundException('Service not found');
+    const service = await this.repository.findById(orgId, id);
+    if (!service) throw new NotFoundException('Service not found');
+
+    const { serverId } = service;
+    await this.repository.delete(orgId, id);
+    this.telemetry.clear(id);
+    this.registry.removeService(serverId, id);
+    await this.registry.reconcileServer(serverId);
   }
 }

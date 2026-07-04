@@ -6,13 +6,14 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
-import { User } from '@prisma/client';
+import { AgentStatus, User } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
 import { UserRepository } from '../repositories/user.repository';
 import { UserMapper } from '../mappers/user.mapper';
 import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
 import type { JwtPayload } from '../../common/interfaces';
-import type { SessionDto, SetupStateDto } from '../interfaces';
+import type { AuthUserDto, SessionDto, SetupStateDto } from '../interfaces';
 
 @Injectable()
 export class AuthService {
@@ -20,11 +21,18 @@ export class AuthService {
     private readonly users: UserRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async setupState(): Promise<SetupStateDto> {
     const count = await this.users.count();
     return { needsSetup: count === 0 };
+  }
+
+  async getUser(userId: string): Promise<AuthUserDto> {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException('Session user not found');
+    return UserMapper.toAuthUser(user);
   }
 
   async register(dto: RegisterDto): Promise<SessionDto> {
@@ -39,7 +47,27 @@ export class AuthService {
       passwordHash,
       orgName: `${dto.name.split(' ')[0]}'s Organization`,
     });
+    await this.provisionLocalServer(user.orgId);
     return this.buildSession(user);
+  }
+
+  private async provisionLocalServer(orgId: string): Promise<void> {
+    const token = this.configService.get<string>('localBootstrapToken');
+    if (!token) return;
+
+    const hostname =
+      process.env.BERTH_LOCAL_HOSTNAME ?? process.env.HOSTNAME ?? 'local-server';
+    await this.prisma.server.create({
+      data: {
+        orgId,
+        name: hostname,
+        region: 'Local',
+        isLocal: true,
+        status: AgentStatus.enrolling,
+        bootstrapToken: token,
+        bootstrapExpires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      },
+    });
   }
 
   async login(dto: LoginDto): Promise<SessionDto> {

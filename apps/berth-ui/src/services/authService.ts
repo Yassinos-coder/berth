@@ -12,7 +12,6 @@ export interface RegisterPayload extends Credentials {
 
 export interface Session {
   user: AuthUser;
-  token: string;
 }
 
 class AuthService extends BaseApiClient {
@@ -22,12 +21,20 @@ class AuthService extends BaseApiClient {
     return this.get<{ needsSetup: boolean }>('/setup-state');
   }
 
+  me(): Promise<AuthUser> {
+    return this.get<AuthUser>('/me');
+  }
+
   register(payload: RegisterPayload): Promise<Session> {
     return this.post<Session>('/register', payload);
   }
 
   login(payload: Credentials): Promise<Session> {
     return this.post<Session>('/login', payload);
+  }
+
+  logout(): Promise<{ ok: boolean }> {
+    return this.post<{ ok: boolean }>('/logout');
   }
 
   connectGithub(): Promise<{ url: string }> {

@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/target
+**/.turbo
+**/.vite
+panel-certs
+certs
+.git
+*.log
+.env

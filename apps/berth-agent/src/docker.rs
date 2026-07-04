@@ -60,6 +60,20 @@ impl DockerReconciler {
         let desired_ids: HashSet<String> = desired.iter().map(|spec| spec.id.clone()).collect();
 
         for spec in desired {
+            if let Err(reason) = crate::validators::validate_spec(spec) {
+                failed.push(FailedApply {
+                    service_id: spec.id.clone(),
+                    reason,
+                });
+                statuses.push(ServiceStatusEvent {
+                    service_id: spec.id.clone(),
+                    state: ServiceState::Crashed,
+                    container_id: None,
+                });
+                current_by_service.remove(&spec.id);
+                continue;
+            }
+
             let spec_hash = spec_hash(spec)?;
 
             match &spec.source {

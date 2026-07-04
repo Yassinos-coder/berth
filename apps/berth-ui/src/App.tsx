@@ -19,7 +19,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/setup" element={<OnboardingPage />} />
+      <Route path="/onboarding" element={<Navigate to="/setup" replace />} />
 
       <Route
         element={
