@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2026-07-12
 
 ### Added
+- Docker Hub image search and live tag selection in the service creation wizard, including official-image metadata and database detection.
+- Managed Redis, PostgreSQL, MySQL, MariaDB, and MongoDB templates with generated encrypted credentials, persistent volumes, engine-specific configuration, and optional public networking.
+- Railway-style database connection details with private and public URLs, reveal/copy controls, and generated connection variables.
+- A shared Docker network with service-name aliases, custom container commands, and persisted environment, port, and volume configuration across the panel-to-agent protocol.
 - Public landing page (`apps/berth-landing-page`, Vite + Tailwind v4) with a one-command install box and copy-to-clipboard button for `curl -fsSL https://berth.sh | sudo bash`.
 - Berth brand identity — a bespoke mooring-cleat logo shipped as source SVGs plus a generated favicon, Apple touch icon, PWA icons, `favicon.ico`, and an OpenGraph social image, with a reproducible icon generator.
 - Amazon Linux / RHEL support in both the panel and agent installers: package-manager detection (`apt`/`dnf`/`yum`) and a Docker Compose plugin fallback.

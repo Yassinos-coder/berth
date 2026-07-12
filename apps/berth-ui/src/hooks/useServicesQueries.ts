@@ -34,3 +34,11 @@ export function useServiceMetrics(id: string) {
     refetchInterval: 10000,
   });
 }
+
+export function useServiceConnection(id: string, enabled = true) {
+  return useQuery({
+    queryKey: [...queryKeys.service(id), 'connection'],
+    queryFn: () => servicesService.connection(id),
+    enabled: Boolean(id) && enabled,
+  });
+}

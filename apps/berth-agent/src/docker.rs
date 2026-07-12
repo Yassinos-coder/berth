@@ -8,6 +8,7 @@ use crate::protocol::{FailedApply, RestartPolicy, ServiceSource, ServiceSpec, Se
 pub const LABEL_MANAGED: &str = "berth.managed";
 pub const LABEL_SERVICE_ID: &str = "berth.service_id";
 pub const LABEL_SPEC_HASH: &str = "berth.spec_hash";
+pub const BERTH_NETWORK: &str = "berth";
 
 pub type AgentResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -206,6 +207,8 @@ impl DockerReconciler {
             }
         };
 
+        self.ensure_network().await?;
+
         for volume in &spec.volumes {
             self.ensure_volume(&volume.name).await?;
         }
@@ -227,6 +230,10 @@ impl DockerReconciler {
             spec.resources.cpu_cores.to_string(),
             "--memory".to_string(),
             format!("{}m", spec.resources.memory_mb),
+            "--network".to_string(),
+            BERTH_NETWORK.to_string(),
+            "--network-alias".to_string(),
+            spec.name.clone(),
         ];
 
         if let Some(cpu_shares) = spec.resources.cpu_shares {
@@ -257,11 +264,29 @@ impl DockerReconciler {
         }
 
         args.push(image_ref);
+        for part in &spec.command {
+            args.push(part.clone());
+        }
 
         let owned_args: Vec<&str> = args.iter().map(String::as_str).collect();
         let output = self.docker(&owned_args).await?;
 
         Ok(output.lines().next().unwrap_or_default().trim().to_string())
+    }
+
+    async fn ensure_network(&self) -> AgentResult<()> {
+        let inspect = Command::new(&self.docker_bin)
+            .args(["network", "inspect", BERTH_NETWORK])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .await?;
+
+        if inspect.success() {
+            return Ok(());
+        }
+
+        self.docker_stream(&["network", "create", BERTH_NETWORK]).await
     }
 
     async fn ensure_volume(&self, name: &str) -> AgentResult<()> {

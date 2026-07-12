@@ -35,6 +35,16 @@ export class ServiceRepository {
     });
   }
 
+  findWithConnection(orgId: string, id: string) {
+    return this.prisma.service.findFirst({
+      where: { id, orgId },
+      include: {
+        envVars: true,
+        server: { select: { name: true, ip: true } },
+      },
+    });
+  }
+
   create(data: {
     orgId: string;
     serverId: string;
@@ -51,12 +61,29 @@ export class ServiceRepository {
     memoryMb: number;
     cpuShares?: number;
     domain?: string;
+    templateKind?: string;
+    containerPort?: number;
+    publicNetworking?: boolean;
+    volumeName?: string;
+    volumePath?: string;
+    env?: { key: string; value: string; isSecret: boolean }[];
   }): Promise<ServiceWithServer> {
+    const { env, ...fields } = data;
     return this.prisma.service.create({
       data: {
-        ...data,
+        ...fields,
         state: ServiceState.starting,
         lastDeployedAt: new Date(),
+        envVars:
+          env && env.length > 0
+            ? {
+                create: env.map((item) => ({
+                  key: item.key,
+                  value: item.value,
+                  isSecret: item.isSecret,
+                })),
+              }
+            : undefined,
       },
       include: withServer,
     });

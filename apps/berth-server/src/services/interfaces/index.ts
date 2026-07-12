@@ -27,7 +27,28 @@ export interface ServiceDto {
   resources: ResourceLimits;
   replicas: number;
   domain?: string;
+  templateKind?: string;
   usage: { cpuPct: number; memMb: number };
   lastDeployedAt?: string;
   createdAt: string;
+}
+
+export interface ConnectionVariable {
+  key: string;
+  value: string;
+  isSecret: boolean;
+}
+
+export interface ConnectionDto {
+  available: boolean;
+  publicNetworking: boolean;
+  scheme?: string;
+  username?: string;
+  password?: string;
+  database?: string;
+  host?: string;
+  port?: number;
+  privateUrl?: string;
+  publicUrl?: string;
+  variables: ConnectionVariable[];
 }

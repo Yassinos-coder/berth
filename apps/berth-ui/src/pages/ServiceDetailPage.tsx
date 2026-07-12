@@ -18,6 +18,7 @@ import { DeploymentsTable } from '@/features/deployments/DeploymentsTable';
 import { LogViewer } from '@/features/services/LogViewer';
 import { MetricsPanel } from '@/features/services/MetricsPanel';
 import { EnvironmentEditor } from '@/features/services/EnvironmentEditor';
+import { ConnectionPanel } from '@/features/services/ConnectionPanel';
 import {
   KIND_META,
   builderLabel,
@@ -135,14 +136,23 @@ export function ServiceDetailPage() {
             />
 
             <Tabs defaultValue="overview">
-              <TabsList className="w-full max-w-xl">
+              <TabsList className="w-full max-w-2xl">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
+                {svc.templateKind ? (
+                  <TabsTrigger value="connect">Connect</TabsTrigger>
+                ) : null}
                 <TabsTrigger value="deployments">Deployments</TabsTrigger>
                 <TabsTrigger value="logs">Logs</TabsTrigger>
                 <TabsTrigger value="metrics">Metrics</TabsTrigger>
                 <TabsTrigger value="env">Variables</TabsTrigger>
                 <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
+
+              {svc.templateKind ? (
+                <TabsContent value="connect" className="mt-4">
+                  <ConnectionPanel serviceId={svc.id} />
+                </TabsContent>
+              ) : null}
 
               <TabsContent value="overview" className="mt-4">
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

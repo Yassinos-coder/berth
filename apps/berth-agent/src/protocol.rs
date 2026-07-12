@@ -10,6 +10,8 @@ pub struct ServiceSpec {
     pub env: Vec<EnvVar>,
     pub ports: Vec<PortMapping>,
     pub volumes: Vec<VolumeMount>,
+    #[serde(default)]
+    pub command: Vec<String>,
     pub resources: ResourceLimits,
     pub health_check: Option<HealthCheck>,
     pub restart_policy: RestartPolicy,

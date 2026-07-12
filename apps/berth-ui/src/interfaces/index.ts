@@ -60,9 +60,45 @@ export interface Service {
   resources: ResourceLimits;
   replicas: number;
   domain?: string;
+  templateKind?: string;
   usage: ServiceUsage;
   lastDeployedAt?: string;
   createdAt: string;
+}
+
+export interface RegistryImage {
+  name: string;
+  description: string;
+  official: boolean;
+  stars: number;
+  pulls: number;
+  templateKind?: string;
+}
+
+export interface RegistryTag {
+  name: string;
+  sizeMb?: number;
+  lastUpdated?: string;
+}
+
+export interface ConnectionVariable {
+  key: string;
+  value: string;
+  isSecret: boolean;
+}
+
+export interface Connection {
+  available: boolean;
+  publicNetworking: boolean;
+  scheme?: string;
+  username?: string;
+  password?: string;
+  database?: string;
+  host?: string;
+  port?: number;
+  privateUrl?: string;
+  publicUrl?: string;
+  variables: ConnectionVariable[];
 }
 
 export type DeploymentStatus =

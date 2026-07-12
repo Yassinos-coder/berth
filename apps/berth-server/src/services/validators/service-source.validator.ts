@@ -15,6 +15,9 @@ export interface NormalizedSource {
 export class ServiceSourceValidator {
   static normalize(dto: CreateServiceDto): NormalizedSource {
     const { source, kind } = dto;
+    if (!source) {
+      throw new BadRequestException('A source is required');
+    }
 
     if (source.kind === 'git') {
       if (!source.repo) {

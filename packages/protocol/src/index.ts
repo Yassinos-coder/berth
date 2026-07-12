@@ -6,6 +6,7 @@ export interface ServiceSpec {
   env: EnvVar[];
   ports: PortMapping[];
   volumes: VolumeMount[];
+  command: string[];
   resources: ResourceLimits;
   healthCheck?: HealthCheck;
   restartPolicy: RestartPolicy;

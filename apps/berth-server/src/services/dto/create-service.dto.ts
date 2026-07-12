@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsIn,
   IsInt,
@@ -66,6 +67,18 @@ class ResourceLimitsDto {
   pidsLimit?: number;
 }
 
+class EnvVarDto {
+  @IsString()
+  key!: string;
+
+  @IsString()
+  value!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isSecret?: boolean;
+}
+
 export class CreateServiceDto {
   @IsString()
   @MinLength(1)
@@ -81,9 +94,23 @@ export class CreateServiceDto {
   @IsString()
   domain?: string;
 
+  @IsOptional()
+  @IsString()
+  template?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  publicNetworking?: boolean;
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => EnvVarDto)
+  env?: EnvVarDto[];
+
+  @IsOptional()
   @ValidateNested()
   @Type(() => ServiceSourceDto)
-  source!: ServiceSourceDto;
+  source?: ServiceSourceDto;
 
   @ValidateNested()
   @Type(() => ResourceLimitsDto)

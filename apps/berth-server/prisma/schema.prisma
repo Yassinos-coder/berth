@@ -145,14 +145,20 @@ model Service {
   branch         String?
   builder        Builder?
   dockerfilePath String?
-  cpuCores       Float        @default(1)
-  memoryMb       Int          @default(1024)
-  cpuShares      Int?
-  replicas       Int          @default(1)
-  domain         String?
-  specHash       String?
-  lastDeployedAt DateTime?
-  createdAt      DateTime     @default(now())
+  command          String[]   @default([])
+  cpuCores         Float      @default(1)
+  memoryMb         Int        @default(1024)
+  cpuShares        Int?
+  replicas         Int        @default(1)
+  domain           String?
+  templateKind     String?
+  containerPort    Int?
+  publicNetworking Boolean    @default(false)
+  volumeName       String?
+  volumePath       String?
+  specHash         String?
+  lastDeployedAt   DateTime?
+  createdAt        DateTime   @default(now())
 
   org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   server      Server       @relation(fields: [serverId], references: [id], onDelete: Cascade)

@@ -13,21 +13,39 @@ import {
   ServicesService,
   type ServiceAction,
 } from '../services/services.service';
+import { ConnectionService } from '../services/connection.service';
 import { CreateServiceDto } from '../dto/create-service.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces';
-import type { LogLine, MetricPoint, ServiceDto } from '../interfaces';
+import type {
+  ConnectionDto,
+  LogLine,
+  MetricPoint,
+  ServiceDto,
+} from '../interfaces';
 
 const ACTIONS: ServiceAction[] = ['start', 'stop', 'restart', 'redeploy'];
 
 @Controller('services')
 export class ServicesController {
-  constructor(private readonly servicesService: ServicesService) {}
+  constructor(
+    private readonly servicesService: ServicesService,
+    private readonly connectionService: ConnectionService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser): Promise<ServiceDto[]> {
     return this.servicesService.list(user.orgId);
+  }
+
+  @Roles(Role.owner, Role.admin, Role.deployer)
+  @Get(':id/connection')
+  connection(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<ConnectionDto> {
+    return this.connectionService.get(user.orgId, id);
   }
 
   @Get(':id')

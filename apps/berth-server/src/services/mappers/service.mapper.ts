@@ -21,6 +21,7 @@ export class ServiceMapper {
       },
       replicas: service.replicas,
       domain: service.domain ?? undefined,
+      templateKind: service.templateKind ?? undefined,
       usage: { cpuPct: 0, memMb: 0 },
       lastDeployedAt: service.lastDeployedAt?.toISOString(),
       createdAt: service.createdAt.toISOString(),
