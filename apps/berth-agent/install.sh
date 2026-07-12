@@ -8,6 +8,7 @@ ENV_DIR="/etc/berth"
 ENV_FILE="$ENV_DIR/agent.env"
 UNIT_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 BIN_PATH="/usr/local/bin/berth-agent"
+PKG=""
 
 log() {
   printf '[berth-agent/install] %s\n' "$*"
@@ -38,33 +39,27 @@ detect_repo_root() {
   return 1
 }
 
-require_apt_host() {
-  [[ -f /etc/os-release ]] || fail "/etc/os-release not found"
-  . /etc/os-release
-
-  case "${ID:-}" in
-    ubuntu|debian) ;;
-    *)
-      fail "this installer currently supports Debian/Ubuntu hosts only"
-      ;;
-  esac
+detect_pkg_manager() {
+  if command -v apt-get >/dev/null 2>&1; then PKG="apt"
+  elif command -v dnf >/dev/null 2>&1; then PKG="dnf"
+  elif command -v yum >/dev/null 2>&1; then PKG="yum"
+  else fail "no supported package manager found (need apt, dnf, or yum)"; fi
+  log "package manager: ${PKG}"
 }
 
-apt_install_base_packages() {
-  log "updating apt package indexes"
-  apt-get update -y
-
+install_base_packages() {
   log "installing base build dependencies"
-  apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    git \
-    build-essential \
-    pkg-config \
-    libssl-dev \
-    software-properties-common \
-    apt-transport-https \
-    gnupg
+  case "$PKG" in
+    apt)
+      apt-get update -y
+      apt-get install -y --no-install-recommends \
+        ca-certificates curl git build-essential pkg-config libssl-dev \
+        software-properties-common apt-transport-https gnupg
+      ;;
+    dnf | yum)
+      "$PKG" install -y ca-certificates curl git gcc gcc-c++ make
+      ;;
+  esac
 }
 
 install_docker_if_needed() {
@@ -74,22 +69,23 @@ install_docker_if_needed() {
   fi
 
   . /etc/os-release
-  local keyring="/etc/apt/keyrings/docker.asc"
-  local arch
-  arch="$(dpkg --print-architecture)"
-
-  log "installing Docker Engine from Docker's apt repository"
-  install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL https://download.docker.com/linux/"${ID}"/gpg -o "$keyring"
-  chmod a+r "$keyring"
-
-  echo \
-    "deb [arch=${arch} signed-by=${keyring}] https://download.docker.com/linux/${ID} \
-    ${VERSION_CODENAME} stable" \
-    >/etc/apt/sources.list.d/docker.list
-
-  apt-get update -y
-  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  log "installing Docker Engine"
+  case "$PKG" in
+    apt)
+      local keyring="/etc/apt/keyrings/docker.asc"
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/"${ID}"/gpg -o "$keyring"
+      chmod a+r "$keyring"
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=${keyring}] https://download.docker.com/linux/${ID} ${VERSION_CODENAME} stable" \
+        >/etc/apt/sources.list.d/docker.list
+      apt-get update -y
+      apt-get install -y docker-ce docker-ce-cli containerd.io \
+        docker-buildx-plugin docker-compose-plugin
+      ;;
+    dnf | yum)
+      "$PKG" install -y docker
+      ;;
+  esac
   systemctl enable --now docker
 }
 
@@ -199,8 +195,8 @@ show_summary() {
 
 main() {
   require_root
-  require_apt_host
-  apt_install_base_packages
+  detect_pkg_manager
+  install_base_packages
   install_docker_if_needed
   install_rust_if_needed
 

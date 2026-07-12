@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none"
+     stroke="#22b8cf" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+  <!-- horn cleat: two horns curving up-and-out -->
+  <path d="M6 9 C7.5 12 10 13 16 13 C22 13 24.5 12 26 9" />
+  <!-- neck -->
+  <path d="M16 13 V24" />
+  <!-- base plate on the dock -->
+  <ellipse cx="16" cy="25" rx="6.5" ry="1.9" />
+  <!-- mooring line looped in a figure-eight around the neck -->
+  <path d="M16 18 C11.5 14.5 7 16 7 18.5 C7 21 11.5 22 16 18 C20.5 14 25 15.5 25 18 C25 20.5 20.5 21.5 16 18 Z" />
+</svg>

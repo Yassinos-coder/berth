@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Berth panel installer — turns a fresh Debian/Ubuntu VPS into a running panel.
+# Berth panel installer — turns a fresh Debian/Ubuntu or Amazon Linux/RHEL VPS
+# into a running panel.
 # Usage:  curl -fsSL https://berth.sh | sudo bash
 # The only manual step afterwards: open the printed URL and create your admin.
 set -euo pipefail
@@ -8,6 +9,7 @@ REPO_URL_DEFAULT="https://github.com/Yassinos-coder/berth.git"
 INSTALL_ROOT="/opt/berth"
 ENV_DIR="/etc/berth"
 COMPOSE_FILE="docker-compose.prod.yml"
+PKG=""
 
 log() { printf '\033[36m[berth/install]\033[0m %s\n' "$*"; }
 fail() { printf '\033[31m[berth/install] ERROR:\033[0m %s\n' "$*" >&2; exit 1; }
@@ -16,13 +18,29 @@ require_root() {
   [[ "${EUID}" -eq 0 ]] || fail "run this script as root or with sudo"
 }
 
-require_apt_host() {
-  [[ -f /etc/os-release ]] || fail "/etc/os-release not found"
-  . /etc/os-release
-  case "${ID:-}" in
-    ubuntu | debian) ;;
-    *) fail "this installer supports Debian/Ubuntu hosts only" ;;
+detect_pkg_manager() {
+  if command -v apt-get >/dev/null 2>&1; then PKG="apt"
+  elif command -v dnf >/dev/null 2>&1; then PKG="dnf"
+  elif command -v yum >/dev/null 2>&1; then PKG="yum"
+  else fail "no supported package manager found (need apt, dnf, or yum)"; fi
+  log "package manager: ${PKG}"
+}
+
+install_base_packages() {
+  case "$PKG" in
+    apt) apt-get update -y && apt-get install -y ca-certificates curl git openssl ;;
+    dnf | yum) "$PKG" install -y ca-certificates curl git openssl ;;
   esac
+}
+
+ensure_compose() {
+  docker compose version >/dev/null 2>&1 && return 0
+  log "installing the Docker Compose plugin"
+  local dir="/usr/libexec/docker/cli-plugins"
+  install -d "$dir"
+  curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" \
+    -o "$dir/docker-compose"
+  chmod +x "$dir/docker-compose"
 }
 
 install_docker_if_needed() {
@@ -30,17 +48,27 @@ install_docker_if_needed() {
     log "docker + compose already installed"
     return 0
   fi
+
   log "installing Docker Engine"
   . /etc/os-release
-  install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL "https://download.docker.com/linux/${ID}/gpg" -o /etc/apt/keyrings/docker.asc
-  chmod a+r /etc/apt/keyrings/docker.asc
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${ID} ${VERSION_CODENAME} stable" \
-    >/etc/apt/sources.list.d/docker.list
-  apt-get update -y
-  apt-get install -y ca-certificates curl git openssl \
-    docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  case "$PKG" in
+    apt)
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL "https://download.docker.com/linux/${ID}/gpg" -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${ID} ${VERSION_CODENAME} stable" \
+        >/etc/apt/sources.list.d/docker.list
+      apt-get update -y
+      apt-get install -y docker-ce docker-ce-cli containerd.io \
+        docker-buildx-plugin docker-compose-plugin
+      ;;
+    dnf | yum)
+      # Amazon Linux / RHEL family ship a working docker package.
+      "$PKG" install -y docker
+      ;;
+  esac
   systemctl enable --now docker
+  ensure_compose
 }
 
 resolve_repo() {
@@ -138,7 +166,8 @@ install_local_agent() {
 
 main() {
   require_root
-  require_apt_host
+  detect_pkg_manager
+  install_base_packages
   install_docker_if_needed
 
   local repo_root ip ca boot

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-07-12
+
+### Added
+- Public landing page (`apps/berth-landing-page`, Vite + Tailwind v4) with a one-command install box and copy-to-clipboard button for `curl -fsSL https://berth.sh | sudo bash`.
+- Berth brand identity — a bespoke mooring-cleat logo shipped as source SVGs plus a generated favicon, Apple touch icon, PWA icons, `favicon.ico`, and an OpenGraph social image, with a reproducible icon generator.
+- Amazon Linux / RHEL support in both the panel and agent installers: package-manager detection (`apt`/`dnf`/`yum`) and a Docker Compose plugin fallback.
+
+### Changed
+- The in-app brand mark and browser favicons now use the new mooring-cleat logo instead of the placeholder anchor.
+- Installers branch package installation and Docker setup by OS family instead of assuming Debian/Ubuntu.
+
+### Removed
+- Placeholder `anchor.svg` favicon.
+
 ## [0.2.0] - 2026-07-04
 
 ### Added

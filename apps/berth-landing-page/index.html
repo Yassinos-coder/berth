@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Berth — Self-hosted deployment panel for your own VPS</title>
+    <meta
+      name="description"
+      content="Berth is a self-hosted, open-source deployment panel for your VPS — the manageability of Railway or Render, on infrastructure you own. One command to install."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#14171d" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Berth — deploy on infrastructure you own" />
+    <meta
+      property="og:description"
+      content="Self-hosted, open-source deployment panel for your VPS. One command installs the panel, agent, and database."
+    />
+    <meta property="og:image" content="/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body class="min-h-screen">
+    <!-- ambient glow -->
+    <div
+      class="pointer-events-none fixed inset-x-0 top-[-10rem] z-0 mx-auto h-[32rem] max-w-4xl rounded-full bg-primary/20 blur-[130px]"
+    ></div>
+
+    <div class="relative z-10">
+      <!-- nav -->
+      <header
+        class="sticky top-0 z-30 border-b border-border/70 bg-background/70 backdrop-blur-md"
+      >
+        <nav
+          class="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8"
+        >
+          <a href="#" class="flex items-center gap-2.5">
+            <span
+              class="flex size-8 items-center justify-center rounded-lg text-white shadow-sm"
+              style="background: linear-gradient(135deg, #2ccbe0, #0e7f92)"
+            >
+              <svg viewBox="0 0 32 32" class="size-5" fill="none" stroke="#ecfeff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9 C7.5 12 10 13 16 13 C22 13 24.5 12 26 9" />
+                <path d="M16 13 V24" />
+                <ellipse cx="16" cy="25" rx="6.5" ry="1.9" />
+                <path d="M16 18 C11.5 14.5 7 16 7 18.5 C7 21 11.5 22 16 18 C20.5 14 25 15.5 25 18 C25 20.5 20.5 21.5 16 18 Z" />
+              </svg>
+            </span>
+            <span class="text-[15px] font-semibold tracking-tight">Berth</span>
+          </a>
+          <div class="flex items-center gap-5 text-sm">
+            <a href="#features" class="text-muted-foreground hover:text-foreground hidden transition-colors sm:block">Features</a>
+            <a
+              href="https://github.com/Yassinos-coder/berth"
+              class="text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+              GitHub
+            </a>
+          </div>
+        </nav>
+      </header>
+
+      <!-- hero -->
+      <main class="mx-auto max-w-6xl px-5 md:px-8">
+        <section class="flex flex-col items-center py-20 text-center md:py-28">
+          <span
+            class="border-border bg-card/60 text-muted-foreground mb-6 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
+          >
+            <span class="size-1.5 rounded-full bg-primary"></span>
+            Open source · self-hosted
+          </span>
+
+          <h1 class="max-w-3xl text-4xl font-semibold tracking-tight md:text-6xl">
+            Deploy on infrastructure
+            <span class="text-primary"> you own.</span>
+          </h1>
+
+          <p class="text-muted-foreground mt-5 max-w-xl text-base md:text-lg">
+            Berth is a self-hosted deployment panel for your VPS — the
+            manageability of Railway or Render, on servers you control.
+          </p>
+
+          <!-- install command box -->
+          <div class="mt-9 w-full max-w-xl">
+            <div
+              class="border-border bg-card/80 flex items-center gap-3 rounded-xl border p-2 pl-4 text-left shadow-lg"
+            >
+              <span class="text-primary select-none font-mono text-sm">$</span>
+              <code
+                id="install-cmd"
+                class="flex-1 overflow-x-auto whitespace-nowrap font-mono text-sm text-foreground/90"
+                >curl -fsSL https://berth.sh | sudo bash</code
+              >
+              <button
+                id="copy-btn"
+                type="button"
+                aria-label="Copy install command"
+                class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+              >
+                <span id="copy-icon" class="inline-flex">
+                  <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                </span>
+                <span id="copy-label">Copy</span>
+              </button>
+            </div>
+            <p class="text-muted-foreground mt-3 text-xs">
+              One command installs the panel, agent, and database. Then open your
+              browser and create an admin — that's it.
+            </p>
+          </div>
+        </section>
+
+        <!-- features -->
+        <section id="features" class="grid grid-cols-1 gap-4 pb-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="border-border bg-card/60 rounded-xl border p-5">
+            <div class="text-primary bg-primary/10 mb-3 flex size-9 items-center justify-center rounded-lg">
+              <svg viewBox="0 0 24 24" class="size-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg>
+            </div>
+            <h3 class="font-medium">Your infrastructure</h3>
+            <p class="text-muted-foreground mt-1 text-sm">
+              Runs on OVH, Hetzner, AWS — any Ubuntu or Amazon Linux box. No
+              phone-home, no lock-in.
+            </p>
+          </div>
+
+          <div class="border-border bg-card/60 rounded-xl border p-5">
+            <div class="text-primary bg-primary/10 mb-3 flex size-9 items-center justify-center rounded-lg">
+              <svg viewBox="0 0 24 24" class="size-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+            </div>
+            <h3 class="font-medium">Deploy anything</h3>
+            <p class="text-muted-foreground mt-1 text-sm">
+              Apps from GitHub, Docker images, databases, and buckets — every
+              deployable is one ServiceSpec.
+            </p>
+          </div>
+
+          <div class="border-border bg-card/60 rounded-xl border p-5">
+            <div class="text-primary bg-primary/10 mb-3 flex size-9 items-center justify-center rounded-lg">
+              <svg viewBox="0 0 24 24" class="size-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+            </div>
+            <h3 class="font-medium">Secure by default</h3>
+            <p class="text-muted-foreground mt-1 text-sm">
+              mTLS-authenticated agents, encrypted secrets at rest, httpOnly
+              sessions, and RBAC teams.
+            </p>
+          </div>
+
+          <div class="border-border bg-card/60 rounded-xl border p-5">
+            <div class="text-primary bg-primary/10 mb-3 flex size-9 items-center justify-center rounded-lg">
+              <svg viewBox="0 0 24 24" class="size-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+            </div>
+            <h3 class="font-medium">Self-healing</h3>
+            <p class="text-muted-foreground mt-1 text-sm">
+              Declarative reconciliation keeps your containers converged to
+              desired state — idempotent, survives reboots.
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <!-- footer -->
+      <footer class="border-border/70 mt-16 border-t">
+        <div
+          class="text-muted-foreground mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-8 text-sm sm:flex-row md:px-8"
+        >
+          <span>Berth — open-source deployment panel.</span>
+          <div class="flex items-center gap-5">
+            <a href="https://github.com/Yassinos-coder/berth" class="hover:text-foreground transition-colors">GitHub</a>
+            <a href="https://github.com/Yassinos-coder/berth#readme" class="hover:text-foreground transition-colors">Docs</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,6 +1,7 @@
 packages:
   - "apps/berth-server"
   - "apps/berth-ui"
+  - "apps/berth-landing-page"
   - "packages/*"
 allowBuilds:
   '@prisma/client': true
@@ -8,3 +9,4 @@ allowBuilds:
   argon2: true
   esbuild: true
   prisma: true
+  sharp: true
