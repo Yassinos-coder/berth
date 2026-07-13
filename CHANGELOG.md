@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-13
+
+### Added
+- Docker Hub image search in the New Service wizard — search by name, see official/star badges, and pick a tag from a live list (Docker-Desktop style).
+- Managed databases (Railway-style): choose Redis, Postgres, MySQL, MariaDB, or MongoDB and Berth generates the username, password, data volume, and port automatically. A new **Connect** tab shows private and public connection URLs, credentials (reveal + copy), and all variables.
+- Service-to-service private networking: managed containers join a shared `berth` Docker network and are addressable by service name; public exposure is opt-in per service.
+
+### Changed
+- Environment variables are now persisted per service and encrypted at rest; the agent supports container `command` overrides (used for Redis auth) and reports its dial-in address so public URLs resolve.
+
 ## [0.3.0] - 2026-07-12
 
 ### Added

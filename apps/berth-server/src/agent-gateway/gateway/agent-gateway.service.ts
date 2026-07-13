@@ -117,8 +117,9 @@ export class AgentGatewayService implements OnModuleInit, OnApplicationShutdown 
       return;
     }
 
+    const remoteAddress = (socket.remoteAddress ?? '').replace(/^::ffff:/, '');
     this.registry.register(serverId, ws);
-    void this.markStatus(serverId, AgentStatus.online);
+    void this.markStatus(serverId, AgentStatus.online, remoteAddress || undefined);
     void this.registry
       .reconcileServer(serverId)
       .catch((error) => this.logger.error(`initial reconcile failed`, error));
@@ -156,11 +157,12 @@ export class AgentGatewayService implements OnModuleInit, OnApplicationShutdown 
   private async markStatus(
     serverId: string,
     status: AgentStatus,
+    ip?: string,
   ): Promise<void> {
     await this.prisma.server
       .updateMany({
         where: { id: serverId },
-        data: { status, lastSeenAt: new Date() },
+        data: { status, lastSeenAt: new Date(), ...(ip ? { ip } : {}) },
       })
       .catch(() => undefined);
   }
