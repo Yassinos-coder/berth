@@ -16,6 +16,10 @@ class ServersService extends BaseApiClient {
     return this.post<Enrollment>('/enroll', { name });
   }
 
+  reenroll(id: string): Promise<Enrollment> {
+    return this.post<Enrollment>(`/${id}/reenroll`, {});
+  }
+
   remove(id: string): Promise<void> {
     return this.delete<void>(`/${id}`);
   }

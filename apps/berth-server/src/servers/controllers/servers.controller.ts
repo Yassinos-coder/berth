@@ -42,6 +42,15 @@ export class ServersController {
   }
 
   @Roles(Role.owner, Role.admin)
+  @Post(':id/reenroll')
+  reenroll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<EnrollmentDto> {
+    return this.serversService.reenroll(user, id);
+  }
+
+  @Roles(Role.owner, Role.admin)
   @Delete(':id')
   @HttpCode(204)
   remove(

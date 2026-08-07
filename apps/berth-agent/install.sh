@@ -190,9 +190,10 @@ EOF
 }
 
 enable_service() {
-  log "reloading systemd and starting ${SERVICE_NAME}"
+  log "reloading systemd and (re)starting ${SERVICE_NAME}"
   systemctl daemon-reload
-  systemctl enable --now "$SERVICE_NAME"
+  systemctl enable "$SERVICE_NAME"
+  systemctl restart "$SERVICE_NAME"
 }
 
 show_summary() {

@@ -13,6 +13,16 @@ export function useEnrollServer() {
   });
 }
 
+export function useReenrollServer() {
+  return useMutation({
+    mutationFn: (id: string) => serversService.reenroll(id),
+    onError: (error) =>
+      notify.error('Could not regenerate token', {
+        description: error.message,
+      }),
+  });
+}
+
 export function useRemoveServer() {
   const qc = useQueryClient();
   return useMutation({

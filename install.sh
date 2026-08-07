@@ -209,6 +209,13 @@ install_local_agent() {
   local boot
   install -d "$ENV_DIR"
   install -m 0644 "$CA_PATH" "$ENV_DIR/ca.crt"
+  # If a previously-enrolled cert exists but was issued by a different CA
+  # (e.g. the panel was reinstalled), drop it so the agent re-enrolls cleanly.
+  if [[ -f "$ENV_DIR/agent.crt" ]] && \
+     ! openssl verify -CAfile "$ENV_DIR/ca.crt" "$ENV_DIR/agent.crt" >/dev/null 2>&1; then
+    log "stale agent cert (different CA) — removing so the agent re-enrolls"
+    rm -f "$ENV_DIR/agent.crt" "$ENV_DIR/agent.key"
+  fi
   boot="$(grep '^BERTH_LOCAL_BOOTSTRAP=' "$REPO_ROOT/.env" | cut -d= -f2-)"
   BERTH_PANEL_URL="wss://localhost:4443" \
   BERTH_BOOTSTRAP="$boot" \

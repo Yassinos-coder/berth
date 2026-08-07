@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-08-07
+
+### Added
+- "Regenerate token" on a server's detail page re-issues a fresh bootstrap so an agent can re-enroll — for example after the panel is reinstalled with a new certificate authority. For the local server it prints the exact update-token-and-restart commands.
+
+### Changed
+- Bootstrap tokens now last 60 minutes instead of 15, giving more time to run the install command.
+
+### Fixed
+- A panel reinstall no longer strands the local agent: the installer removes an agent certificate that no longer matches the panel's CA and restarts the agent on re-run, so it re-enrolls automatically.
+
 ## [0.7.1] - 2026-08-07
 
 ### Added

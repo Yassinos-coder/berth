@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Server } from '@prisma/client';
+import { AgentStatus, Server } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 type ServerWithCount = Server & { _count: { services: number } };
@@ -37,6 +37,24 @@ export class ServerRepository {
         bootstrapExpires: data.bootstrapExpires,
       },
     });
+  }
+
+  async regenerateBootstrap(
+    orgId: string,
+    id: string,
+    token: string,
+    expires: Date,
+  ): Promise<Server | null> {
+    const result = await this.prisma.server.updateMany({
+      where: { id, orgId },
+      data: {
+        bootstrapToken: token,
+        bootstrapExpires: expires,
+        status: AgentStatus.enrolling,
+      },
+    });
+    if (result.count === 0) return null;
+    return this.prisma.server.findFirst({ where: { id, orgId } });
   }
 
   async delete(orgId: string, id: string): Promise<boolean> {

@@ -12,7 +12,7 @@ import type { AppConfig } from '../../config/configuration';
 import type { AuthenticatedUser } from '../../common/interfaces';
 import type { EnrollmentDto, ServerDto } from '../interfaces';
 
-const BOOTSTRAP_TTL_MS = 15 * 60_000;
+const BOOTSTRAP_TTL_MS = 60 * 60_000;
 
 @Injectable()
 export class ServersService {
@@ -36,17 +36,6 @@ export class ServersService {
   async enroll(user: AuthenticatedUser, name: string): Promise<EnrollmentDto> {
     const token = randomBytes(24).toString('base64url');
     const expiresAt = new Date(Date.now() + BOOTSTRAP_TTL_MS);
-    const panelUrl = this.configService.get('publicPanelUrl');
-    const agentRepoUrl = this.configService.get('agentRepoUrl');
-    const envParts = [`BERTH_BOOTSTRAP='${token}'`];
-
-    if (panelUrl) {
-      envParts.push(`BERTH_PANEL_URL='${panelUrl}'`);
-    }
-
-    if (agentRepoUrl) {
-      envParts.push(`BERTH_REPO_URL='${agentRepoUrl}'`);
-    }
 
     await this.repository.createEnrolling({
       orgId: user.orgId,
@@ -60,6 +49,41 @@ export class ServersService {
       detail: 'Bootstrap token issued — waiting for the agent to dial back.',
       actor: user.id,
     });
+    return this.buildEnrollment(token, expiresAt);
+  }
+
+  async reenroll(user: AuthenticatedUser, id: string): Promise<EnrollmentDto> {
+    const token = randomBytes(24).toString('base64url');
+    const expiresAt = new Date(Date.now() + BOOTSTRAP_TTL_MS);
+    const server = await this.repository.regenerateBootstrap(
+      user.orgId,
+      id,
+      token,
+      expiresAt,
+    );
+    if (!server) throw new NotFoundException('Server not found');
+    await this.activityService.record(user.orgId, {
+      kind: ActivityKind.server,
+      title: `Server ${server.name} re-enrolling`,
+      detail: 'A fresh bootstrap token was issued.',
+      actor: user.id,
+    });
+    return this.buildEnrollment(token, expiresAt);
+  }
+
+  private buildEnrollment(token: string, expiresAt: Date): EnrollmentDto {
+    const panelUrl = this.configService.get('publicPanelUrl');
+    const agentRepoUrl = this.configService.get('agentRepoUrl');
+    const envParts = [`BERTH_BOOTSTRAP='${token}'`];
+
+    if (panelUrl) {
+      envParts.push(`BERTH_PANEL_URL='${panelUrl}'`);
+    }
+
+    if (agentRepoUrl) {
+      envParts.push(`BERTH_REPO_URL='${agentRepoUrl}'`);
+    }
+
     return {
       token,
       installCommand: `curl -fsSL https://berth.sh/install | ${envParts.join(' ')} sudo bash`,

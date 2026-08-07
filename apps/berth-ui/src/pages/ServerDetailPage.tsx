@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { ReenrollDialog } from '@/features/servers/ReenrollDialog';
 import { useServer } from '@/hooks/useServersQueries';
 import { useRemoveServer } from '@/hooks/useServersMutations';
 import { useServices } from '@/hooks/useServicesQueries';
@@ -80,6 +81,12 @@ export function ServerDetailPage() {
               actions={
                 <div className="flex items-center gap-2">
                   <AgentStatusBadge status={srv.status} />
+                  {srv.status !== 'online' ? (
+                    <ReenrollDialog
+                      serverId={srv.id}
+                      isLocal={srv.region === 'Local'}
+                    />
+                  ) : null}
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm">
