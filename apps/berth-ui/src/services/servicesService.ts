@@ -17,6 +17,7 @@ export interface UpdateServicePayload {
   rootDirectory?: string;
   buildCommand?: string;
   startCommand?: string;
+  dockerfilePath?: string;
   builder?: 'auto' | 'nixpacks' | 'dockerfile';
 }
 

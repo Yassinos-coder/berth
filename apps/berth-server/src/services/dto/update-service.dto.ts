@@ -14,6 +14,10 @@ export class UpdateServiceDto {
   startCommand?: string;
 
   @IsOptional()
+  @IsString()
+  dockerfilePath?: string;
+
+  @IsOptional()
   @IsIn(['auto', 'nixpacks', 'dockerfile'])
   builder?: 'auto' | 'nixpacks' | 'dockerfile';
 }

@@ -99,6 +99,7 @@ export class ServiceRepository {
       rootDirectory?: string | null;
       buildCommand?: string | null;
       startCommand?: string | null;
+      dockerfilePath?: string | null;
       builder?: Builder;
     },
   ): Promise<ServiceWithServer | null> {

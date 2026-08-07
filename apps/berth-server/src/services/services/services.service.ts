@@ -127,6 +127,7 @@ export class ServicesService {
       rootDirectory: emptyToNull(dto.rootDirectory),
       buildCommand: emptyToNull(dto.buildCommand),
       startCommand: emptyToNull(dto.startCommand),
+      dockerfilePath: emptyToNull(dto.dockerfilePath),
       builder: dto.builder as Builder | undefined,
     });
     if (!updated) throw new NotFoundException('Service not found');
