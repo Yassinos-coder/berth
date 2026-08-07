@@ -141,6 +141,45 @@ export class ServicesService {
     return ServiceMapper.toDto(updated);
   }
 
+  async getEnv(
+    orgId: string,
+    id: string,
+  ): Promise<{ key: string; value: string; isSecret: boolean }[]> {
+    await this.getById(orgId, id);
+    const env = await this.repository.listEnv(id);
+    return env.map((item) => ({
+      key: item.key,
+      value: this.cipher.decrypt(item.value),
+      isSecret: item.isSecret,
+    }));
+  }
+
+  async setEnv(
+    user: AuthenticatedUser,
+    id: string,
+    env: { key: string; value: string; isSecret?: boolean }[],
+  ): Promise<{ key: string; value: string; isSecret: boolean }[]> {
+    const service = await this.repository.findById(user.orgId, id);
+    if (!service) throw new NotFoundException('Service not found');
+
+    const cleaned = env
+      .map((item) => ({
+        key: item.key.trim(),
+        value: item.value,
+        isSecret: Boolean(item.isSecret),
+      }))
+      .filter((item) => item.key.length > 0);
+
+    await this.repository.replaceEnv(id, this.encryptEnv(cleaned));
+    await this.activityService.record(user.orgId, {
+      kind: ActivityKind.deploy,
+      title: `${service.name} variables updated`,
+      detail: `${cleaned.length} variable(s) — redeploy to apply.`,
+      actor: user.id,
+    });
+    return this.getEnv(user.orgId, id);
+  }
+
   async runAction(
     user: AuthenticatedUser,
     id: string,

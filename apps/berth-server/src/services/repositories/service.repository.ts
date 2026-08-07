@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   Builder,
+  EnvVar,
   Prisma,
   Server,
   Service,
@@ -120,6 +121,29 @@ export class ServiceRepository {
       where: { id, orgId },
       data: { state, lastDeployedAt: new Date() },
     });
+  }
+
+  listEnv(serviceId: string): Promise<EnvVar[]> {
+    return this.prisma.envVar.findMany({
+      where: { serviceId },
+      orderBy: { key: 'asc' },
+    });
+  }
+
+  async replaceEnv(
+    serviceId: string,
+    env: { key: string; value: string; isSecret: boolean }[],
+  ): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.envVar.deleteMany({ where: { serviceId } }),
+      ...(env.length > 0
+        ? [
+            this.prisma.envVar.createMany({
+              data: env.map((item) => ({ serviceId, ...item })),
+            }),
+          ]
+        : []),
+    ]);
   }
 
   async delete(orgId: string, id: string): Promise<boolean> {

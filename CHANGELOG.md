@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.3] - 2026-08-07
+
+### Added
+- The Variables tab now actually persists environment variables to a service and applies them to the container on the next deploy, backed by `GET`/`PUT /api/services/:id/env`. Includes a **bulk ".env paste"** import that parses `KEY=value` lines, overwrites/adds by key, and auto-flags secret-looking keys (stored encrypted at rest).
+
 ## [0.8.2] - 2026-08-07
 
 ### Added

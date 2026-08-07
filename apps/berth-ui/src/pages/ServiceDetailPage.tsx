@@ -273,7 +273,7 @@ export function ServiceDetailPage() {
               </TabsContent>
 
               <TabsContent value="env" className="mt-4">
-                <EnvironmentEditor />
+                <EnvironmentEditor serviceId={svc.id} />
               </TabsContent>
 
               <TabsContent value="settings" className="mt-4 space-y-4">

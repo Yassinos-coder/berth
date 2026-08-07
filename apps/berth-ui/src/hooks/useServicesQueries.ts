@@ -42,3 +42,11 @@ export function useServiceConnection(id: string, enabled = true) {
     enabled: Boolean(id) && enabled,
   });
 }
+
+export function useServiceEnv(id: string) {
+  return useQuery({
+    queryKey: [...queryKeys.service(id), 'env'],
+    queryFn: () => servicesService.getEnv(id),
+    enabled: Boolean(id),
+  });
+}

@@ -7,6 +7,7 @@ import {
 } from '@/services/servicesService';
 import { queryKeys } from '@/lib/queryClient';
 import { notify } from '@/lib/toast';
+import type { EnvVar } from '@berth/protocol';
 
 export function useCreateService() {
   const qc = useQueryClient();
@@ -53,6 +54,21 @@ export function useUpdateServiceSettings(id: string) {
       notify.error('Could not save build settings', {
         description: error.message,
       }),
+  });
+}
+
+export function useSetServiceEnv(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (env: EnvVar[]) => servicesService.setEnv(id, env),
+    onSuccess: (data) => {
+      qc.setQueryData([...queryKeys.service(id), 'env'], data);
+      notify.success('Variables saved', {
+        description: 'Redeploy to apply them to the container.',
+      });
+    },
+    onError: (error) =>
+      notify.error('Could not save variables', { description: error.message }),
   });
 }
 

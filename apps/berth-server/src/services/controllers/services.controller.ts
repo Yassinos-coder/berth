@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import {
@@ -17,6 +18,7 @@ import {
 import { ConnectionService } from '../services/connection.service';
 import { CreateServiceDto } from '../dto/create-service.dto';
 import { UpdateServiceDto } from '../dto/update-service.dto';
+import { SetEnvDto } from '../dto/set-env.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces';
@@ -72,6 +74,25 @@ export class ServicesController {
     @Param('id') id: string,
   ): Promise<MetricPoint[]> {
     return this.servicesService.metrics(user.orgId, id);
+  }
+
+  @Roles(Role.owner, Role.admin, Role.deployer)
+  @Get(':id/env')
+  getEnv(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<{ key: string; value: string; isSecret: boolean }[]> {
+    return this.servicesService.getEnv(user.orgId, id);
+  }
+
+  @Roles(Role.owner, Role.admin, Role.deployer)
+  @Put(':id/env')
+  setEnv(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: SetEnvDto,
+  ): Promise<{ key: string; value: string; isSecret: boolean }[]> {
+    return this.servicesService.setEnv(user, id, dto.env);
   }
 
   @Roles(Role.owner, Role.admin, Role.deployer)

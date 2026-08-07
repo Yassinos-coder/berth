@@ -1,5 +1,6 @@
 import { BaseApiClient } from '@/services/baseApiClient';
 import type { Connection, LogLine, MetricPoint, Service } from '@/interfaces';
+import type { EnvVar } from '@berth/protocol';
 
 export interface CreateServicePayload {
   name: string;
@@ -52,6 +53,14 @@ class ServicesService extends BaseApiClient {
 
   update(id: string, payload: UpdateServicePayload): Promise<Service> {
     return this.patch<Service>(`/${id}`, payload);
+  }
+
+  getEnv(id: string): Promise<EnvVar[]> {
+    return this.get<EnvVar[]>(`/${id}/env`);
+  }
+
+  setEnv(id: string, env: EnvVar[]): Promise<EnvVar[]> {
+    return this.put<EnvVar[]>(`/${id}/env`, { env });
   }
 
   setState(id: string, action: ServiceAction): Promise<{ ok: boolean }> {
