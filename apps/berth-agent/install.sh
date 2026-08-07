@@ -11,7 +11,7 @@ BIN_PATH="/usr/local/bin/berth-agent"
 PKG=""
 
 log() {
-  printf '[berth-agent/install] %s\n' "$*"
+  printf '[berth-agent/install] %s\n' "$*" >&2
 }
 
 fail() {

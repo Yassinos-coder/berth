@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-08-07
+
+### Fixed
+- Panel installer crashed at `cd` because log output was written to stdout and captured alongside function return values. Logs now go to stderr.
+
+### Changed
+- Installer is now re-runnable and shows clean, checkmarked steps (details captured to `/var/log/berth-install.log`) instead of raw command output; prompts on the real terminal only when a decision is needed (e.g. reusing an existing config).
+
 ## [0.4.0] - 2026-07-13
 
 ### Added
