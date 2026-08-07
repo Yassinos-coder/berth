@@ -36,19 +36,33 @@ export class SystemService {
   }
 
   async triggerUpdate(orgId: string): Promise<{ started: boolean }> {
-    const server = await this.prisma.server.findFirst({
-      where: { orgId, isLocal: true },
-    });
+    const server = await this.resolvePanelHost(orgId);
     if (!server) {
-      throw new NotFoundException('No local server found to update');
+      throw new NotFoundException(
+        'Could not identify the panel host — run `sudo berth-update` on the server',
+      );
     }
     const sent = this.registry.send(server.id, { type: 'SelfUpdate' });
     if (!sent) {
       throw new ConflictException(
-        'The local agent is offline — run `sudo berth-update` on the host instead',
+        'The agent is offline — run `sudo berth-update` on the host instead',
       );
     }
     return { started: true };
+  }
+
+  private async resolvePanelHost(orgId: string) {
+    const local = await this.prisma.server.findFirst({
+      where: { orgId, isLocal: true },
+    });
+    if (local) return local;
+
+    // Single-box self-hosted: the only server is the panel host.
+    const servers = await this.prisma.server.findMany({
+      where: { orgId },
+      take: 2,
+    });
+    return servers.length === 1 ? servers[0] : null;
   }
 
   private async latestProductionSha(): Promise<string | null> {

@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AgentStatus, DeploymentStatus, ServiceState } from '@prisma/client';
 import type { AgentToPanel, ServerSpecs } from '@berth/protocol';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TelemetryBuffer } from '../buffers/telemetry-buffer.service';
+import type { AppConfig } from '../../config/configuration';
 
 @Injectable()
 export class AgentMessageHandler {
@@ -11,6 +13,7 @@ export class AgentMessageHandler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly telemetry: TelemetryBuffer,
+    private readonly config: ConfigService<AppConfig, true>,
   ) {}
 
   async handle(serverId: string, message: AgentToPanel): Promise<void> {
@@ -58,6 +61,10 @@ export class AgentMessageHandler {
     serverId: string,
     specs: ServerSpecs,
   ): Promise<void> {
+    const localHostname = this.config.get('localHostname', { infer: true });
+    const isPanelHost = Boolean(
+      localHostname && specs.hostname === localHostname,
+    );
     await this.prisma.server.updateMany({
       where: { id: serverId },
       data: {
@@ -67,6 +74,7 @@ export class AgentMessageHandler {
         memoryMb: specs.memoryMb,
         diskGb: specs.diskGb,
         lastSeenAt: new Date(),
+        ...(isPanelHost ? { isLocal: true } : {}),
       },
     });
   }

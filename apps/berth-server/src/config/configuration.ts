@@ -8,6 +8,7 @@ export interface AppConfig {
   masterKey: string;
   corsOrigin: string;
   localBootstrapToken: string;
+  localHostname: string;
   caCertPath: string;
   caKeyPath: string;
   github: {
@@ -37,6 +38,7 @@ export default (): AppConfig => ({
   masterKey: process.env.BERTH_MASTER_KEY ?? 'dev-only-insecure-change-me',
   corsOrigin: process.env.BERTH_CORS_ORIGIN ?? 'http://localhost:3000',
   localBootstrapToken: process.env.BERTH_LOCAL_BOOTSTRAP ?? '',
+  localHostname: process.env.BERTH_LOCAL_HOSTNAME ?? '',
   caCertPath: process.env.BERTH_CA_CERT_PATH ?? './certs/ca.pem',
   caKeyPath: process.env.BERTH_CA_KEY_PATH ?? './certs/ca-key.pem',
   github: {
