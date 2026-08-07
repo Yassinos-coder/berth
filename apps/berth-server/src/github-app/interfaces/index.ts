@@ -13,3 +13,8 @@ export interface GithubStatusDto {
   connected: boolean;
   accountLogin?: string;
 }
+
+export interface GithubManifestDto {
+  url: string;
+  manifest: Record<string, unknown>;
+}

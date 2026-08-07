@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Github, Moon, Sun } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,10 +24,50 @@ import { cn } from '@/lib/utils';
 export function SettingsPage() {
   const { theme, setTheme } = useThemeStore();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [org, setOrg] = useState('My Organization');
   const github = useGithubStatus();
 
-  const connectGithub = async () => {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('github');
+    if (!result) return;
+    if (result === 'created') {
+      notify.success('GitHub App created — now install it on your repositories');
+    } else if (result === 'connected') {
+      notify.success('GitHub connected');
+    }
+    queryClient.invalidateQueries({ queryKey: ['github'] });
+    params.delete('github');
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      '',
+      window.location.pathname + (query ? `?${query}` : ''),
+    );
+  }, [queryClient]);
+
+  const createApp = async () => {
+    try {
+      const { url, manifest } = await githubService.manifest();
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = url;
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'manifest';
+      input.value = JSON.stringify(manifest);
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+    } catch (e) {
+      notify.error('Could not start GitHub App creation', {
+        description: (e as Error).message,
+      });
+    }
+  };
+
+  const installApp = async () => {
     try {
       const { url } = await githubService.install();
       window.location.href = url;
@@ -86,12 +127,24 @@ export function SettingsPage() {
                 </span>
                 <div>
                   <p className="text-sm font-medium">GitHub App</p>
-                  <p className="text-muted-foreground text-sm">{github.data?.connected ? `Connected as ${github.data.accountLogin}` : 'Connect repositories and receive push webhooks.'}</p>
+                  <p className="text-muted-foreground text-sm">
+                    {github.data?.connected
+                      ? `Connected as ${github.data.accountLogin}`
+                      : github.data?.configured
+                        ? 'App ready — install it on your repositories.'
+                        : 'Create a GitHub App in one click to deploy from your repositories.'}
+                  </p>
                 </div>
               </div>
-              <Button variant="outline" onClick={connectGithub}>
-                {github.data?.connected ? 'Manage installation' : 'Connect'}
-              </Button>
+              {github.data?.connected ? (
+                <Button variant="outline" onClick={installApp}>
+                  Manage
+                </Button>
+              ) : github.data?.configured ? (
+                <Button onClick={installApp}>Install</Button>
+              ) : (
+                <Button onClick={createApp}>Create GitHub App</Button>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

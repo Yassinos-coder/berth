@@ -100,6 +100,18 @@ model GithubInstallation {
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 }
 
+model GithubApp {
+  id            String   @id @default(cuid())
+  appId         Int
+  slug          String
+  clientId      String   @default("")
+  clientSecret  String   @default("")
+  webhookSecret String
+  privateKey    String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 model User {
   id           String       @id @default(cuid())
   orgId        String

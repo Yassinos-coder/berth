@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-08-07
+
+### Added
+- One-click GitHub App setup via the GitHub App Manifest flow: **Create GitHub App** in Settings registers a per-instance App on GitHub and stores the returned App ID, private key, and webhook secret encrypted in the database — no manual App creation, permissions, or `.env` editing. The Connect card now walks through Create → Install → Connected.
+
+### Changed
+- GitHub App credentials are resolved from the database first (manifest-created App) and fall back to environment variables, so `GITHUB_APP_*` env vars are now optional.
+
 ## [0.6.0] - 2026-08-07
 
 ### Added

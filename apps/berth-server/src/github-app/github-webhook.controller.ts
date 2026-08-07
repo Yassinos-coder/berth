@@ -1,12 +1,11 @@
 import { Controller, Headers, Post, RawBodyRequest, Req, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
 import { DeploymentStatus, DeploymentTrigger } from '@prisma/client';
 import { Public } from '../common/decorators/public.decorator';
 import { SkipCsrf } from '../common/decorators/skip-csrf.decorator';
-import type { AppConfig } from '../config/configuration';
 import { AgentRegistry } from '../agent-gateway/registry/agent-registry.service';
+import { GithubAppService } from './github-app.service';
 import { GithubInstallationRepository } from './github-installation.repository';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -14,11 +13,11 @@ import { PrismaService } from '../prisma/prisma.service';
 @SkipCsrf()
 @Controller('webhooks/github')
 export class GithubWebhookController {
-  constructor(private readonly config: ConfigService<AppConfig, true>, private readonly installations: GithubInstallationRepository, private readonly prisma: PrismaService, private readonly agents: AgentRegistry) {}
+  constructor(private readonly github: GithubAppService, private readonly installations: GithubInstallationRepository, private readonly prisma: PrismaService, private readonly agents: AgentRegistry) {}
 
   @Post()
   async receive(@Req() request: RawBodyRequest<Request>, @Headers('x-hub-signature-256') signature = '', @Headers('x-github-event') event = '') {
-    const secret = this.config.get('github.webhookSecret', { infer: true });
+    const secret = await this.github.webhookSecret();
     const expected = `sha256=${createHmac('sha256', secret).update(request.rawBody ?? Buffer.alloc(0)).digest('hex')}`;
     if (!secret || signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) throw new UnauthorizedException('Invalid GitHub signature');
     const body = request.body as Record<string, any>;

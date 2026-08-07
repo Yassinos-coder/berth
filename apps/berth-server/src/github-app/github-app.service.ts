@@ -8,65 +8,127 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import * as jwt from 'jsonwebtoken';
 import { AppConfig } from '../config/configuration';
+import { SecretCipher } from '../common/crypto/secret-cipher.service';
 import { GithubInstallationRepository } from './github-installation.repository';
-import { GithubBranchDto, GithubRepoDto, GithubStatusDto } from './interfaces';
+import { GithubAppRepository } from './github-app.repository';
+import {
+  GithubBranchDto,
+  GithubManifestDto,
+  GithubRepoDto,
+  GithubStatusDto,
+} from './interfaces';
 
 const GITHUB_API = 'https://api.github.com';
-const INSTALL_STATE_TTL_MS = 10 * 60_000;
+const STATE_TTL_MS = 10 * 60_000;
 
 interface CachedToken {
   token: string;
   expiresAt: number;
 }
 
-interface PendingInstall {
-  orgId: string;
+interface PendingState {
+  subject: string;
   expiresAt: number;
 }
 
-interface InstallState {
-  orgId: string;
+interface SignedState {
+  subject: string;
   jti: string;
+}
+
+interface GithubCredentials {
+  appId: string;
+  slug: string;
+  clientId: string;
+  clientSecret: string;
+  webhookSecret: string;
+  privateKey: string;
+}
+
+interface ManifestConversion {
+  id: number;
+  slug: string;
+  client_id: string;
+  client_secret: string;
+  webhook_secret: string;
+  pem: string;
 }
 
 @Injectable()
 export class GithubAppService {
   private readonly logger = new Logger(GithubAppService.name);
   private readonly tokenCache = new Map<number, CachedToken>();
-  private readonly pendingInstalls = new Map<string, PendingInstall>();
+  private readonly pendingInstalls = new Map<string, PendingState>();
+  private readonly pendingManifests = new Map<string, PendingState>();
 
   constructor(
     private readonly config: ConfigService<AppConfig, true>,
     private readonly installations: GithubInstallationRepository,
+    private readonly apps: GithubAppRepository,
+    private readonly cipher: SecretCipher,
   ) {}
 
-  isConfigured(): boolean {
-    const gh = this.config.get('github', { infer: true });
-    return Boolean(gh.appId && gh.privateKey && gh.appSlug);
+  async isConfigured(): Promise<boolean> {
+    return (await this.credentials()) !== null;
   }
 
   async status(orgId: string): Promise<GithubStatusDto> {
-    const installation = await this.installations.findByOrg(orgId);
+    const [configured, installation] = await Promise.all([
+      this.isConfigured(),
+      this.installations.findByOrg(orgId),
+    ]);
     return {
-      configured: this.isConfigured(),
+      configured,
       connected: Boolean(installation),
       accountLogin: installation?.accountLogin,
     };
   }
 
-  buildInstallUrl(orgId: string): string {
-    this.prunePendingInstalls();
-    const jti = randomUUID();
-    this.pendingInstalls.set(jti, {
-      orgId,
-      expiresAt: Date.now() + INSTALL_STATE_TTL_MS,
+  buildManifest(userId: string): GithubManifestDto {
+    const state = this.mintState(this.pendingManifests, userId);
+    const base = this.panelBaseUrl();
+    const manifest = {
+      name: `Berth ${randomUUID().slice(0, 8)}`,
+      url: base,
+      hook_attributes: { url: `${base}/api/webhooks/github`, active: true },
+      redirect_url: `${base}/api/github/manifest/callback`,
+      callback_urls: [`${base}/api/github/callback`],
+      setup_url: `${base}/api/github/callback`,
+      setup_on_update: false,
+      public: false,
+      default_permissions: { contents: 'read', metadata: 'read' },
+      default_events: ['push'],
+    };
+    return {
+      url: `https://github.com/settings/apps/new?state=${encodeURIComponent(state)}`,
+      manifest,
+    };
+  }
+
+  async convertManifest(code: string, state: string): Promise<void> {
+    if (!code) throw new BadRequestException('Missing manifest code');
+    this.consumeState(this.pendingManifests, state);
+
+    const data = await this.request<ManifestConversion>(
+      `/app-manifests/${encodeURIComponent(code)}/conversions`,
+      'POST',
+    );
+
+    await this.apps.upsert({
+      appId: data.id,
+      slug: data.slug,
+      clientId: data.client_id ?? '',
+      clientSecret: this.cipher.encrypt(data.client_secret ?? ''),
+      webhookSecret: this.cipher.encrypt(data.webhook_secret ?? ''),
+      privateKey: this.cipher.encrypt(data.pem),
     });
-    const state = jwt.sign({ orgId, jti } satisfies InstallState, this.jwtSecret(), {
-      algorithm: 'HS256',
-      expiresIn: '10m',
-    });
-    const gh = this.config.get('github', { infer: true });
-    return `https://github.com/apps/${gh.appSlug}/installations/new?state=${encodeURIComponent(state)}`;
+    this.logger.log(`GitHub App '${data.slug}' created via manifest flow`);
+  }
+
+  async buildInstallUrl(orgId: string): Promise<string> {
+    const creds = await this.requireCredentials();
+    const state = this.mintState(this.pendingInstalls, orgId);
+    return `https://github.com/apps/${creds.slug}/installations/new?state=${encodeURIComponent(state)}`;
   }
 
   async completeInstallation(
@@ -77,22 +139,17 @@ export class GithubAppService {
       throw new BadRequestException('Invalid installation id');
     }
 
-    const payload = this.verifyInstallState(state);
-    const pending = this.pendingInstalls.get(payload.jti);
-    if (!pending || pending.orgId !== payload.orgId || pending.expiresAt < Date.now()) {
-      throw new BadRequestException('Invalid or expired install state');
-    }
-    this.pendingInstalls.delete(payload.jti);
+    const orgId = this.consumeState(this.pendingInstalls, state);
 
     const existing = await this.installations.findByInstallationId(installationId);
-    if (existing && existing.orgId !== payload.orgId) {
+    if (existing && existing.orgId !== orgId) {
       throw new ForbiddenException(
         'Installation is already linked to another organization',
       );
     }
 
     const login = await this.accountLogin(installationId);
-    await this.installations.upsert(payload.orgId, installationId, login);
+    await this.installations.upsert(orgId, installationId, login);
   }
 
   async accountLogin(installationId: number): Promise<string> {
@@ -102,25 +159,9 @@ export class GithubAppService {
     return data.account.login;
   }
 
-  private verifyInstallState(state: string): InstallState {
-    try {
-      return jwt.verify(state, this.jwtSecret(), {
-        algorithms: ['HS256'],
-      }) as InstallState;
-    } catch {
-      throw new BadRequestException('Invalid install state');
-    }
-  }
-
-  private jwtSecret(): string {
-    return this.config.get('jwtSecret', { infer: true });
-  }
-
-  private prunePendingInstalls(): void {
-    const now = Date.now();
-    for (const [jti, entry] of this.pendingInstalls) {
-      if (entry.expiresAt < now) this.pendingInstalls.delete(jti);
-    }
+  async webhookSecret(): Promise<string> {
+    const creds = await this.credentials();
+    return creds?.webhookSecret ?? '';
   }
 
   async listRepos(orgId: string): Promise<GithubRepoDto[]> {
@@ -171,6 +212,86 @@ export class GithubAppService {
     return `https://x-access-token:${token}@github.com/${fullName}.git`;
   }
 
+  private async credentials(): Promise<GithubCredentials | null> {
+    const row = await this.apps.find();
+    if (row) {
+      return {
+        appId: String(row.appId),
+        slug: row.slug,
+        clientId: row.clientId,
+        clientSecret: this.cipher.decrypt(row.clientSecret),
+        webhookSecret: this.cipher.decrypt(row.webhookSecret),
+        privateKey: this.cipher.decrypt(row.privateKey),
+      };
+    }
+
+    const gh = this.config.get('github', { infer: true });
+    if (gh.appId && gh.privateKey && gh.appSlug) {
+      return {
+        appId: gh.appId,
+        slug: gh.appSlug,
+        clientId: gh.clientId,
+        clientSecret: gh.clientSecret,
+        webhookSecret: gh.webhookSecret,
+        privateKey: gh.privateKey,
+      };
+    }
+
+    return null;
+  }
+
+  private async requireCredentials(): Promise<GithubCredentials> {
+    const creds = await this.credentials();
+    if (!creds) throw new BadRequestException('GitHub App is not configured');
+    return creds;
+  }
+
+  private mintState(
+    store: Map<string, PendingState>,
+    subject: string,
+  ): string {
+    this.pruneStates(store);
+    const jti = randomUUID();
+    store.set(jti, { subject, expiresAt: Date.now() + STATE_TTL_MS });
+    return jwt.sign({ subject, jti } satisfies SignedState, this.jwtSecret(), {
+      algorithm: 'HS256',
+      expiresIn: '10m',
+    });
+  }
+
+  private consumeState(store: Map<string, PendingState>, state: string): string {
+    let payload: SignedState;
+    try {
+      payload = jwt.verify(state, this.jwtSecret(), {
+        algorithms: ['HS256'],
+      }) as SignedState;
+    } catch {
+      throw new BadRequestException('Invalid state');
+    }
+
+    const pending = store.get(payload.jti);
+    if (!pending || pending.subject !== payload.subject || pending.expiresAt < Date.now()) {
+      throw new BadRequestException('Invalid or expired state');
+    }
+    store.delete(payload.jti);
+    return payload.subject;
+  }
+
+  private pruneStates(store: Map<string, PendingState>): void {
+    const now = Date.now();
+    for (const [jti, entry] of store) {
+      if (entry.expiresAt < now) store.delete(jti);
+    }
+  }
+
+  private jwtSecret(): string {
+    return this.config.get('jwtSecret', { infer: true });
+  }
+
+  private panelBaseUrl(): string {
+    return this.config.get('corsOrigin', { infer: true }).replace(/\/+$/, '');
+  }
+
   private async tokenForOrg(orgId: string): Promise<string | null> {
     const installation = await this.installations.findByOrg(orgId);
     if (!installation) return null;
@@ -193,21 +314,21 @@ export class GithubAppService {
     return data.token;
   }
 
-  private appJwt(): string {
-    const gh = this.config.get('github', { infer: true });
+  private async appJwt(): Promise<string> {
+    const creds = await this.requireCredentials();
     const now = Math.floor(Date.now() / 1000);
     return jwt.sign(
-      { iat: now - 30, exp: now + 540, iss: gh.appId },
-      gh.privateKey,
+      { iat: now - 30, exp: now + 540, iss: creds.appId },
+      creds.privateKey,
       { algorithm: 'RS256' },
     );
   }
 
-  private appRequest<T>(
+  private async appRequest<T>(
     path: string,
     method: 'GET' | 'POST' = 'GET',
   ): Promise<T> {
-    return this.request<T>(path, method, `Bearer ${this.appJwt()}`);
+    return this.request<T>(path, method, `Bearer ${await this.appJwt()}`);
   }
 
   private installationRequest<T>(token: string, path: string): Promise<T> {
@@ -217,16 +338,18 @@ export class GithubAppService {
   private async request<T>(
     path: string,
     method: 'GET' | 'POST',
-    authorization: string,
+    authorization?: string,
   ): Promise<T> {
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'berth-panel',
+    };
+    if (authorization) headers.Authorization = authorization;
+
     const response = await fetch(`${GITHUB_API}${path}`, {
       method,
-      headers: {
-        Authorization: authorization,
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'berth-panel',
-      },
+      headers,
       signal: AbortSignal.timeout(10_000),
     });
 

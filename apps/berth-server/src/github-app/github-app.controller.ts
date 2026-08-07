@@ -1,7 +1,9 @@
 import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import type { Response } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../common/interfaces';
 import { GithubAppService } from './github-app.service';
 
@@ -14,9 +16,26 @@ export class GithubAppController {
     return this.github.status(user.orgId);
   }
 
+  @Roles(Role.owner, Role.admin)
+  @Get('manifest')
+  manifest(@CurrentUser() user: AuthenticatedUser) {
+    return this.github.buildManifest(user.id);
+  }
+
+  @Public()
+  @Get('manifest/callback')
+  async manifestCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() response: Response,
+  ) {
+    await this.github.convertManifest(code, state);
+    response.redirect('/settings?github=created');
+  }
+
   @Get('install')
   install(@CurrentUser() user: AuthenticatedUser) {
-    return { url: this.github.buildInstallUrl(user.orgId) };
+    return this.github.buildInstallUrl(user.orgId).then((url) => ({ url }));
   }
 
   @Public()
