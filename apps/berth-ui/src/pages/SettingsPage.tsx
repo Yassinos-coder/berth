@@ -18,6 +18,7 @@ import { useThemeStore } from '@/store/themeStore';
 import { useAuth } from '@/hooks/useAuth';
 import { githubService } from '@/services/githubService';
 import { useGithubStatus } from '@/hooks/useGithubQueries';
+import { useVersion } from '@/hooks/useSystemQueries';
 import { notify } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -27,6 +28,7 @@ export function SettingsPage() {
   const queryClient = useQueryClient();
   const [org, setOrg] = useState('My Organization');
   const github = useGithubStatus();
+  const version = useVersion();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -93,7 +95,7 @@ export function SettingsPage() {
           <TabsTrigger value="account">Account</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="mt-4">
+        <TabsContent value="general" className="mt-4 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Organization</CardTitle>
@@ -111,6 +113,38 @@ export function SettingsPage() {
               <Button size="sm" onClick={() => notify.success('Settings saved')}>
                 Save changes
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">About Berth</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-muted-foreground text-sm">
+                  Running version
+                </span>
+                <Badge variant="secondary">
+                  v{version.data?.version ?? '—'}
+                </Badge>
+                {version.data?.commit ? (
+                  <code className="text-muted-foreground text-xs">
+                    {version.data.commit}
+                  </code>
+                ) : null}
+              </div>
+              {version.data?.updateAvailable ? (
+                <p className="text-warning text-sm">
+                  An update is available — run{' '}
+                  <code className="font-mono">sudo berth-update</code> on the
+                  server.
+                </p>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  You are on the latest <span className="font-mono">production</span> build.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
