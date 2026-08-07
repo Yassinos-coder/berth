@@ -21,7 +21,9 @@ RUN pnpm --filter @berth/protocol build \
  && pnpm --filter @berth/server build
 
 FROM base AS runtime
+ARG BERTH_COMMIT=""
 ENV NODE_ENV=production
+ENV BERTH_COMMIT=${BERTH_COMMIT}
 WORKDIR /repo/apps/berth-server
 COPY --from=build /repo /repo
 COPY apps/berth-server/docker-entrypoint.sh /usr/local/bin/entrypoint.sh

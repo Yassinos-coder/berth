@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from '@/layout/Sidebar';
 import { Topbar } from '@/layout/Topbar';
+import { Footer } from '@/layout/Footer';
 
 export function AppShell() {
   return (
@@ -11,6 +12,7 @@ export function AppShell() {
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 md:px-8 md:py-8">
           <Outlet />
         </main>
+        <Footer />
       </div>
     </div>
   );

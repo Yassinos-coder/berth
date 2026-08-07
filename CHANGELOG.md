@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-08-07
+
+### Added
+- Self-update: a footer shows the running version and, when a newer `production` build exists, an "Update available" pill with a copy-able `sudo berth-update` command and an owner/admin "Update now" button.
+- One-click update runs on the native agent (over the existing mTLS channel, in its own systemd scope) so it survives the agent's own restart; deployed apps, databases, Postgres and Redis keep running — only the panel's own containers recreate briefly.
+- SSH login notice (`/etc/update-motd.d`) that flags when a Berth update is available.
+- `GET /api/system/version` (version, commit, latest `production` commit, update-available) and an owner-only `POST /api/system/update`.
+
+### Changed
+- Default branch is now **`production`**; the installer, agent, and self-update track and update from `production` only. The commit SHA is baked into the server image at build time.
+
 ## [0.4.1] - 2026-08-07
 
 ### Fixed

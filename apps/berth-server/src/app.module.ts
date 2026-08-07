@@ -16,6 +16,7 @@ import { ServicesModule } from './services/services.module';
 import { DeploymentsModule } from './deployments/deployments.module';
 import { TemplatesModule } from './templates/templates.module';
 import { RegistryModule } from './registry/registry.module';
+import { SystemModule } from './system/system.module';
 import { TeamModule } from './team/team.module';
 
 @Module({
@@ -47,6 +48,7 @@ import { TeamModule } from './team/team.module';
     DeploymentsModule,
     TemplatesModule,
     RegistryModule,
+    SystemModule,
     TeamModule,
   ],
   providers: [

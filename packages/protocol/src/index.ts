@@ -83,7 +83,8 @@ export type PanelToAgent =
   | { type: 'Reconcile'; services: ServiceSpec[] }
   | { type: 'RemoveService'; serviceId: string }
   | { type: 'StreamLogs'; serviceId: string; follow: boolean }
-  | { type: 'GetMetrics'; serviceId?: string };
+  | { type: 'GetMetrics'; serviceId?: string }
+  | { type: 'SelfUpdate' };
 
 export type AgentToPanel =
   | { type: 'Enrolled'; agentId: string; serverSpecs: ServerSpecs }

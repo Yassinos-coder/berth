@@ -145,6 +145,7 @@ pub enum PanelToAgent {
         #[serde(rename = "serviceId")]
         service_id: Option<String>,
     },
+    SelfUpdate,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -172,9 +172,37 @@ async fn handle_message(
         PanelToAgent::GetMetrics { service_id } => {
             eprintln!("[berth-agent] metrics not implemented: {service_id:?}");
         }
+        PanelToAgent::SelfUpdate => {
+            launch_self_update();
+        }
     }
 
     Ok(())
+}
+
+fn launch_self_update() {
+    let repo_dir = std::env::var("BERTH_REPO_DIR")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "/opt/berth".to_string());
+    let script = format!("{}/scripts/self-update.sh", repo_dir.trim_end_matches('/'));
+    eprintln!("[berth-agent] self-update requested — launching {script}");
+
+    // Run in a separate systemd scope so it survives `systemctl restart berth-agent`
+    // (the agent's own cgroup is torn down on restart).
+    let result = std::process::Command::new("systemd-run")
+        .args([
+            "--collect",
+            "--unit=berth-self-update",
+            &format!("--setenv=BERTH_REPO_DIR={repo_dir}"),
+            "bash",
+            &script,
+        ])
+        .spawn();
+
+    if let Err(error) = result {
+        eprintln!("[berth-agent] failed to launch self-update: {error}");
+    }
 }
 
 async fn send_json(socket: &mut Socket, message: &AgentToPanel) -> AgentResult<()> {

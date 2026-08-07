@@ -87,6 +87,14 @@ export interface ConnectionVariable {
   isSecret: boolean;
 }
 
+export interface SystemVersion {
+  version: string;
+  commit: string;
+  latestCommit: string | null;
+  updateAvailable: boolean;
+  branch: string;
+}
+
 export interface Connection {
   available: boolean;
   publicNetworking: boolean;

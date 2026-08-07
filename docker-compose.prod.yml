@@ -29,6 +29,8 @@ services:
     build:
       context: .
       dockerfile: apps/berth-server/Dockerfile
+      args:
+        BERTH_COMMIT: ${BERTH_COMMIT:-}
     container_name: berth-server
     restart: unless-stopped
     env_file: .env

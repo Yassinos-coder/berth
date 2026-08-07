@@ -106,11 +106,15 @@ fetch_repo() {
     return 0
   fi
   if [[ -d "$INSTALL_ROOT/.git" ]]; then
-    git -C "$INSTALL_ROOT" pull --ff-only || true
+    git -C "$INSTALL_ROOT" fetch --depth 1 origin production
+    git -C "$INSTALL_ROOT" checkout -B production origin/production
+    git -C "$INSTALL_ROOT" reset --hard origin/production
   else
-    git clone --depth 1 "${BERTH_REPO_URL:-$REPO_URL_DEFAULT}" "$INSTALL_ROOT"
+    git clone --depth 1 --branch production \
+      "${BERTH_REPO_URL:-$REPO_URL_DEFAULT}" "$INSTALL_ROOT"
   fi
   REPO_ROOT="$INSTALL_ROOT"
+  chmod +x "$REPO_ROOT/scripts/self-update.sh" 2>/dev/null || true
   [[ -f "$REPO_ROOT/$COMPOSE_FILE" ]]
 }
 
@@ -163,7 +167,31 @@ EOF
 }
 
 start_panel() {
-  docker compose -f "$REPO_ROOT/$COMPOSE_FILE" --project-directory "$REPO_ROOT" up -d --build
+  local commit
+  commit="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  BERTH_COMMIT="$commit" \
+    docker compose -f "$REPO_ROOT/$COMPOSE_FILE" --project-directory "$REPO_ROOT" up -d --build
+}
+
+install_update_helpers() {
+  cat >/usr/local/bin/berth-update <<EOF
+#!/usr/bin/env bash
+exec env BERTH_REPO_DIR="${INSTALL_ROOT}" bash "${INSTALL_ROOT}/scripts/self-update.sh"
+EOF
+  chmod 0755 /usr/local/bin/berth-update
+
+  cat >/etc/update-motd.d/99-berth <<'EOF'
+#!/usr/bin/env bash
+repo=/opt/berth
+[[ -d "$repo/.git" ]] || exit 0
+git -C "$repo" fetch -q --depth 1 origin production 2>/dev/null || exit 0
+local_sha="$(git -C "$repo" rev-parse HEAD 2>/dev/null)"
+remote_sha="$(git -C "$repo" rev-parse origin/production 2>/dev/null)"
+if [[ -n "$remote_sha" && "$local_sha" != "$remote_sha" ]]; then
+  printf '\n\033[36m⬆ A Berth update is available.\033[0m Run: \033[1msudo berth-update\033[0m\n\n'
+fi
+EOF
+  chmod 0755 /etc/update-motd.d/99-berth
 }
 
 wait_for_ca() {
@@ -185,6 +213,7 @@ install_local_agent() {
   BERTH_PANEL_URL="wss://localhost:4443" \
   BERTH_BOOTSTRAP="$boot" \
   BERTH_AGENT_SOURCE_DIR="$REPO_ROOT" \
+  BERTH_REPO_DIR="$REPO_ROOT" \
     bash "$REPO_ROOT/apps/berth-agent/install.sh"
 }
 
@@ -210,6 +239,7 @@ main() {
   step "Building & starting the panel (a few minutes)"  start_panel
   step "Waiting for the panel to come online"           wait_for_ca
   step "Installing & enrolling the local agent"         install_local_agent
+  step "Installing update helpers"                      install_update_helpers
 
   printf '\n %s%s✓ Berth is up!%s\n\n' "$C_BOLD" "$C_GREEN" "$C_RESET"
   printf '   Open  %shttp://%s:3000%s  and create your admin account.\n' \
