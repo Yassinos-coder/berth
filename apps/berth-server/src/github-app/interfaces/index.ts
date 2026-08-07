@@ -7,3 +7,9 @@ export interface GithubRepoDto {
 export interface GithubBranchDto {
   name: string;
 }
+
+export interface GithubStatusDto {
+  configured: boolean;
+  connected: boolean;
+  accountLogin?: string;
+}

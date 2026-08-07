@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Copy buttons now fall back to `execCommand` on plain HTTP where the Clipboard API is unavailable.
 
+### Security
+- Hardened the GitHub App install callback: the OAuth `state` now carries a single-use, organization-bound nonce verified with a pinned algorithm, invalid state is rejected cleanly, and an installation already linked to another organization can no longer be rebound (prevents cross-organization repository access).
+
 ## [0.5.0] - 2026-08-07
 
 ### Added

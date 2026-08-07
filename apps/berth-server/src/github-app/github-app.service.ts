@@ -1,21 +1,39 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
 import * as jwt from 'jsonwebtoken';
 import { AppConfig } from '../config/configuration';
 import { GithubInstallationRepository } from './github-installation.repository';
-import { GithubBranchDto, GithubRepoDto } from './interfaces';
+import { GithubBranchDto, GithubRepoDto, GithubStatusDto } from './interfaces';
 
 const GITHUB_API = 'https://api.github.com';
+const INSTALL_STATE_TTL_MS = 10 * 60_000;
 
 interface CachedToken {
   token: string;
   expiresAt: number;
 }
 
+interface PendingInstall {
+  orgId: string;
+  expiresAt: number;
+}
+
+interface InstallState {
+  orgId: string;
+  jti: string;
+}
+
 @Injectable()
 export class GithubAppService {
   private readonly logger = new Logger(GithubAppService.name);
   private readonly tokenCache = new Map<number, CachedToken>();
+  private readonly pendingInstalls = new Map<string, PendingInstall>();
 
   constructor(
     private readonly config: ConfigService<AppConfig, true>,
@@ -27,9 +45,54 @@ export class GithubAppService {
     return Boolean(gh.appId && gh.privateKey && gh.appSlug);
   }
 
-  installUrl(state: string): string {
+  async status(orgId: string): Promise<GithubStatusDto> {
+    const installation = await this.installations.findByOrg(orgId);
+    return {
+      configured: this.isConfigured(),
+      connected: Boolean(installation),
+      accountLogin: installation?.accountLogin,
+    };
+  }
+
+  buildInstallUrl(orgId: string): string {
+    this.prunePendingInstalls();
+    const jti = randomUUID();
+    this.pendingInstalls.set(jti, {
+      orgId,
+      expiresAt: Date.now() + INSTALL_STATE_TTL_MS,
+    });
+    const state = jwt.sign({ orgId, jti } satisfies InstallState, this.jwtSecret(), {
+      algorithm: 'HS256',
+      expiresIn: '10m',
+    });
     const gh = this.config.get('github', { infer: true });
     return `https://github.com/apps/${gh.appSlug}/installations/new?state=${encodeURIComponent(state)}`;
+  }
+
+  async completeInstallation(
+    state: string,
+    installationId: number,
+  ): Promise<void> {
+    if (!Number.isInteger(installationId) || installationId <= 0) {
+      throw new BadRequestException('Invalid installation id');
+    }
+
+    const payload = this.verifyInstallState(state);
+    const pending = this.pendingInstalls.get(payload.jti);
+    if (!pending || pending.orgId !== payload.orgId || pending.expiresAt < Date.now()) {
+      throw new BadRequestException('Invalid or expired install state');
+    }
+    this.pendingInstalls.delete(payload.jti);
+
+    const existing = await this.installations.findByInstallationId(installationId);
+    if (existing && existing.orgId !== payload.orgId) {
+      throw new ForbiddenException(
+        'Installation is already linked to another organization',
+      );
+    }
+
+    const login = await this.accountLogin(installationId);
+    await this.installations.upsert(payload.orgId, installationId, login);
   }
 
   async accountLogin(installationId: number): Promise<string> {
@@ -37,6 +100,27 @@ export class GithubAppService {
       `/app/installations/${installationId}`,
     );
     return data.account.login;
+  }
+
+  private verifyInstallState(state: string): InstallState {
+    try {
+      return jwt.verify(state, this.jwtSecret(), {
+        algorithms: ['HS256'],
+      }) as InstallState;
+    } catch {
+      throw new BadRequestException('Invalid install state');
+    }
+  }
+
+  private jwtSecret(): string {
+    return this.config.get('jwtSecret', { infer: true });
+  }
+
+  private prunePendingInstalls(): void {
+    const now = Date.now();
+    for (const [jti, entry] of this.pendingInstalls) {
+      if (entry.expiresAt < now) this.pendingInstalls.delete(jti);
+    }
   }
 
   async listRepos(orgId: string): Promise<GithubRepoDto[]> {
