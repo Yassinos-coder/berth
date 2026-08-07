@@ -1,0 +1,93 @@
+import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useUpdateServiceSettings } from '@/hooks/useServicesMutations';
+import type { BuildConfig } from '@berth/protocol';
+
+function Field({
+  label,
+  hint,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Input
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="font-mono text-sm"
+      />
+      <p className="text-muted-foreground text-xs">{hint}</p>
+    </div>
+  );
+}
+
+export function BuildSettings({
+  serviceId,
+  build,
+}: {
+  serviceId: string;
+  build: BuildConfig;
+}) {
+  const [rootDirectory, setRootDirectory] = useState(build.rootDirectory ?? '');
+  const [buildCommand, setBuildCommand] = useState(build.buildCommand ?? '');
+  const [startCommand, setStartCommand] = useState(build.startCommand ?? '');
+  const update = useUpdateServiceSettings(serviceId);
+
+  const save = () =>
+    update.mutate({ rootDirectory, buildCommand, startCommand });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Build & deploy</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <Field
+          label="Root directory"
+          hint="Subdirectory to build from — set this for a monorepo (e.g. an app inside a Turborepo)."
+          placeholder="apps/registration-service"
+          value={rootDirectory}
+          onChange={setRootDirectory}
+        />
+        <Field
+          label="Build command"
+          hint="Overrides the auto-detected build step (Nixpacks). Leave blank to auto-detect."
+          placeholder="npx turbo run build --filter=@registration/service"
+          value={buildCommand}
+          onChange={setBuildCommand}
+        />
+        <Field
+          label="Start command"
+          hint="Command that starts your app inside the container."
+          placeholder="node apps/registration-service/dist/main.js"
+          value={startCommand}
+          onChange={setStartCommand}
+        />
+        <div className="flex items-center gap-3">
+          <Button size="sm" onClick={save} disabled={update.isPending}>
+            {update.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : null}
+            Save build settings
+          </Button>
+          <span className="text-muted-foreground text-xs">
+            Redeploy to apply.
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

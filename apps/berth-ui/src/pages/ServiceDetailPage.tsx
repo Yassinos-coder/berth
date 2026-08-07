@@ -19,6 +19,7 @@ import { LogViewer } from '@/features/services/LogViewer';
 import { MetricsPanel } from '@/features/services/MetricsPanel';
 import { EnvironmentEditor } from '@/features/services/EnvironmentEditor';
 import { ConnectionPanel } from '@/features/services/ConnectionPanel';
+import { BuildSettings } from '@/features/services/BuildSettings';
 import {
   KIND_META,
   builderLabel,
@@ -275,7 +276,10 @@ export function ServiceDetailPage() {
                 <EnvironmentEditor />
               </TabsContent>
 
-              <TabsContent value="settings" className="mt-4">
+              <TabsContent value="settings" className="mt-4 space-y-4">
+                {svc.source.kind === 'git' ? (
+                  <BuildSettings serviceId={svc.id} build={svc.source.build} />
+                ) : null}
                 <Card className="border-destructive/30">
                   <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>

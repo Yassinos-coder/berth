@@ -22,6 +22,8 @@ export interface BuildConfig {
   dockerfilePath?: string;
   buildArgs?: Record<string, string>;
   rootDirectory?: string;
+  buildCommand?: string;
+  startCommand?: string;
   revision?: string;
 }
 

@@ -10,6 +10,9 @@ export interface NormalizedSource {
   branch?: string;
   builder?: Builder;
   dockerfilePath?: string;
+  rootDirectory?: string;
+  buildCommand?: string;
+  startCommand?: string;
 }
 
 export class ServiceSourceValidator {
@@ -32,6 +35,9 @@ export class ServiceSourceValidator {
         branch: source.branch ?? 'main',
         builder: (source.build?.builder ?? 'auto') as Builder,
         dockerfilePath: source.build?.dockerfilePath,
+        rootDirectory: source.build?.rootDirectory,
+        buildCommand: source.build?.buildCommand,
+        startCommand: source.build?.startCommand,
       };
     }
 

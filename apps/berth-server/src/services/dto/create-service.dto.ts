@@ -23,6 +23,14 @@ class BuildConfigDto {
   @IsOptional()
   @IsString()
   rootDirectory?: string;
+
+  @IsOptional()
+  @IsString()
+  buildCommand?: string;
+
+  @IsOptional()
+  @IsString()
+  startCommand?: string;
 }
 
 class ServiceSourceDto {

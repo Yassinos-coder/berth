@@ -367,11 +367,15 @@ impl DockerReconciler {
             }
             command.arg(".").current_dir(&root).status().await?
         } else {
-            Command::new("nixpacks")
-                .args(["build", ".", "--name", &image])
-                .current_dir(&root)
-                .status()
-                .await?
+            let mut command = Command::new("nixpacks");
+            command.args(["build", ".", "--name", &image]);
+            if let Some(cmd) = build.build_command.as_deref() {
+                command.args(["--build-cmd", cmd]);
+            }
+            if let Some(cmd) = build.start_command.as_deref() {
+                command.args(["--start-cmd", cmd]);
+            }
+            command.current_dir(&root).status().await?
         };
         let _ = tokio::fs::remove_dir_all(&work).await;
         if !status.success() {

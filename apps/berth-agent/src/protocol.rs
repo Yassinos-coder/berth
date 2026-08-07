@@ -36,6 +36,8 @@ pub struct BuildConfig {
     pub dockerfile_path: Option<String>,
     pub build_args: Option<std::collections::HashMap<String, String>>,
     pub root_directory: Option<String>,
+    pub build_command: Option<String>,
+    pub start_command: Option<String>,
     pub revision: Option<String>,
 }
 

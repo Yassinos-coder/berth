@@ -3,6 +3,7 @@ import {
   servicesService,
   type CreateServicePayload,
   type ServiceAction,
+  type UpdateServicePayload,
 } from '@/services/servicesService';
 import { queryKeys } from '@/lib/queryClient';
 import { notify } from '@/lib/toast';
@@ -34,6 +35,24 @@ export function useServiceAction(id: string) {
     },
     onError: (error) =>
       notify.error('Action failed', { description: error.message }),
+  });
+}
+
+export function useUpdateServiceSettings(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateServicePayload) =>
+      servicesService.update(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.service(id) });
+      notify.success('Build settings saved', {
+        description: 'Redeploy to apply the new configuration.',
+      });
+    },
+    onError: (error) =>
+      notify.error('Could not save build settings', {
+        description: error.message,
+      }),
   });
 }
 

@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
@@ -15,6 +16,7 @@ import {
 } from '../services/services.service';
 import { ConnectionService } from '../services/connection.service';
 import { CreateServiceDto } from '../dto/create-service.dto';
+import { UpdateServiceDto } from '../dto/update-service.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces';
@@ -79,6 +81,16 @@ export class ServicesController {
     @Body() dto: CreateServiceDto,
   ): Promise<ServiceDto> {
     return this.servicesService.create(user, dto);
+  }
+
+  @Roles(Role.owner, Role.admin, Role.deployer)
+  @Patch(':id')
+  update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateServiceDto,
+  ): Promise<ServiceDto> {
+    return this.servicesService.updateSettings(user, id, dto);
   }
 
   @Roles(Role.owner, Role.admin, Role.deployer)

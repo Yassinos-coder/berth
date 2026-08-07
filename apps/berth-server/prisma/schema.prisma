@@ -168,6 +168,9 @@ model Service {
   branch         String?
   builder        Builder?
   dockerfilePath String?
+  rootDirectory  String?
+  buildCommand   String?
+  startCommand   String?
   command          String[]   @default([])
   cpuCores         Float      @default(1)
   memoryMb         Int        @default(1024)

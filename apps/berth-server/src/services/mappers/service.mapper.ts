@@ -37,6 +37,9 @@ export class ServiceMapper {
         build: {
           builder: service.builder ?? 'auto',
           dockerfilePath: service.dockerfilePath ?? undefined,
+          rootDirectory: service.rootDirectory ?? undefined,
+          buildCommand: service.buildCommand ?? undefined,
+          startCommand: service.startCommand ?? undefined,
         },
       };
     }

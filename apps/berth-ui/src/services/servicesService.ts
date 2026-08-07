@@ -13,6 +13,13 @@ export interface CreateServicePayload {
   env?: { key: string; value: string; isSecret?: boolean }[];
 }
 
+export interface UpdateServicePayload {
+  rootDirectory?: string;
+  buildCommand?: string;
+  startCommand?: string;
+  builder?: 'auto' | 'nixpacks' | 'dockerfile';
+}
+
 export type ServiceAction = 'start' | 'stop' | 'restart' | 'redeploy';
 
 class ServicesService extends BaseApiClient {
@@ -40,6 +47,10 @@ class ServicesService extends BaseApiClient {
 
   create(payload: CreateServicePayload): Promise<Service> {
     return this.post<Service>('', payload);
+  }
+
+  update(id: string, payload: UpdateServicePayload): Promise<Service> {
+    return this.patch<Service>(`/${id}`, payload);
   }
 
   setState(id: string, action: ServiceAction): Promise<{ ok: boolean }> {

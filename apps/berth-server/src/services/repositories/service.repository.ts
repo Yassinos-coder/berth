@@ -57,6 +57,9 @@ export class ServiceRepository {
     branch?: string;
     builder?: Builder;
     dockerfilePath?: string;
+    rootDirectory?: string;
+    buildCommand?: string;
+    startCommand?: string;
     cpuCores: number;
     memoryMb: number;
     cpuShares?: number;
@@ -87,6 +90,24 @@ export class ServiceRepository {
       },
       include: withServer,
     });
+  }
+
+  async updateBuildConfig(
+    orgId: string,
+    id: string,
+    data: {
+      rootDirectory?: string | null;
+      buildCommand?: string | null;
+      startCommand?: string | null;
+      builder?: Builder;
+    },
+  ): Promise<ServiceWithServer | null> {
+    const result = await this.prisma.service.updateMany({
+      where: { id, orgId },
+      data,
+    });
+    if (result.count === 0) return null;
+    return this.findById(orgId, id);
   }
 
   updateState(

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import {
   ActivityKind,
+  Builder,
   DeploymentStatus,
   DeploymentTrigger,
   ServiceKind,
@@ -22,8 +23,14 @@ import { AgentRegistry } from '../../agent-gateway/registry/agent-registry.servi
 import { TelemetryBuffer } from '../../agent-gateway/buffers/telemetry-buffer.service';
 import { SecretCipher } from '../../common/crypto/secret-cipher.service';
 import { CreateServiceDto } from '../dto/create-service.dto';
+import { UpdateServiceDto } from '../dto/update-service.dto';
 import type { AuthenticatedUser } from '../../common/interfaces';
 import type { LogLine, MetricPoint, ServiceDto } from '../interfaces';
+
+function emptyToNull(value?: string): string | null | undefined {
+  if (value === undefined) return undefined;
+  return value.trim() === '' ? null : value;
+}
 
 export type ServiceAction = 'start' | 'stop' | 'restart' | 'redeploy';
 
@@ -101,6 +108,36 @@ export class ServicesService {
 
     await this.registry.reconcileServer(dto.serverId);
     return ServiceMapper.toDto(service);
+  }
+
+  async updateSettings(
+    user: AuthenticatedUser,
+    id: string,
+    dto: UpdateServiceDto,
+  ): Promise<ServiceDto> {
+    const service = await this.repository.findById(user.orgId, id);
+    if (!service) throw new NotFoundException('Service not found');
+    if (service.sourceKind !== SourceKind.git) {
+      throw new BadRequestException(
+        'Build settings only apply to git-source services',
+      );
+    }
+
+    const updated = await this.repository.updateBuildConfig(user.orgId, id, {
+      rootDirectory: emptyToNull(dto.rootDirectory),
+      buildCommand: emptyToNull(dto.buildCommand),
+      startCommand: emptyToNull(dto.startCommand),
+      builder: dto.builder as Builder | undefined,
+    });
+    if (!updated) throw new NotFoundException('Service not found');
+
+    await this.activityService.record(user.orgId, {
+      kind: ActivityKind.deploy,
+      title: `${updated.name} build settings updated`,
+      detail: 'Redeploy to apply the new build configuration.',
+      actor: user.id,
+    });
+    return ServiceMapper.toDto(updated);
   }
 
   async runAction(

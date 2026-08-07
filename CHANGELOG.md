@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-08-07
+
+### Added
+- Railway-style build settings for git services (service → Settings → Build & deploy): **root directory**, **build command**, and **start command**. The root directory scopes the build to one app in a monorepo, and the build/start commands are passed to Nixpacks (`--build-cmd` / `--start-cmd`) so a Turborepo app deploys correctly. A `PATCH /api/services/:id` endpoint persists them; redeploy to apply.
+
 ## [0.7.2] - 2026-08-07
 
 ### Added

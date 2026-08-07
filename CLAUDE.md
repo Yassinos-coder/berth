@@ -75,7 +75,11 @@ Nest: Controller→Service→Repository→DB. Interfaces in `interfaces/` folder
 
 ## Current status
 
-**Alpha — full vertical stack built and building green.** UI (all screens), NestJS panel (auth, RBAC, all feature modules, Prisma/Postgres), and the Rust agent (Docker reconciler, host specs) are implemented. The **agent↔panel mTLS WebSocket round-trip is wired end-to-end**: agent dials the panel `agent-gateway` over TLS, enrolls via CSR, reconnects with a client cert (mTLS), and the panel pushes `Reconcile(ServiceSpec[])` down the live channel. Security hardening (Phase C) and a zero-touch panel installer (Phase D) are in place. Not yet proven on a real VPS end-to-end; git-source builds (Nixpacks/Dockerfile) and log/metric streaming from the agent are still stubs.
+**Alpha — full vertical stack built, running on a real VPS.** UI (all screens), NestJS panel (auth, RBAC, all feature modules, Prisma/Postgres), and the Rust agent (Docker reconciler, host specs) are implemented. The **agent↔panel mTLS WebSocket round-trip is proven on real hardware** (OVH Ubuntu VPS): agent dials the panel `agent-gateway` over TLS, enrolls via CSR, reconnects with a client cert (mTLS), and the panel pushes `Reconcile(ServiceSpec[])` down the live channel. Security hardening (Phase C) and a zero-touch panel installer (Phase D) are in place.
+
+**GitHub push-to-deploy is built (v0.6–0.8).** GitHub App integration via the **one-click App Manifest flow** (Settings → Create GitHub App — auto-registers a per-instance App and stores App id/private key/webhook secret encrypted in a `GithubApp` table, DB-first with env fallback); installation-scoped repo/branch pickers; HMAC-verified push webhooks that queue a deployment and reconcile; and **agent git builds** (shallow clone with a short-lived installation token → Dockerfile if present else Nixpacks → run), with **Railway-style build config** (root directory, build command, start command → Nixpacks `--build-cmd`/`--start-cmd`) editable per service. Servers have a **Regenerate token** action for re-enrollment, and the installer self-heals a stale agent cert after a panel reinstall.
+
+Still stubbed: reverse-proxy/TLS (Caddy on the agent — use NPM for now) and live build-log/metric **streaming** into the UI (build output currently goes to the agent journal).
 
 ### mTLS / cert issuance (RESOLVED)
 
@@ -93,4 +97,4 @@ Sessions are **httpOnly + Secure + SameSite=strict cookies** (not localStorage).
 
 - Monorepo tooling — using Turborepo + pnpm workspaces (settled in practice).
 - License choice (Apache-2.0 vs AGPL-3.0).
-- Git-source builds (Nixpacks/Dockerfile on the agent) and agent log/metric streaming are still stubs.
+- Reverse-proxy/TLS (Caddy on the agent) and live build-log/metric streaming into the UI are still stubs (build output goes to the agent journal for now).
