@@ -11,11 +11,20 @@ export interface AppConfig {
   caCertPath: string;
   caKeyPath: string;
   github: {
+    appId: string;
+    appSlug: string;
     clientId: string;
     clientSecret: string;
+    privateKey: string;
     webhookSecret: string;
   };
   agentWsPort: number;
+}
+
+function decodeGithubKey(): string {
+  const b64 = process.env.GITHUB_APP_PRIVATE_KEY_B64;
+  if (b64) return Buffer.from(b64, 'base64').toString('utf8');
+  return process.env.GITHUB_APP_PRIVATE_KEY ?? '';
 }
 
 export default (): AppConfig => ({
@@ -31,8 +40,11 @@ export default (): AppConfig => ({
   caCertPath: process.env.BERTH_CA_CERT_PATH ?? './certs/ca.pem',
   caKeyPath: process.env.BERTH_CA_KEY_PATH ?? './certs/ca-key.pem',
   github: {
+    appId: process.env.GITHUB_APP_ID ?? '',
+    appSlug: process.env.GITHUB_APP_SLUG ?? '',
     clientId: process.env.GITHUB_CLIENT_ID ?? '',
     clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
+    privateKey: decodeGithubKey(),
     webhookSecret: process.env.GITHUB_WEBHOOK_SECRET ?? '',
   },
   agentWsPort: Number(process.env.AGENT_WS_PORT ?? 4443),

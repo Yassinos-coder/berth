@@ -19,7 +19,7 @@ function assertProductionSecrets(): void {
 async function bootstrap(): Promise<void> {
   assertProductionSecrets();
 
-  const app = await NestFactory.create(AppModule, { cors: false });
+  const app = await NestFactory.create(AppModule, { cors: false, rawBody: true });
   const corsOrigin = process.env.BERTH_CORS_ORIGIN ?? 'http://localhost:3000';
 
   app.use(helmet());

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-08-07
+
+### Added
+- GitHub App installation flow with signed callbacks, installation-scoped repository and branch pickers, and support for public and private repositories.
+- HMAC-verified GitHub push webhooks that queue deployments and reconcile services tracking the pushed branch.
+- Agent-side Git builds using a Dockerfile when present and Nixpacks otherwise; installation tokens are short-lived and redacted from errors.
+
+### Changed
+- The agent installer now installs Nixpacks, and deployment records transition to live or failed from agent status events.
+
+### Fixed
+- Copy buttons now fall back to `execCommand` on plain HTTP where the Clipboard API is unavailable.
+
 ## [0.5.0] - 2026-08-07
 
 ### Added

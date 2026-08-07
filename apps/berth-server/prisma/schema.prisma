@@ -87,6 +87,17 @@ model Organization {
   services    Service[]
   deployments Deployment[]
   activities  Activity[]
+  github      GithubInstallation?
+}
+
+model GithubInstallation {
+  id             String   @id @default(cuid())
+  orgId          String   @unique
+  installationId Int      @unique
+  accountLogin   String
+  createdAt      DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 }
 
 model User {

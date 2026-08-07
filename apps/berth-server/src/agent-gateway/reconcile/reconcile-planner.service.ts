@@ -7,6 +7,7 @@ import type {
 } from '@berth/protocol';
 import { ReconcileRepository, ServiceWithEnv } from './reconcile.repository';
 import { SecretCipher } from '../../common/crypto/secret-cipher.service';
+import { GithubAppService } from '../../github-app/github-app.service';
 
 interface ResolvedEnv {
   key: string;
@@ -19,14 +20,15 @@ export class ReconcilePlanner {
   constructor(
     private readonly repository: ReconcileRepository,
     private readonly cipher: SecretCipher,
+    private readonly github: GithubAppService,
   ) {}
 
   async desiredForServer(serverId: string): Promise<ServiceSpec[]> {
     const services = await this.repository.servicesForServer(serverId);
-    return services.map((service) => this.toSpec(service));
+    return Promise.all(services.map((service) => this.toSpec(service)));
   }
 
-  private toSpec(service: ServiceWithEnv): ServiceSpec {
+  private async toSpec(service: ServiceWithEnv): Promise<ServiceSpec> {
     const env = service.envVars.map<ResolvedEnv>((envVar) => ({
       key: envVar.key,
       value: this.cipher.decrypt(envVar.value),
@@ -37,7 +39,7 @@ export class ReconcilePlanner {
       id: service.id,
       name: service.name,
       serverId: service.serverId,
-      source: this.toSource(service),
+      source: await this.toSource(service),
       env,
       ports: this.toPorts(service),
       volumes: this.toVolumes(service),
@@ -84,15 +86,16 @@ export class ReconcilePlanner {
     return service.command ?? [];
   }
 
-  private toSource(service: ServiceWithEnv): ServiceSource {
+  private async toSource(service: ServiceWithEnv): Promise<ServiceSource> {
     if (service.sourceKind === 'git') {
       return {
         kind: 'git',
-        repo: service.repo ?? '',
+        repo: await this.github.cloneUrl(service.orgId, service.repo ?? ''),
         branch: service.branch ?? 'main',
         build: {
           builder: service.builder ?? 'auto',
           dockerfilePath: service.dockerfilePath ?? undefined,
+          revision: service.specHash ?? undefined,
         },
       };
     }

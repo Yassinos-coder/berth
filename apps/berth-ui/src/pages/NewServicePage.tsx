@@ -22,6 +22,7 @@ import {
 } from '@/features/services/newServiceOptions';
 import { useServers } from '@/hooks/useServersQueries';
 import { useCreateService } from '@/hooks/useServicesMutations';
+import { useGithubBranches, useGithubRepos, useGithubStatus } from '@/hooks/useGithubQueries';
 import { notify } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import type { RegistryImage, ResourceLimits } from '@/interfaces';
@@ -49,6 +50,9 @@ export function NewServicePage() {
   const isGit = choice === 'git';
   const isImageChoice = choice === 'image' || choice === 'database';
   const managedDb = Boolean(templateKind) && asDatabase;
+  const github = useGithubStatus();
+  const repos = useGithubRepos(isGit && Boolean(github.data?.connected));
+  const branches = useGithubBranches(reference);
 
   const onSelectImage = useCallback(
     (image: RegistryImage | null, tag: string) => {
@@ -188,22 +192,22 @@ export function NewServicePage() {
 
             {isGit ? (
               <>
+                {!github.data?.connected ? (
+                  <div className="rounded-lg border p-4 text-sm">Connect the GitHub App in Settings to choose public or private repositories.</div>
+                ) : null}
                 <div className="space-y-2">
                   <Label htmlFor="ref">Repository (owner/repo)</Label>
-                  <Input
-                    id="ref"
-                    placeholder="castr/core-api"
-                    value={reference}
-                    onChange={(e) => setReference(e.target.value)}
-                  />
+                  <Select value={reference} onValueChange={(value) => { setReference(value); const repo = repos.data?.find((item) => item.fullName === value); if (repo) setBranch(repo.defaultBranch); }}>
+                    <SelectTrigger id="ref" className="w-full"><SelectValue placeholder={repos.isLoading ? 'Loading repositories…' : 'Select a repository'} /></SelectTrigger>
+                    <SelectContent>{(repos.data ?? []).map((repo) => <SelectItem key={repo.fullName} value={repo.fullName}>{repo.fullName}{repo.private ? ' · private' : ''}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="branch">Branch</Label>
-                  <Input
-                    id="branch"
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                  />
+                  <Select value={branch} onValueChange={setBranch}>
+                    <SelectTrigger id="branch" className="w-full"><SelectValue placeholder="Select a branch" /></SelectTrigger>
+                    <SelectContent>{(branches.data ?? []).map((item) => <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
               </>
             ) : null}

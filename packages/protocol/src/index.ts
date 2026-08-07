@@ -22,6 +22,7 @@ export interface BuildConfig {
   dockerfilePath?: string;
   buildArgs?: Record<string, string>;
   rootDirectory?: string;
+  revision?: string;
 }
 
 export interface ResourceLimits {

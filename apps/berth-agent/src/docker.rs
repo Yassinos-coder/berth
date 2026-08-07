@@ -94,7 +94,7 @@ impl DockerReconciler {
                         }
 
                         self.pull_image(image, tag).await?;
-                        let container_id = self.run_service(spec, &spec_hash).await?;
+                        let container_id = self.run_service(spec, &spec_hash, None).await?;
 
                         applied.push(spec.id.clone());
                         statuses.push(ServiceStatusEvent {
@@ -112,15 +112,50 @@ impl DockerReconciler {
                     }
                 }
                 ServiceSource::Git { .. } => {
-                    failed.push(FailedApply {
-                        service_id: spec.id.clone(),
-                        reason: "git sources are not implemented yet".to_string(),
-                    });
-                    statuses.push(ServiceStatusEvent {
-                        service_id: spec.id.clone(),
-                        state: ServiceState::Crashed,
-                        container_id: None,
-                    });
+                    let existing = current_by_service.remove(&spec.id);
+                    let should_replace = existing
+                        .as_ref()
+                        .map(|container| {
+                            container.spec_hash.as_deref() != Some(spec_hash.as_str())
+                                || !matches!(container.state, ServiceState::Running)
+                        })
+                        .unwrap_or(true);
+                    if !should_replace {
+                        let container = existing.expect("existing container");
+                        applied.push(spec.id.clone());
+                        statuses.push(ServiceStatusEvent {
+                            service_id: spec.id.clone(),
+                            state: container.state,
+                            container_id: Some(container.id),
+                        });
+                        continue;
+                    }
+                    if let Some(container) = existing {
+                        self.remove_container(&container.name).await?;
+                    }
+                    match self.build_git_source(spec, &spec_hash).await {
+                        Ok(image) => {
+                            let container_id =
+                                self.run_service(spec, &spec_hash, Some(&image)).await?;
+                            applied.push(spec.id.clone());
+                            statuses.push(ServiceStatusEvent {
+                                service_id: spec.id.clone(),
+                                state: ServiceState::Running,
+                                container_id: Some(container_id),
+                            });
+                        }
+                        Err(error) => {
+                            failed.push(FailedApply {
+                                service_id: spec.id.clone(),
+                                reason: redact_credentials(&error.to_string()),
+                            });
+                            statuses.push(ServiceStatusEvent {
+                                service_id: spec.id.clone(),
+                                state: ServiceState::Crashed,
+                                container_id: None,
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -196,15 +231,20 @@ impl DockerReconciler {
     }
 
     async fn pull_image(&self, image: &str, tag: &str) -> AgentResult<()> {
-        self.docker_stream(&["pull", &format!("{image}:{tag}")]).await
+        self.docker_stream(&["pull", &format!("{image}:{tag}")])
+            .await
     }
 
-    async fn run_service(&self, spec: &ServiceSpec, spec_hash: &str) -> AgentResult<String> {
-        let image_ref = match &spec.source {
-            ServiceSource::Image { image, tag } => format!("{image}:{tag}"),
-            ServiceSource::Git { .. } => {
-                return Err("git sources are not implemented yet".into());
-            }
+    async fn run_service(
+        &self,
+        spec: &ServiceSpec,
+        spec_hash: &str,
+        built_image: Option<&str>,
+    ) -> AgentResult<String> {
+        let image_ref = match (&spec.source, built_image) {
+            (_, Some(image)) => image.to_string(),
+            (ServiceSource::Image { image, tag }, None) => format!("{image}:{tag}"),
+            (ServiceSource::Git { .. }, None) => return Err("git source was not built".into()),
         };
 
         self.ensure_network().await?;
@@ -274,6 +314,72 @@ impl DockerReconciler {
         Ok(output.lines().next().unwrap_or_default().trim().to_string())
     }
 
+    async fn build_git_source(&self, spec: &ServiceSpec, spec_hash: &str) -> AgentResult<String> {
+        let ServiceSource::Git {
+            repo,
+            branch,
+            build,
+        } = &spec.source
+        else {
+            return Err("expected git source".into());
+        };
+        let work = std::env::temp_dir().join(format!("berth-build-{}", spec.id));
+        if work.exists() {
+            tokio::fs::remove_dir_all(&work).await?;
+        }
+        let clone = Command::new("git")
+            .args([
+                "clone",
+                "--depth",
+                "1",
+                "--single-branch",
+                "--branch",
+                branch,
+                repo,
+            ])
+            .arg(&work)
+            .output()
+            .await?;
+        if !clone.status.success() {
+            return Err(format!(
+                "git clone failed: {}",
+                String::from_utf8_lossy(&clone.stderr)
+            )
+            .into());
+        }
+        let root = build
+            .root_directory
+            .as_deref()
+            .map(|path| work.join(path))
+            .unwrap_or(work.clone());
+        let image = format!("berth-build-{}:{}", spec.id, spec_hash);
+        let dockerfile = build.dockerfile_path.as_deref().unwrap_or("Dockerfile");
+        let use_docker = matches!(build.builder, crate::protocol::BuilderKind::Dockerfile)
+            || (matches!(build.builder, crate::protocol::BuilderKind::Auto)
+                && root.join(dockerfile).exists());
+        let status = if use_docker {
+            let mut command = Command::new(&self.docker_bin);
+            command.args(["build", "-t", &image, "-f", dockerfile]);
+            if let Some(args) = &build.build_args {
+                for (key, value) in args {
+                    command.args(["--build-arg", &format!("{key}={value}")]);
+                }
+            }
+            command.arg(".").current_dir(&root).status().await?
+        } else {
+            Command::new("nixpacks")
+                .args(["build", ".", "--name", &image])
+                .current_dir(&root)
+                .status()
+                .await?
+        };
+        let _ = tokio::fs::remove_dir_all(&work).await;
+        if !status.success() {
+            return Err("application image build failed".into());
+        }
+        Ok(image)
+    }
+
     async fn ensure_network(&self) -> AgentResult<()> {
         let inspect = Command::new(&self.docker_bin)
             .args(["network", "inspect", BERTH_NETWORK])
@@ -286,7 +392,8 @@ impl DockerReconciler {
             return Ok(());
         }
 
-        self.docker_stream(&["network", "create", BERTH_NETWORK]).await
+        self.docker_stream(&["network", "create", BERTH_NETWORK])
+            .await
     }
 
     async fn ensure_volume(&self, name: &str) -> AgentResult<()> {
@@ -348,6 +455,15 @@ fn container_name(service_id: &str) -> String {
     format!("berth-{service_id}")
 }
 
+fn redact_credentials(message: &str) -> String {
+    if let Some(at) = message.find("@github.com") {
+        if let Some(start) = message[..at].rfind("https://") {
+            return format!("{}https://***{}", &message[..start], &message[at..]);
+        }
+    }
+    message.to_string()
+}
+
 fn restart_policy_flag(policy: &RestartPolicy) -> &'static str {
     match policy {
         RestartPolicy::No => "no",
@@ -389,7 +505,13 @@ fn docker_status_to_state(status: &str) -> ServiceState {
 }
 
 fn spec_hash(spec: &ServiceSpec) -> AgentResult<String> {
-    let json = serde_json::to_string(spec)?;
+    let mut stable = spec.clone();
+    if let ServiceSource::Git { repo, .. } = &mut stable.source {
+        if let Some((_, suffix)) = repo.split_once("@github.com") {
+            *repo = format!("https://github.com{suffix}");
+        }
+    }
+    let json = serde_json::to_string(&stable)?;
     let mut hash = 1469598103934665603_u64;
 
     for byte in json.as_bytes() {

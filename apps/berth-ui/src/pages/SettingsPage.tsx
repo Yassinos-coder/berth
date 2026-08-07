@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/tabs';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuth } from '@/hooks/useAuth';
-import { authService } from '@/services/authService';
+import { githubService } from '@/services/githubService';
+import { useGithubStatus } from '@/hooks/useGithubQueries';
 import { notify } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -23,12 +24,12 @@ export function SettingsPage() {
   const { theme, setTheme } = useThemeStore();
   const { user } = useAuth();
   const [org, setOrg] = useState('My Organization');
+  const github = useGithubStatus();
 
   const connectGithub = async () => {
     try {
-      const { url } = await authService.connectGithub();
-      if (url && url !== '#') window.location.href = url;
-      else notify.info('Connect GitHub once berth-server is running');
+      const { url } = await githubService.install();
+      window.location.href = url;
     } catch (e) {
       notify.error('Could not start GitHub connection', {
         description: (e as Error).message,
@@ -85,13 +86,11 @@ export function SettingsPage() {
                 </span>
                 <div>
                   <p className="text-sm font-medium">GitHub App</p>
-                  <p className="text-muted-foreground text-sm">
-                    Connect repositories and receive push webhooks.
-                  </p>
+                  <p className="text-muted-foreground text-sm">{github.data?.connected ? `Connected as ${github.data.accountLogin}` : 'Connect repositories and receive push webhooks.'}</p>
                 </div>
               </div>
               <Button variant="outline" onClick={connectGithub}>
-                Connect
+                {github.data?.connected ? 'Manage installation' : 'Connect'}
               </Button>
             </CardContent>
           </Card>

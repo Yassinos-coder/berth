@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
+import { GithubAppModule } from '../github-app/github-app.module';
 import { CaService } from './pki/ca.service';
 import { EnrollmentService } from './pki/enrollment.service';
 import { AgentGatewayService } from './gateway/agent-gateway.service';
@@ -9,6 +10,7 @@ import { ReconcileRepository } from './reconcile/reconcile.repository';
 import { ReconcilePlanner } from './reconcile/reconcile-planner.service';
 
 @Module({
+  imports: [forwardRef(() => GithubAppModule)],
   providers: [
     CaService,
     EnrollmentService,

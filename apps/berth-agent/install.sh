@@ -99,6 +99,15 @@ install_rust_if_needed() {
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 }
 
+install_nixpacks_if_needed() {
+  if command -v nixpacks >/dev/null 2>&1; then
+    log "Nixpacks already installed"
+    return 0
+  fi
+  log "installing Nixpacks"
+  curl -sSL https://nixpacks.com/install.sh | bash
+}
+
 resolve_source_dir() {
   if [[ -n "${BERTH_AGENT_SOURCE_DIR:-}" ]]; then
     [[ -f "${BERTH_AGENT_SOURCE_DIR}/apps/berth-agent/Cargo.toml" ]] || \
@@ -200,6 +209,7 @@ main() {
   install_base_packages
   install_docker_if_needed
   install_rust_if_needed
+  install_nixpacks_if_needed
 
   local repo_root
   repo_root="$(resolve_source_dir)"

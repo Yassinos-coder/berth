@@ -18,6 +18,7 @@ import { TemplatesModule } from './templates/templates.module';
 import { RegistryModule } from './registry/registry.module';
 import { SystemModule } from './system/system.module';
 import { TeamModule } from './team/team.module';
+import { GithubAppModule } from './github-app/github-app.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { TeamModule } from './team/team.module';
     RegistryModule,
     SystemModule,
     TeamModule,
+    GithubAppModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CsrfGuard },

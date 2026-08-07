@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AgentStatus, ServiceState } from '@prisma/client';
+import { AgentStatus, DeploymentStatus, ServiceState } from '@prisma/client';
 import type { AgentToPanel, ServerSpecs } from '@berth/protocol';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TelemetryBuffer } from '../buffers/telemetry-buffer.service';
@@ -80,6 +80,22 @@ export class AgentMessageHandler {
       where: { id: serviceId, serverId },
       data: { state: state as ServiceState },
     });
+    if (state === ServiceState.running || state === ServiceState.crashed) {
+      const deployment = await this.prisma.deployment.findFirst({
+        where: {
+          serviceId,
+          status: { in: [DeploymentStatus.queued, DeploymentStatus.building, DeploymentStatus.deploying] },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (deployment) {
+        const durationSeconds = Math.max(0, Math.round((Date.now() - deployment.createdAt.getTime()) / 1000));
+        await this.prisma.deployment.update({
+          where: { id: deployment.id },
+          data: { status: state === ServiceState.running ? DeploymentStatus.live : DeploymentStatus.failed, durationSeconds },
+        });
+      }
+    }
   }
 }
 
