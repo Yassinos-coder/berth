@@ -97,6 +97,10 @@ export interface SystemVersion {
   branch: string;
 }
 
+export interface ResourceSettings {
+  enabled: boolean;
+}
+
 export interface Connection {
   available: boolean;
   publicNetworking: boolean;

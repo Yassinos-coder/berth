@@ -35,6 +35,37 @@ export class SystemService {
     return { version: this.version, commit, latestCommit, updateAvailable, branch: BRANCH };
   }
 
+  async getResourceSettings(orgId: string): Promise<{ enabled: boolean }> {
+    const organization = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: orgId },
+      select: { smartResourcesEnabled: true },
+    });
+    return { enabled: organization.smartResourcesEnabled };
+  }
+
+  async updateResourceSettings(
+    orgId: string,
+    enabled: boolean,
+  ): Promise<{ enabled: boolean }> {
+    const organization = await this.prisma.organization.update({
+      where: { id: orgId },
+      data: { smartResourcesEnabled: enabled },
+      select: { smartResourcesEnabled: true },
+    });
+    await this.prisma.activity.create({
+      data: {
+        orgId,
+        kind: 'system',
+        title: `Smart resources ${enabled ? 'enabled' : 'disabled'}`,
+        detail: enabled
+          ? 'Memory limits will grow after sustained pressure.'
+          : 'Automatic memory limit changes are paused.',
+        actor: 'system',
+      },
+    });
+    return { enabled: organization.smartResourcesEnabled };
+  }
+
   async triggerUpdate(orgId: string): Promise<{ started: boolean }> {
     const server = await this.resolvePanelHost(orgId);
     if (!server) {

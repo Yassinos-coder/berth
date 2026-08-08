@@ -8,6 +8,7 @@ import { AgentMessageHandler } from './handlers/agent-message.handler';
 import { TelemetryBuffer } from './buffers/telemetry-buffer.service';
 import { ReconcileRepository } from './reconcile/reconcile.repository';
 import { ReconcilePlanner } from './reconcile/reconcile-planner.service';
+import { SmartResourceService } from './resources/smart-resource.service';
 
 @Module({
   imports: [forwardRef(() => GithubAppModule)],
@@ -20,6 +21,7 @@ import { ReconcilePlanner } from './reconcile/reconcile-planner.service';
     TelemetryBuffer,
     ReconcileRepository,
     ReconcilePlanner,
+    SmartResourceService,
   ],
   exports: [AgentRegistry, TelemetryBuffer],
 })

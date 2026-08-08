@@ -1,10 +1,11 @@
-import { Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch, Post } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { SystemService } from '../services/system.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces';
 import type { SystemVersionDto } from '../interfaces';
+import { UpdateResourceSettingsDto } from '../dto/update-resource-settings.dto';
 
 @Controller('system')
 export class SystemController {
@@ -13,6 +14,22 @@ export class SystemController {
   @Get('version')
   version(): Promise<SystemVersionDto> {
     return this.systemService.getVersion();
+  }
+
+  @Get('resource-settings')
+  resourceSettings(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ enabled: boolean }> {
+    return this.systemService.getResourceSettings(user.orgId);
+  }
+
+  @Roles(Role.owner, Role.admin)
+  @Patch('resource-settings')
+  updateResourceSettings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateResourceSettingsDto,
+  ): Promise<{ enabled: boolean }> {
+    return this.systemService.updateResourceSettings(user.orgId, dto.enabled);
   }
 
   @Roles(Role.owner, Role.admin)

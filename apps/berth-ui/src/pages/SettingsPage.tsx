@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Github, Moon, Sun } from 'lucide-react';
+import { Gauge, Github, Moon, Sun } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import {
   Tabs,
@@ -18,7 +19,11 @@ import { useThemeStore } from '@/store/themeStore';
 import { useAuth } from '@/hooks/useAuth';
 import { githubService } from '@/services/githubService';
 import { useGithubStatus } from '@/hooks/useGithubQueries';
-import { useVersion } from '@/hooks/useSystemQueries';
+import {
+  useResourceSettings,
+  useUpdateResourceSettings,
+  useVersion,
+} from '@/hooks/useSystemQueries';
 import { notify } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +34,9 @@ export function SettingsPage() {
   const [org, setOrg] = useState('My Organization');
   const github = useGithubStatus();
   const version = useVersion();
+  const resourceSettings = useResourceSettings();
+  const updateResourceSettings = useUpdateResourceSettings();
+  const canManageResources = user?.role === 'owner' || user?.role === 'admin';
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -92,6 +100,7 @@ export function SettingsPage() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
+          <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
         </TabsList>
 
@@ -207,6 +216,47 @@ export function SettingsPage() {
                   <span className="text-sm font-medium capitalize">{t}</span>
                 </button>
               ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="resources" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Gauge className="size-4" />
+                Smart resources
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-start justify-between gap-6">
+                <div className="space-y-1">
+                  <Label htmlFor="smart-resources">Automatic memory scaling</Label>
+                  <p className="max-w-2xl text-sm text-muted-foreground">
+                    Watch running services and add 100 MB when memory stays above
+                    90% of its limit. Scaling waits for sustained pressure, uses
+                    a five-minute cooldown, and preserves 256 MB for the host.
+                  </p>
+                </div>
+                <Switch
+                  id="smart-resources"
+                  checked={resourceSettings.data?.enabled ?? false}
+                  disabled={
+                    resourceSettings.isLoading
+                    || updateResourceSettings.isPending
+                    || !canManageResources
+                  }
+                  onCheckedChange={(enabled) =>
+                    updateResourceSettings.mutate(enabled)
+                  }
+                  aria-label="Enable smart resources"
+                />
+              </div>
+              {!canManageResources ? (
+                <p className="text-xs text-muted-foreground">
+                  Only organization owners and admins can change this setting.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>

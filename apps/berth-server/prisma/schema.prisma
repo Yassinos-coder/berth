@@ -78,9 +78,10 @@ enum ActivityKind {
 }
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
+  id                   String   @id @default(cuid())
+  name                 String
+  smartResourcesEnabled Boolean @default(false)
+  createdAt            DateTime @default(now())
 
   users       User[]
   servers     Server[]

@@ -5,6 +5,7 @@ import type { AgentToPanel, ServerSpecs } from '@berth/protocol';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TelemetryBuffer } from '../buffers/telemetry-buffer.service';
 import type { AppConfig } from '../../config/configuration';
+import { SmartResourceService } from '../resources/smart-resource.service';
 
 @Injectable()
 export class AgentMessageHandler {
@@ -14,6 +15,7 @@ export class AgentMessageHandler {
     private readonly prisma: PrismaService,
     private readonly telemetry: TelemetryBuffer,
     private readonly config: ConfigService<AppConfig, true>,
+    private readonly smartResources: SmartResourceService,
   ) {}
 
   async handle(serverId: string, message: AgentToPanel): Promise<void> {
@@ -48,6 +50,7 @@ export class AgentMessageHandler {
           netRxMb: message.netRxMb,
           netTxMb: message.netTxMb,
         });
+        await this.smartResources.observe(message.serviceId, message.memMb);
         return;
       case 'ReconcileResult':
         if (message.failed.length > 0) {

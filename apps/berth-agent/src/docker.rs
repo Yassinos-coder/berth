@@ -88,6 +88,9 @@ impl DockerReconciler {
             match &spec.source {
                 ServiceSource::Image { image, tag } => {
                     let existing = current_by_service.remove(&spec.id);
+                    if let Some(container) = existing.as_ref() {
+                        self.update_resources(&container.name, spec).await?;
+                    }
                     let should_replace = existing
                         .as_ref()
                         .map(|container| {
@@ -121,6 +124,9 @@ impl DockerReconciler {
                 }
                 ServiceSource::Git { .. } => {
                     let existing = current_by_service.remove(&spec.id);
+                    if let Some(container) = existing.as_ref() {
+                        self.update_resources(&container.name, spec).await?;
+                    }
                     let should_replace = existing
                         .as_ref()
                         .map(|container| {
@@ -316,6 +322,28 @@ impl DockerReconciler {
     async fn pull_image(&self, image: &str, tag: &str) -> AgentResult<()> {
         self.docker_stream(&["pull", &format!("{image}:{tag}")])
             .await
+    }
+
+    async fn update_resources(&self, container: &str, spec: &ServiceSpec) -> AgentResult<()> {
+        let mut args = vec![
+            "update".to_string(),
+            "--cpus".to_string(),
+            spec.resources.cpu_cores.to_string(),
+            "--memory".to_string(),
+            format!("{}m", spec.resources.memory_mb),
+        ];
+        if let Some(cpu_shares) = spec.resources.cpu_shares {
+            args.push("--cpu-shares".to_string());
+            args.push(cpu_shares.to_string());
+        }
+        if let Some(pids_limit) = spec.resources.pids_limit {
+            args.push("--pids-limit".to_string());
+            args.push(pids_limit.to_string());
+        }
+        args.push(container.to_string());
+        let owned_args: Vec<&str> = args.iter().map(String::as_str).collect();
+        self.docker(&owned_args).await?;
+        Ok(())
     }
 
     async fn run_service(
@@ -598,6 +626,12 @@ fn docker_status_to_state(status: &str) -> ServiceState {
 
 fn spec_hash(spec: &ServiceSpec) -> AgentResult<String> {
     let mut stable = spec.clone();
+    // Resource limits are applied live with `docker update`; changing them
+    // must not rebuild images or recreate otherwise healthy containers.
+    stable.resources.cpu_cores = 0.0;
+    stable.resources.memory_mb = 0;
+    stable.resources.cpu_shares = None;
+    stable.resources.pids_limit = None;
     if let ServiceSource::Git { repo, .. } = &mut stable.source {
         if let Some((_, suffix)) = repo.split_once("@github.com") {
             *repo = format!("https://github.com{suffix}");
