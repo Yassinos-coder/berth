@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.4] - 2026-08-08
+
+### Fixed
+- Agent Docker/Nixpacks builds failed under the hardened systemd unit (`mkdir /root/.docker: read-only file system`). The agent unit now provisions a writable state directory (`StateDirectory=berth`) with `HOME` and `DOCKER_CONFIG` pointing into it, and raises the memory ceiling to 1G for the build client. `self-update.sh` now also reinstalls the systemd unit so existing installs pick up unit changes on update.
+
 ## [0.8.3] - 2026-08-07
 
 ### Added

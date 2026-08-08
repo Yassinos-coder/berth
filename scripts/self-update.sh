@@ -28,6 +28,12 @@ if command -v cargo >/dev/null 2>&1 || [[ -x /root/.cargo/bin/cargo ]]; then
   export PATH="/root/.cargo/bin:${PATH}"
   cargo build --release --manifest-path "$REPO_DIR/apps/berth-agent/Cargo.toml"
   install -m 0755 "$REPO_DIR/apps/berth-agent/target/release/berth-agent" "$BIN_PATH"
+  # Refresh the systemd unit so unit changes (e.g. build-friendly sandboxing) land.
+  if [[ -f "$REPO_DIR/apps/berth-agent/berth-agent.service" ]]; then
+    install -m 0644 "$REPO_DIR/apps/berth-agent/berth-agent.service" \
+      /etc/systemd/system/berth-agent.service
+    systemctl daemon-reload
+  fi
   log "restarting the agent (managed containers are unaffected)"
   systemctl restart berth-agent
 fi

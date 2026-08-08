@@ -16,6 +16,12 @@ RestartSec=5
 User=root
 Group=root
 
+# Writable state dir so `docker build` / nixpacks can write their config + cache
+# (ProtectHome makes /root read-only). systemd creates /var/lib/berth (0700).
+StateDirectory=berth
+Environment=HOME=/var/lib/berth
+Environment=DOCKER_CONFIG=/var/lib/berth/docker
+
 # --- Hardening (the agent runs as root for Docker; lock down everything else) ---
 NoNewPrivileges=yes
 ProtectHome=yes
@@ -39,8 +45,8 @@ ProtectSystem=full
 ReadWritePaths=/etc/berth
 UMask=0077
 
-# Runaway protection
-MemoryMax=256M
+# Runaway protection (headroom for the docker/nixpacks build client)
+MemoryMax=1G
 TasksMax=256
 
 [Install]
