@@ -168,6 +168,7 @@ EOF
 
 start_panel() {
   local commit
+  docker network inspect berth >/dev/null 2>&1 || docker network create berth >/dev/null
   commit="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
   BERTH_COMMIT="$commit" \
     docker compose -f "$REPO_ROOT/$COMPOSE_FILE" --project-directory "$REPO_ROOT" up -d --build

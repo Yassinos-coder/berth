@@ -48,3 +48,30 @@ export function useUpdateResourceSettings() {
       }),
   });
 }
+
+export function usePanelDomain() {
+  return useQuery({
+    queryKey: ['system', 'panel-domain'],
+    queryFn: () => systemService.panelDomain(),
+  });
+}
+
+export function useUpdatePanelDomain() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (domain: string) => systemService.updatePanelDomain(domain),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(['system', 'panel-domain'], settings);
+      notify.success(
+        settings.domain ? 'Panel domain configured' : 'Panel domain removed',
+        settings.domain
+          ? { description: `HTTPS is being provisioned for ${settings.domain}.` }
+          : undefined,
+      );
+    },
+    onError: (error) =>
+      notify.error('Could not update panel domain', {
+        description: error.message,
+      }),
+  });
+}

@@ -1,5 +1,9 @@
 import { BaseApiClient } from '@/services/baseApiClient';
-import type { ResourceSettings, SystemVersion } from '@/interfaces';
+import type {
+  PanelDomainSettings,
+  ResourceSettings,
+  SystemVersion,
+} from '@/interfaces';
 
 class SystemService extends BaseApiClient {
   protected resource = 'system';
@@ -18,6 +22,14 @@ class SystemService extends BaseApiClient {
 
   updateResourceSettings(enabled: boolean): Promise<ResourceSettings> {
     return this.patch<ResourceSettings>('/resource-settings', { enabled });
+  }
+
+  panelDomain(): Promise<PanelDomainSettings> {
+    return this.get<PanelDomainSettings>('/panel-domain');
+  }
+
+  updatePanelDomain(domain: string): Promise<PanelDomainSettings> {
+    return this.patch<PanelDomainSettings>('/panel-domain', { domain });
   }
 }
 

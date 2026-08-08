@@ -91,8 +91,17 @@ export interface ProxyRoute {
   forceHttps: boolean;
 }
 
+export interface PanelRoute {
+  domain: string;
+}
+
 export type PanelToAgent =
-  | { type: 'Reconcile'; services: ServiceSpec[]; proxies: ProxyRoute[] }
+  | {
+      type: 'Reconcile';
+      services: ServiceSpec[];
+      proxies: ProxyRoute[];
+      panel?: PanelRoute;
+    }
   | { type: 'RemoveService'; serviceId: string }
   | { type: 'StreamLogs'; serviceId: string; follow: boolean }
   | { type: 'GetMetrics'; serviceId?: string }

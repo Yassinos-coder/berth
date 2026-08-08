@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   PortMapping,
+  PanelRoute,
   ProxyRoute,
   ServiceSpec,
   ServiceSource,
@@ -31,6 +32,10 @@ export class ReconcilePlanner {
 
   proxyRoutesForServer(serverId: string): Promise<ProxyRoute[]> {
     return this.repository.proxyRoutesForServer(serverId);
+  }
+
+  panelRouteForServer(serverId: string): Promise<PanelRoute | undefined> {
+    return this.repository.panelRouteForServer(serverId);
   }
 
   private async toSpec(service: ServiceWithEnv): Promise<ServiceSpec> {

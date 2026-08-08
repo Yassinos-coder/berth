@@ -144,12 +144,20 @@ pub struct ProxyRoute {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PanelRoute {
+    pub domain: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum PanelToAgent {
     Reconcile {
         services: Vec<ServiceSpec>,
         #[serde(default)]
         proxies: Vec<ProxyRoute>,
+        #[serde(default)]
+        panel: Option<PanelRoute>,
     },
     RemoveService {
         #[serde(rename = "serviceId")]

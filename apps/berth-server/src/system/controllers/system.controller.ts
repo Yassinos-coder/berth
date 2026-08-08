@@ -6,6 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces';
 import type { SystemVersionDto } from '../interfaces';
 import { UpdateResourceSettingsDto } from '../dto/update-resource-settings.dto';
+import { UpdatePanelDomainDto } from '../dto/update-panel-domain.dto';
 
 @Controller('system')
 export class SystemController {
@@ -30,6 +31,22 @@ export class SystemController {
     @Body() dto: UpdateResourceSettingsDto,
   ): Promise<{ enabled: boolean }> {
     return this.systemService.updateResourceSettings(user.orgId, dto.enabled);
+  }
+
+  @Get('panel-domain')
+  panelDomain(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ domain: string }> {
+    return this.systemService.getPanelDomain(user.orgId);
+  }
+
+  @Roles(Role.owner, Role.admin)
+  @Patch('panel-domain')
+  updatePanelDomain(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdatePanelDomainDto,
+  ): Promise<{ domain: string }> {
+    return this.systemService.updatePanelDomain(user.orgId, dto.domain);
   }
 
   @Roles(Role.owner, Role.admin)

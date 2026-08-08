@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Gauge, Github, Moon, Sun } from 'lucide-react';
+import { Gauge, Github, Globe2, Moon, Sun } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,8 @@ import { githubService } from '@/services/githubService';
 import { useGithubStatus } from '@/hooks/useGithubQueries';
 import {
   useResourceSettings,
+  usePanelDomain,
+  useUpdatePanelDomain,
   useUpdateResourceSettings,
   useVersion,
 } from '@/hooks/useSystemQueries';
@@ -36,7 +38,14 @@ export function SettingsPage() {
   const version = useVersion();
   const resourceSettings = useResourceSettings();
   const updateResourceSettings = useUpdateResourceSettings();
+  const panelDomain = usePanelDomain();
+  const updatePanelDomain = useUpdatePanelDomain();
+  const [domain, setDomain] = useState('');
   const canManageResources = user?.role === 'owner' || user?.role === 'admin';
+
+  useEffect(() => {
+    if (panelDomain.data) setDomain(panelDomain.data.domain);
+  }, [panelDomain.data]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -100,6 +109,7 @@ export function SettingsPage() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
+          <TabsTrigger value="networking">Networking</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
         </TabsList>
@@ -251,6 +261,62 @@ export function SettingsPage() {
                   }
                   aria-label="Enable smart resources"
                 />
+              </div>
+              {!canManageResources ? (
+                <p className="text-xs text-muted-foreground">
+                  Only organization owners and admins can change this setting.
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="networking" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Globe2 className="size-4" />
+                Panel domain
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="panel-domain">Domain</Label>
+                <Input
+                  id="panel-domain"
+                  value={domain}
+                  onChange={(event) => setDomain(event.target.value)}
+                  placeholder="berth.example.com"
+                  className="max-w-md font-mono"
+                  disabled={!canManageResources || panelDomain.isLoading}
+                />
+                <p className="max-w-2xl text-sm text-muted-foreground">
+                  Point this domain&rsquo;s A record to the panel server. Berth
+                  will route both the frontend and <code>/api</code> backend,
+                  request a TLS certificate, and redirect HTTP to HTTPS.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  disabled={!canManageResources || updatePanelDomain.isPending}
+                  onClick={() => updatePanelDomain.mutate(domain)}
+                >
+                  {updatePanelDomain.isPending ? 'Saving…' : 'Save domain'}
+                </Button>
+                {panelDomain.data?.domain ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!canManageResources || updatePanelDomain.isPending}
+                    onClick={() => {
+                      setDomain('');
+                      updatePanelDomain.mutate('');
+                    }}
+                  >
+                    Remove
+                  </Button>
+                ) : null}
               </div>
               {!canManageResources ? (
                 <p className="text-xs text-muted-foreground">

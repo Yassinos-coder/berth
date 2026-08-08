@@ -81,6 +81,7 @@ model Organization {
   id                   String   @id @default(cuid())
   name                 String
   smartResourcesEnabled Boolean @default(false)
+  panelDomain          String?  @unique
   createdAt            DateTime @default(now())
 
   users       User[]

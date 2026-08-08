@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -64,6 +66,67 @@ export class SystemService {
       },
     });
     return { enabled: organization.smartResourcesEnabled };
+  }
+
+  async getPanelDomain(orgId: string): Promise<{ domain: string }> {
+    const organization = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: orgId },
+      select: { panelDomain: true },
+    });
+    return { domain: organization.panelDomain ?? '' };
+  }
+
+  async updatePanelDomain(
+    orgId: string,
+    input: string,
+  ): Promise<{ domain: string }> {
+    const domain = input.trim().toLowerCase();
+    const panelHost = await this.resolvePanelHost(orgId);
+    if (!panelHost) {
+      throw new NotFoundException('Could not identify the panel host');
+    }
+    if (domain) {
+      const proxyHost = await this.prisma.proxyHost.findUnique({
+        where: { domain },
+        select: { id: true },
+      });
+      if (proxyHost) {
+        throw new BadRequestException(
+          'That domain is already assigned to an application proxy host',
+        );
+      }
+    }
+
+    let organization: { panelDomain: string | null };
+    try {
+      organization = await this.prisma.organization.update({
+        where: { id: orgId },
+        data: { panelDomain: domain || null },
+        select: { panelDomain: true },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError
+        && error.code === 'P2002'
+      ) {
+        throw new BadRequestException('That panel domain is already in use');
+      }
+      throw error;
+    }
+
+    await this.registry.reconcileServer(panelHost.id);
+    await this.prisma.activity.create({
+      data: {
+        orgId,
+        kind: 'system',
+        title: domain ? 'Panel domain configured' : 'Panel domain removed',
+        detail: domain
+          ? `HTTPS will be provisioned automatically for ${domain}.`
+          : 'The dedicated panel HTTPS route was disabled.',
+        actor: 'system',
+      },
+    });
+    return { domain: organization.panelDomain ?? '' };
   }
 
   async triggerUpdate(orgId: string): Promise<{ started: boolean }> {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EnvVar, Service } from '@prisma/client';
-import type { ProxyRoute } from '@berth/protocol';
+import type { PanelRoute, ProxyRoute } from '@berth/protocol';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export type ServiceWithEnv = Service & { envVars: EnvVar[] };
@@ -35,5 +35,14 @@ export class ReconcileRepository {
       tls: host.ssl,
       forceHttps: host.forceHttps,
     }));
+  }
+
+  async panelRouteForServer(serverId: string): Promise<PanelRoute | undefined> {
+    const server = await this.prisma.server.findFirst({
+      where: { id: serverId, isLocal: true },
+      select: { org: { select: { panelDomain: true } } },
+    });
+    const domain = server?.org.panelDomain?.trim();
+    return domain ? { domain } : undefined;
   }
 }

@@ -64,3 +64,8 @@ services:
 volumes:
   berth-pgdata:
   berth-redisdata:
+
+networks:
+  default:
+    name: berth
+    external: true

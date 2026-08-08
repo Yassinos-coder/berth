@@ -33,7 +33,7 @@ async fn main() -> AgentResult<()> {
 
             let (desired, proxies) = load_desired_state(path).await?;
             let reconciler = DockerReconciler::new(config.docker_bin);
-            let outcome = reconciler.reconcile(&desired, &proxies).await?;
+            let outcome = reconciler.reconcile(&desired, &proxies, None).await?;
             let result = AgentToPanel::ReconcileResult {
                 applied: outcome.applied,
                 failed: outcome.failed,
@@ -55,7 +55,9 @@ async fn load_desired_state(path: &str) -> AgentResult<(Vec<ServiceSpec>, Vec<Pr
 
     if let Ok(message) = serde_json::from_str::<PanelToAgent>(&raw) {
         return match message {
-            PanelToAgent::Reconcile { services, proxies } => Ok((services, proxies)),
+            PanelToAgent::Reconcile {
+                services, proxies, ..
+            } => Ok((services, proxies)),
             _ => Err("expected a Reconcile message in the JSON file".into()),
         };
     }

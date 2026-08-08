@@ -4,7 +4,7 @@ use std::process::Stdio;
 use tokio::process::Command;
 
 use crate::protocol::{
-    FailedApply, ProxyRoute, RestartPolicy, ServiceSource, ServiceSpec, ServiceState,
+    FailedApply, PanelRoute, ProxyRoute, RestartPolicy, ServiceSource, ServiceSpec, ServiceState,
 };
 
 pub const LABEL_MANAGED: &str = "berth.managed";
@@ -55,6 +55,7 @@ impl DockerReconciler {
         &self,
         desired: &[ServiceSpec],
         proxies: &[ProxyRoute],
+        panel: Option<&PanelRoute>,
     ) -> AgentResult<ReconcileOutcome> {
         let mut current = self.list_managed_containers().await?;
         let mut current_by_service = HashMap::new();
@@ -187,7 +188,7 @@ impl DockerReconciler {
             });
         }
 
-        if let Err(error) = self.ensure_proxy(proxies).await {
+        if let Err(error) = self.ensure_proxy(proxies, panel).await {
             eprintln!("[berth-agent] proxy reconcile failed: {error}");
         }
 
@@ -198,13 +199,17 @@ impl DockerReconciler {
         })
     }
 
-    async fn ensure_proxy(&self, proxies: &[ProxyRoute]) -> AgentResult<()> {
-        if proxies.is_empty() {
+    async fn ensure_proxy(
+        &self,
+        proxies: &[ProxyRoute],
+        panel: Option<&PanelRoute>,
+    ) -> AgentResult<()> {
+        if proxies.is_empty() && panel.is_none() {
             let _ = self.docker(&["rm", "-f", CADDY_CONTAINER]).await;
             return Ok(());
         }
 
-        let config = build_caddy_config(proxies);
+        let config = build_caddy_config(proxies, panel);
         tokio::fs::create_dir_all(CADDY_CONFIG_DIR).await?;
         let config_path = format!("{CADDY_CONFIG_DIR}/caddy.json");
         tokio::fs::write(&config_path, serde_json::to_vec_pretty(&config)?).await?;
@@ -648,10 +653,13 @@ fn spec_hash(spec: &ServiceSpec) -> AgentResult<String> {
     Ok(format!("{hash:016x}"))
 }
 
-fn build_caddy_config(proxies: &[ProxyRoute]) -> serde_json::Value {
+fn build_caddy_config(
+    proxies: &[ProxyRoute],
+    panel: Option<&PanelRoute>,
+) -> serde_json::Value {
     use serde_json::json;
 
-    let routes: Vec<serde_json::Value> = proxies
+    let mut routes: Vec<serde_json::Value> = proxies
         .iter()
         .map(|route| {
             json!({
@@ -665,6 +673,16 @@ fn build_caddy_config(proxies: &[ProxyRoute]) -> serde_json::Value {
             })
         })
         .collect();
+
+    if let Some(panel) = panel {
+        routes.push(json!({
+            "match": [{ "host": [panel.domain] }],
+            "handle": [{
+                "handler": "reverse_proxy",
+                "upstreams": [{ "dial": "berth-ui:80" }]
+            }]
+        }));
+    }
 
     let mut server = json!({
         "listen": [":80", ":443"],

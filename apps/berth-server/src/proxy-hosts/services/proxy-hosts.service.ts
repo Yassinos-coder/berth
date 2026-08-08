@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ProxyHostRepository } from '../repositories/proxy-host.repository';
+import { PrismaService } from '../../prisma/prisma.service';
 import { ProxyHostMapper } from '../mappers/proxy-host.mapper';
 import { AgentRegistry } from '../../agent-gateway/registry/agent-registry.service';
 import { CreateProxyHostDto } from '../dto/create-proxy-host.dto';
@@ -17,6 +18,7 @@ export class ProxyHostsService {
   constructor(
     private readonly repository: ProxyHostRepository,
     private readonly registry: AgentRegistry,
+    private readonly prisma: PrismaService,
   ) {}
 
   async list(orgId: string): Promise<ProxyHostDto[]> {
@@ -31,11 +33,13 @@ export class ProxyHostsService {
     const service = await this.repository.serviceForOrg(user.orgId, dto.serviceId);
     if (!service) throw new BadRequestException('Target service not found');
 
+    const domain = dto.domain.trim().toLowerCase();
+    await this.assertNotPanelDomain(domain);
     const host = await this.persist(() =>
       this.repository.create({
         orgId: user.orgId,
         serviceId: dto.serviceId,
-        domain: dto.domain.trim().toLowerCase(),
+        domain,
         targetPort: dto.targetPort,
         ssl: dto.ssl ?? true,
         forceHttps: dto.forceHttps ?? true,
@@ -53,9 +57,11 @@ export class ProxyHostsService {
     const existing = await this.repository.findById(user.orgId, id);
     if (!existing) throw new NotFoundException('Proxy host not found');
 
+    const domain = dto.domain?.trim().toLowerCase();
+    if (domain) await this.assertNotPanelDomain(domain);
     const updated = await this.persist(() =>
       this.repository.update(user.orgId, id, {
-        domain: dto.domain?.trim().toLowerCase(),
+        domain,
         targetPort: dto.targetPort,
         ssl: dto.ssl,
         forceHttps: dto.forceHttps,
@@ -84,6 +90,18 @@ export class ProxyHostsService {
         throw new BadRequestException('That domain is already in use');
       }
       throw error;
+    }
+  }
+
+  private async assertNotPanelDomain(domain: string): Promise<void> {
+    const organization = await this.prisma.organization.findFirst({
+      where: { panelDomain: domain },
+      select: { id: true },
+    });
+    if (organization) {
+      throw new BadRequestException(
+        'That domain is already assigned to a Berth panel',
+      );
     }
   }
 }

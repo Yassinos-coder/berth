@@ -101,6 +101,10 @@ export interface ResourceSettings {
   enabled: boolean;
 }
 
+export interface PanelDomainSettings {
+  domain: string;
+}
+
 export interface Connection {
   available: boolean;
   publicNetworking: boolean;

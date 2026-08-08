@@ -156,8 +156,14 @@ async fn handle_message(
     telemetry: &Telemetry,
 ) -> AgentResult<()> {
     match inbound {
-        PanelToAgent::Reconcile { services, proxies } => {
-            let outcome = reconciler.reconcile(&services, &proxies).await?;
+        PanelToAgent::Reconcile {
+            services,
+            proxies,
+            panel,
+        } => {
+            let outcome = reconciler
+                .reconcile(&services, &proxies, panel.as_ref())
+                .await?;
 
             let running: Vec<String> = outcome
                 .statuses
