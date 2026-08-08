@@ -44,7 +44,7 @@ export class ReconcilePlanner {
       id: service.id,
       name: service.name,
       serverId: service.serverId,
-      source: await this.toSource(service),
+      source: await this.toSource(service, env),
       env,
       ports: this.toPorts(service),
       volumes: this.toVolumes(service),
@@ -92,8 +92,16 @@ export class ReconcilePlanner {
     return service.command ?? [];
   }
 
-  private async toSource(service: ServiceWithEnv): Promise<ServiceSource> {
+  private async toSource(
+    service: ServiceWithEnv,
+    env: ResolvedEnv[],
+  ): Promise<ServiceSource> {
     if (service.sourceKind === 'git') {
+      const buildArgs = Object.fromEntries(
+        env
+          .filter(({ key }) => /^VITE_[A-Z0-9_]+$/.test(key))
+          .map(({ key, value }) => [key, value]),
+      );
       return {
         kind: 'git',
         repo: await this.github.cloneUrl(service.orgId, service.repo ?? ''),
@@ -101,6 +109,8 @@ export class ReconcilePlanner {
         build: {
           builder: service.builder ?? 'auto',
           dockerfilePath: service.dockerfilePath ?? undefined,
+          buildArgs:
+            Object.keys(buildArgs).length > 0 ? buildArgs : undefined,
           rootDirectory: service.rootDirectory ?? undefined,
           buildCommand: service.buildCommand ?? undefined,
           startCommand: service.startCommand ?? undefined,
