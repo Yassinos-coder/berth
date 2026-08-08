@@ -137,8 +137,8 @@ async fn handle_message(
     socket: &mut Socket,
 ) -> AgentResult<()> {
     match inbound {
-        PanelToAgent::Reconcile { services } => {
-            let outcome = reconciler.reconcile(&services).await?;
+        PanelToAgent::Reconcile { services, proxies } => {
+            let outcome = reconciler.reconcile(&services, &proxies).await?;
 
             for status in outcome.statuses {
                 let event = AgentToPanel::ServiceStatus {

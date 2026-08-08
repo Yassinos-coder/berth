@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-08-08
+
+### Added
+- **Reverse proxy & host management (Nginx-Proxy-Manager style)** powered by a managed **Caddy** container the agent runs on the `berth` network. A new **Proxy Hosts** screen maps a domain → a running service with **automatic HTTPS** (Let's Encrypt, auto-renew), **HTTP/2 + HTTP/3**, and force-HTTPS. The add dialog auto-detects your services and pre-fills the container port; certificates persist in a `berth-caddy-data` volume.
+- `ProxyHost` model + `GET/POST/PATCH/DELETE /api/proxy-hosts`. Proxy routes flow to the agent over the existing reconcile channel (`Reconcile.proxies`); the agent regenerates the full Caddy config each reconcile and applies it via `caddy reload`. Caddy proxies to services by their stable container name, so renaming a service never breaks a route. The Service API now exposes `containerPort`.
+- The agent installer opens ports 80/443 when `ufw` is active, and an optional `BERTH_ACME_EMAIL` sets the Let's Encrypt contact.
+
 ## [0.8.5] - 2026-08-08
 
 ### Added

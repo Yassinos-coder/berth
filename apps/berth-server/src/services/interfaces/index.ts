@@ -28,6 +28,7 @@ export interface ServiceDto {
   replicas: number;
   domain?: string;
   templateKind?: string;
+  containerPort?: number;
   usage: { cpuPct: number; memMb: number };
   lastDeployedAt?: string;
   createdAt: string;

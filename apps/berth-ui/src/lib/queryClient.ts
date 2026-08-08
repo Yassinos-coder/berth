@@ -23,4 +23,5 @@ export const queryKeys = {
   serviceDeployments: (id: string) => ['deployments', 'service', id] as const,
   templates: ['templates'] as const,
   team: ['team'] as const,
+  proxyHosts: ['proxyHosts'] as const,
 };

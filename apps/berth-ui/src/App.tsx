@@ -9,6 +9,7 @@ import { NewServicePage } from '@/pages/NewServicePage';
 import { ServiceDetailPage } from '@/pages/ServiceDetailPage';
 import { ServersPage } from '@/pages/ServersPage';
 import { ServerDetailPage } from '@/pages/ServerDetailPage';
+import { ProxyHostsPage } from '@/pages/ProxyHostsPage';
 import { DeploymentsPage } from '@/pages/DeploymentsPage';
 import { TemplatesPage } from '@/pages/TemplatesPage';
 import { TeamPage } from '@/pages/TeamPage';
@@ -35,6 +36,7 @@ export function App() {
         <Route path="services/:id" element={<ServiceDetailPage />} />
         <Route path="servers" element={<ServersPage />} />
         <Route path="servers/:id" element={<ServerDetailPage />} />
+        <Route path="proxy-hosts" element={<ProxyHostsPage />} />
         <Route path="deployments" element={<DeploymentsPage />} />
         <Route path="templates" element={<TemplatesPage />} />
         <Route path="team" element={<TeamPage />} />

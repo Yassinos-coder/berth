@@ -61,6 +61,7 @@ export interface Service {
   replicas: number;
   domain?: string;
   templateKind?: string;
+  containerPort?: number;
   usage: ServiceUsage;
   lastDeployedAt?: string;
   createdAt: string;
@@ -190,6 +191,17 @@ export interface ActivityItem {
   title: string;
   detail: string;
   actor: string;
+  createdAt: string;
+}
+
+export interface ProxyHost {
+  id: string;
+  domain: string;
+  serviceId: string;
+  serviceName: string;
+  targetPort: number;
+  ssl: boolean;
+  forceHttps: boolean;
   createdAt: string;
 }
 

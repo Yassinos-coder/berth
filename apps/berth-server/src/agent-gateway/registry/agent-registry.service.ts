@@ -44,8 +44,11 @@ export class AgentRegistry {
       this.logger.debug(`server ${serverId} offline — desired state deferred`);
       return;
     }
-    const services = await this.planner.desiredForServer(serverId);
-    this.send(serverId, { type: 'Reconcile', services });
+    const [services, proxies] = await Promise.all([
+      this.planner.desiredForServer(serverId),
+      this.planner.proxyRoutesForServer(serverId),
+    ]);
+    this.send(serverId, { type: 'Reconcile', services, proxies });
   }
 
   async reconcileForService(serviceId: string): Promise<void> {

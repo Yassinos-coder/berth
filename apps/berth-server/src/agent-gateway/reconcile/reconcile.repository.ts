@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EnvVar, Service } from '@prisma/client';
+import type { ProxyRoute } from '@berth/protocol';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export type ServiceWithEnv = Service & { envVars: EnvVar[] };
@@ -21,5 +22,18 @@ export class ReconcileRepository {
       select: { serverId: true },
     });
     return service?.serverId ?? null;
+  }
+
+  async proxyRoutesForServer(serverId: string): Promise<ProxyRoute[]> {
+    const hosts = await this.prisma.proxyHost.findMany({
+      where: { service: { serverId } },
+    });
+    return hosts.map((host) => ({
+      domain: host.domain,
+      serviceId: host.serviceId,
+      targetPort: host.targetPort,
+      tls: host.ssl,
+      forceHttps: host.forceHttps,
+    }));
   }
 }

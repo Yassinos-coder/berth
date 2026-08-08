@@ -19,6 +19,7 @@ import { RegistryModule } from './registry/registry.module';
 import { SystemModule } from './system/system.module';
 import { TeamModule } from './team/team.module';
 import { GithubAppModule } from './github-app/github-app.module';
+import { ProxyHostsModule } from './proxy-hosts/proxy-hosts.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { GithubAppModule } from './github-app/github-app.module';
     SystemModule,
     TeamModule,
     GithubAppModule,
+    ProxyHostsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CsrfGuard },

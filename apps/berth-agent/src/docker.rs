@@ -3,12 +3,16 @@ use std::process::Stdio;
 
 use tokio::process::Command;
 
-use crate::protocol::{FailedApply, RestartPolicy, ServiceSource, ServiceSpec, ServiceState};
+use crate::protocol::{
+    FailedApply, ProxyRoute, RestartPolicy, ServiceSource, ServiceSpec, ServiceState,
+};
 
 pub const LABEL_MANAGED: &str = "berth.managed";
 pub const LABEL_SERVICE_ID: &str = "berth.service_id";
 pub const LABEL_SPEC_HASH: &str = "berth.spec_hash";
 pub const BERTH_NETWORK: &str = "berth";
+const CADDY_CONTAINER: &str = "berth-caddy";
+const CADDY_CONFIG_DIR: &str = "/var/lib/berth/caddy";
 
 pub type AgentResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -47,7 +51,11 @@ impl DockerReconciler {
         }
     }
 
-    pub async fn reconcile(&self, desired: &[ServiceSpec]) -> AgentResult<ReconcileOutcome> {
+    pub async fn reconcile(
+        &self,
+        desired: &[ServiceSpec],
+        proxies: &[ProxyRoute],
+    ) -> AgentResult<ReconcileOutcome> {
         let mut current = self.list_managed_containers().await?;
         let mut current_by_service = HashMap::new();
 
@@ -173,11 +181,84 @@ impl DockerReconciler {
             });
         }
 
+        if let Err(error) = self.ensure_proxy(proxies).await {
+            eprintln!("[berth-agent] proxy reconcile failed: {error}");
+        }
+
         Ok(ReconcileOutcome {
             applied,
             failed,
             statuses,
         })
+    }
+
+    async fn ensure_proxy(&self, proxies: &[ProxyRoute]) -> AgentResult<()> {
+        if proxies.is_empty() {
+            let _ = self.docker(&["rm", "-f", CADDY_CONTAINER]).await;
+            return Ok(());
+        }
+
+        let config = build_caddy_config(proxies);
+        tokio::fs::create_dir_all(CADDY_CONFIG_DIR).await?;
+        let config_path = format!("{CADDY_CONFIG_DIR}/caddy.json");
+        tokio::fs::write(&config_path, serde_json::to_vec_pretty(&config)?).await?;
+
+        self.ensure_network().await?;
+
+        if self.container_running(CADDY_CONTAINER).await {
+            self.docker(&[
+                "exec",
+                CADDY_CONTAINER,
+                "caddy",
+                "reload",
+                "--config",
+                "/etc/berth-caddy/caddy.json",
+            ])
+            .await?;
+            return Ok(());
+        }
+
+        let _ = self.docker(&["rm", "-f", CADDY_CONTAINER]).await;
+        let mount = format!("{CADDY_CONFIG_DIR}:/etc/berth-caddy");
+        self.docker(&[
+            "run",
+            "-d",
+            "--name",
+            CADDY_CONTAINER,
+            "--label",
+            &format!("{LABEL_MANAGED}=true"),
+            "--label",
+            "berth.role=proxy",
+            "--restart",
+            "unless-stopped",
+            "--network",
+            BERTH_NETWORK,
+            "-p",
+            "80:80",
+            "-p",
+            "443:443",
+            "-p",
+            "443:443/udp",
+            "-v",
+            "berth-caddy-data:/data",
+            "-v",
+            "berth-caddy-config:/config",
+            "-v",
+            &mount,
+            "caddy:2",
+            "run",
+            "--config",
+            "/etc/berth-caddy/caddy.json",
+        ])
+        .await?;
+        Ok(())
+    }
+
+    async fn container_running(&self, name: &str) -> bool {
+        self.docker(&["inspect", "-f", "{{.State.Running}}", name])
+            .await
+            .map(|output| output.trim() == "true")
+            .unwrap_or(false)
     }
 
     pub async fn remove_service(&self, service_id: &str) -> AgentResult<bool> {
@@ -524,4 +605,53 @@ fn spec_hash(spec: &ServiceSpec) -> AgentResult<String> {
     }
 
     Ok(format!("{hash:016x}"))
+}
+
+fn build_caddy_config(proxies: &[ProxyRoute]) -> serde_json::Value {
+    use serde_json::json;
+
+    let routes: Vec<serde_json::Value> = proxies
+        .iter()
+        .map(|route| {
+            json!({
+                "match": [{ "host": [route.domain] }],
+                "handle": [{
+                    "handler": "reverse_proxy",
+                    "upstreams": [{
+                        "dial": format!("berth-{}:{}", route.service_id, route.target_port)
+                    }]
+                }]
+            })
+        })
+        .collect();
+
+    let mut server = json!({
+        "listen": [":80", ":443"],
+        "routes": routes,
+    });
+
+    let skip: Vec<&str> = proxies
+        .iter()
+        .filter(|route| !route.tls)
+        .map(|route| route.domain.as_str())
+        .collect();
+    if !skip.is_empty() {
+        server["automatic_https"] = json!({ "skip": skip });
+    }
+
+    let mut config = json!({
+        "apps": { "http": { "servers": { "berth": server } } }
+    });
+
+    if let Ok(email) = std::env::var("BERTH_ACME_EMAIL") {
+        if !email.trim().is_empty() {
+            config["apps"]["tls"] = json!({
+                "automation": {
+                    "policies": [{ "issuers": [{ "module": "acme", "email": email }] }]
+                }
+            });
+        }
+    }
+
+    config
 }

@@ -88,6 +88,7 @@ model Organization {
   deployments Deployment[]
   activities  Activity[]
   github      GithubInstallation?
+  proxyHosts  ProxyHost[]
 }
 
 model GithubInstallation {
@@ -190,9 +191,28 @@ model Service {
   server      Server       @relation(fields: [serverId], references: [id], onDelete: Cascade)
   envVars     EnvVar[]
   deployments Deployment[]
+  proxyHosts  ProxyHost[]
 
   @@index([orgId])
   @@index([serverId])
+}
+
+model ProxyHost {
+  id         String   @id @default(cuid())
+  orgId      String
+  serviceId  String
+  domain     String   @unique
+  targetPort Int
+  ssl        Boolean  @default(true)
+  forceHttps Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  service Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([serviceId])
 }
 
 model EnvVar {

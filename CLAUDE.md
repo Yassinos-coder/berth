@@ -79,7 +79,9 @@ Nest: Controller→Service→Repository→DB. Interfaces in `interfaces/` folder
 
 **GitHub push-to-deploy is built (v0.6–0.8).** GitHub App integration via the **one-click App Manifest flow** (Settings → Create GitHub App — auto-registers a per-instance App and stores App id/private key/webhook secret encrypted in a `GithubApp` table, DB-first with env fallback); installation-scoped repo/branch pickers; HMAC-verified push webhooks that queue a deployment and reconcile; and **agent git builds** (shallow clone with a short-lived installation token → Dockerfile if present else Nixpacks → run), with **Railway-style build config** (root directory, build command, start command → Nixpacks `--build-cmd`/`--start-cmd`) editable per service. Servers have a **Regenerate token** action for re-enrollment, and the installer self-heals a stale agent cert after a panel reinstall.
 
-Still stubbed: reverse-proxy/TLS (Caddy on the agent — use NPM for now) and live build-log/metric **streaming** into the UI (build output currently goes to the agent journal).
+**Reverse proxy & TLS is built (v0.9.0).** The agent runs a managed **Caddy** container on the `berth` network (ports 80/443, cert volume `berth-caddy-data`); a **Proxy Hosts** panel screen maps a domain → a service with automatic HTTPS (Let's Encrypt), HTTP/2/3, and force-HTTPS. `ProxyHost` records flow to the agent via `Reconcile.proxies`; the agent regenerates the full Caddy config each reconcile and `caddy reload`s it, proxying to services by stable container name.
+
+Still stubbed: live build-log/metric **streaming** into the UI (build output currently goes to the agent journal).
 
 ### mTLS / cert issuance (RESOLVED)
 
@@ -97,4 +99,4 @@ Sessions are **httpOnly + Secure + SameSite=strict cookies** (not localStorage).
 
 - Monorepo tooling — using Turborepo + pnpm workspaces (settled in practice).
 - License choice (Apache-2.0 vs AGPL-3.0).
-- Reverse-proxy/TLS (Caddy on the agent) and live build-log/metric streaming into the UI are still stubs (build output goes to the agent journal for now).
+- Live build-log/metric streaming into the UI is still a stub (build output goes to the agent journal for now).

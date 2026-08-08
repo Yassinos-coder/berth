@@ -82,8 +82,16 @@ export interface FailedApply {
   reason: string;
 }
 
+export interface ProxyRoute {
+  domain: string;
+  serviceId: string;
+  targetPort: number;
+  tls: boolean;
+  forceHttps: boolean;
+}
+
 export type PanelToAgent =
-  | { type: 'Reconcile'; services: ServiceSpec[] }
+  | { type: 'Reconcile'; services: ServiceSpec[]; proxies: ProxyRoute[] }
   | { type: 'RemoveService'; serviceId: string }
   | { type: 'StreamLogs'; serviceId: string; follow: boolean }
   | { type: 'GetMetrics'; serviceId?: string }

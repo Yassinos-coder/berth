@@ -132,9 +132,23 @@ pub struct FailedApply {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyRoute {
+    pub domain: String,
+    pub service_id: String,
+    pub target_port: u16,
+    pub tls: bool,
+    pub force_https: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum PanelToAgent {
-    Reconcile { services: Vec<ServiceSpec> },
+    Reconcile {
+        services: Vec<ServiceSpec>,
+        #[serde(default)]
+        proxies: Vec<ProxyRoute>,
+    },
     RemoveService {
         #[serde(rename = "serviceId")]
         service_id: String,

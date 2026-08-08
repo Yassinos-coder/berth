@@ -154,6 +154,7 @@ BERTH_BOOTSTRAP=${BERTH_BOOTSTRAP:-}
 BERTH_AGENT_ID=${BERTH_AGENT_ID:-$(hostname)}
 BERTH_DOCKER_BIN=${BERTH_DOCKER_BIN:-$(command -v docker || echo /usr/bin/docker)}
 BERTH_REPO_DIR=${BERTH_REPO_DIR:-/opt/berth}
+BERTH_ACME_EMAIL=${BERTH_ACME_EMAIL:-}
 EOF
 
   chmod 0600 "$ENV_FILE"
@@ -196,6 +197,15 @@ enable_service() {
   systemctl restart "$SERVICE_NAME"
 }
 
+open_proxy_ports() {
+  # The agent runs a Caddy reverse proxy on 80/443 when proxy hosts exist.
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+    log "opening ports 80/443 for the reverse proxy"
+    ufw allow 80/tcp >/dev/null 2>&1 || true
+    ufw allow 443/tcp >/dev/null 2>&1 || true
+  fi
+}
+
 show_summary() {
   log "installation complete"
   systemctl --no-pager --full status "$SERVICE_NAME" || true
@@ -211,6 +221,7 @@ main() {
   install_docker_if_needed
   install_rust_if_needed
   install_nixpacks_if_needed
+  open_proxy_ports
 
   local repo_root
   repo_root="$(resolve_source_dir)"

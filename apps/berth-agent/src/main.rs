@@ -12,7 +12,7 @@ mod validators;
 use config::AgentConfig;
 use docker::{AgentResult, DockerReconciler};
 use host::collect_server_specs;
-use protocol::{AgentToPanel, PanelToAgent, ServiceSpec};
+use protocol::{AgentToPanel, PanelToAgent, ProxyRoute, ServiceSpec};
 
 #[tokio::main]
 async fn main() -> AgentResult<()> {
@@ -30,9 +30,9 @@ async fn main() -> AgentResult<()> {
                 return Err("usage: berth-agent reconcile-file <path-to-json>".into());
             };
 
-            let desired = load_desired_state(path).await?;
+            let (desired, proxies) = load_desired_state(path).await?;
             let reconciler = DockerReconciler::new(config.docker_bin);
-            let outcome = reconciler.reconcile(&desired).await?;
+            let outcome = reconciler.reconcile(&desired, &proxies).await?;
             let result = AgentToPanel::ReconcileResult {
                 applied: outcome.applied,
                 failed: outcome.failed,
@@ -49,17 +49,17 @@ async fn main() -> AgentResult<()> {
     }
 }
 
-async fn load_desired_state(path: &str) -> AgentResult<Vec<ServiceSpec>> {
+async fn load_desired_state(path: &str) -> AgentResult<(Vec<ServiceSpec>, Vec<ProxyRoute>)> {
     let raw = tokio::fs::read_to_string(path).await?;
 
     if let Ok(message) = serde_json::from_str::<PanelToAgent>(&raw) {
         return match message {
-            PanelToAgent::Reconcile { services } => Ok(services),
+            PanelToAgent::Reconcile { services, proxies } => Ok((services, proxies)),
             _ => Err("expected a Reconcile message in the JSON file".into()),
         };
     }
 
-    Ok(serde_json::from_str::<Vec<ServiceSpec>>(&raw)?)
+    Ok((serde_json::from_str::<Vec<ServiceSpec>>(&raw)?, Vec::new()))
 }
 
 fn print_help() {
