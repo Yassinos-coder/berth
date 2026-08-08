@@ -15,6 +15,7 @@ export interface CreateServicePayload {
 }
 
 export interface UpdateServicePayload {
+  name?: string;
   rootDirectory?: string;
   buildCommand?: string;
   startCommand?: string;

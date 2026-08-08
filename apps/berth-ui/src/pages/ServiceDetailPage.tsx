@@ -20,6 +20,7 @@ import { MetricsPanel } from '@/features/services/MetricsPanel';
 import { EnvironmentEditor } from '@/features/services/EnvironmentEditor';
 import { ConnectionPanel } from '@/features/services/ConnectionPanel';
 import { BuildSettings } from '@/features/services/BuildSettings';
+import { EditableServiceName } from '@/features/services/EditableServiceName';
 import {
   KIND_META,
   builderLabel,
@@ -92,7 +93,7 @@ export function ServiceDetailPage() {
         {svc ? (
           <>
             <PageHeader
-              title={svc.name}
+              title={<EditableServiceName id={svc.id} name={svc.name} />}
               description={sourceSummary(svc.source)}
               actions={
                 <div className="flex flex-wrap items-center gap-2">

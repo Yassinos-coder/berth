@@ -97,6 +97,7 @@ export class ServiceRepository {
     orgId: string,
     id: string,
     data: {
+      name?: string;
       rootDirectory?: string | null;
       buildCommand?: string | null;
       startCommand?: string | null;

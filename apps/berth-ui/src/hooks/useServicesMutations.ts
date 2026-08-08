@@ -39,6 +39,20 @@ export function useServiceAction(id: string) {
   });
 }
 
+export function useRenameService(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => servicesService.update(id, { name }),
+    onSuccess: (service) => {
+      qc.invalidateQueries({ queryKey: queryKeys.service(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.services });
+      notify.success(`Renamed to ${service.name}`);
+    },
+    onError: (error) =>
+      notify.error('Could not rename service', { description: error.message }),
+  });
+}
+
 export function useUpdateServiceSettings(id: string) {
   const qc = useQueryClient();
   return useMutation({

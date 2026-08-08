@@ -1,6 +1,11 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdateServiceDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  name?: string;
+
   @IsOptional()
   @IsString()
   rootDirectory?: string;

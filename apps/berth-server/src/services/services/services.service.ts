@@ -117,13 +117,23 @@ export class ServicesService {
   ): Promise<ServiceDto> {
     const service = await this.repository.findById(user.orgId, id);
     if (!service) throw new NotFoundException('Service not found');
-    if (service.sourceKind !== SourceKind.git) {
+
+    const touchesBuild = [
+      dto.rootDirectory,
+      dto.buildCommand,
+      dto.startCommand,
+      dto.dockerfilePath,
+      dto.builder,
+    ].some((value) => value !== undefined);
+    if (touchesBuild && service.sourceKind !== SourceKind.git) {
       throw new BadRequestException(
         'Build settings only apply to git-source services',
       );
     }
 
+    const name = dto.name?.trim();
     const updated = await this.repository.updateBuildConfig(user.orgId, id, {
+      name: name && name.length > 0 ? name : undefined,
       rootDirectory: emptyToNull(dto.rootDirectory),
       buildCommand: emptyToNull(dto.buildCommand),
       startCommand: emptyToNull(dto.startCommand),
@@ -134,8 +144,10 @@ export class ServicesService {
 
     await this.activityService.record(user.orgId, {
       kind: ActivityKind.deploy,
-      title: `${updated.name} build settings updated`,
-      detail: 'Redeploy to apply the new build configuration.',
+      title: `${updated.name} updated`,
+      detail: touchesBuild
+        ? 'Redeploy to apply the new build configuration.'
+        : 'Service settings updated.',
       actor: user.id,
     });
     return ServiceMapper.toDto(updated);
