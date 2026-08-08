@@ -1,4 +1,4 @@
-import { GitCommitHorizontal, RotateCcw } from 'lucide-react';
+import { Github, GitCommitHorizontal, RotateCcw } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -19,6 +19,13 @@ interface DeploymentsTableProps {
   onRollback?: (id: string) => void;
   rollbackPendingId?: string;
 }
+
+const TRIGGER_LABEL: Record<string, string> = {
+  push: 'GitHub push',
+  manual: 'Manual',
+  redeploy: 'Redeploy',
+  rollback: 'Rollback',
+};
 
 export function DeploymentsTable({
   deployments,
@@ -63,8 +70,9 @@ export function DeploymentsTable({
               <DeploymentStatusBadge status={dep.status} />
             </TableCell>
             <TableCell>
-              <Badge variant="outline" className="capitalize">
-                {dep.trigger}
+              <Badge variant="outline" className="gap-1">
+                {dep.trigger === 'push' ? <Github className="size-3" /> : null}
+                {TRIGGER_LABEL[dep.trigger] ?? dep.trigger}
               </Badge>
             </TableCell>
             <TableCell className="text-muted-foreground text-sm tabular-nums">

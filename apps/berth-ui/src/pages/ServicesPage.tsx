@@ -16,12 +16,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useServices } from '@/hooks/useServicesQueries';
+import { useProxyHosts } from '@/hooks/useProxyHostsQueries';
 import type { ServiceKind } from '@/interfaces';
 
 export function ServicesPage() {
   const { data, isLoading, isError, error, refetch } = useServices();
+  const proxyHosts = useProxyHosts();
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<ServiceKind | 'all'>('all');
+
+  const domainsByService = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const host of proxyHosts.data ?? []) {
+      const list = map.get(host.serviceId) ?? [];
+      list.push(host.domain);
+      map.set(host.serviceId, list);
+    }
+    return map;
+  }, [proxyHosts.data]);
 
   const filtered = useMemo(() => {
     return (data ?? []).filter((svc) => {
@@ -99,7 +111,11 @@ export function ServicesPage() {
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filtered.map((svc) => (
-              <ServiceCard key={svc.id} service={svc} />
+              <ServiceCard
+                key={svc.id}
+                service={svc}
+                domains={domainsByService.get(svc.id)}
+              />
             ))}
           </div>
         )}
