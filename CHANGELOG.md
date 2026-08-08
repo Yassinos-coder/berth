@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-08-08
+
+### Fixed
+- The managed Caddy proxy container failed to start (`exec: "run": executable file not found`) — the `docker run` didn't set the image entrypoint, so `run` was execed directly. The agent now starts it with `--entrypoint caddy`.
+
 ## [0.9.0] - 2026-08-08
 
 ### Added

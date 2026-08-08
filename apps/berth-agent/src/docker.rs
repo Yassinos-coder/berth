@@ -245,6 +245,8 @@ impl DockerReconciler {
             "berth-caddy-config:/config",
             "-v",
             &mount,
+            "--entrypoint",
+            "caddy",
             "caddy:2",
             "run",
             "--config",
