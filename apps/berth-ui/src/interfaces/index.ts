@@ -62,6 +62,7 @@ export interface Service {
   domain?: string;
   templateKind?: string;
   containerPort?: number;
+  internalDomains: string[];
   usage: ServiceUsage;
   lastDeployedAt?: string;
   createdAt: string;
@@ -145,6 +146,8 @@ export interface MetricPoint {
   ts: number;
   cpuPct: number;
   memMb: number;
+  netRxMb: number;
+  netTxMb: number;
 }
 
 export interface Template {

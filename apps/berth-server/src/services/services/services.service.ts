@@ -12,6 +12,7 @@ import {
   ServiceState,
   SourceKind,
 } from '@prisma/client';
+import { randomBytes } from 'node:crypto';
 import { ServiceRepository } from '../repositories/service.repository';
 import { ServiceMapper } from '../mappers/service.mapper';
 import { ServiceSourceValidator } from '../validators/service-source.validator';
@@ -30,6 +31,15 @@ import type { LogLine, MetricPoint, ServiceDto } from '../interfaces';
 function emptyToNull(value?: string): string | null | undefined {
   if (value === undefined) return undefined;
   return value.trim() === '' ? null : value;
+}
+
+function generateInternalDomain(name: string): string {
+  const slug =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'service';
+  return `${slug}-${randomBytes(3).toString('hex')}.berth.local`;
 }
 
 export type ServiceAction = 'start' | 'stop' | 'restart' | 'redeploy';
@@ -87,7 +97,10 @@ export class ServicesService {
       ? this.buildFromTemplate(user, dto)
       : this.buildFromSource(user, dto);
 
-    const service = await this.repository.create(input);
+    const service = await this.repository.create({
+      ...input,
+      internalDomains: [generateInternalDomain(dto.name)],
+    });
 
     if (service.sourceKind === SourceKind.git) {
       await this.deployments.create({
@@ -190,6 +203,42 @@ export class ServicesService {
       actor: user.id,
     });
     return this.getEnv(user.orgId, id);
+  }
+
+  async addInternalDomain(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<ServiceDto> {
+    const service = await this.repository.findById(user.orgId, id);
+    if (!service) throw new NotFoundException('Service not found');
+
+    const domain = generateInternalDomain(service.name);
+    const updated = await this.repository.updateInternalDomains(user.orgId, id, [
+      ...service.internalDomains,
+      domain,
+    ]);
+    if (!updated) throw new NotFoundException('Service not found');
+    await this.registry.reconcileServer(service.serverId);
+    return ServiceMapper.toDto(updated);
+  }
+
+  async removeInternalDomain(
+    user: AuthenticatedUser,
+    id: string,
+    domain: string,
+  ): Promise<ServiceDto> {
+    const service = await this.repository.findById(user.orgId, id);
+    if (!service) throw new NotFoundException('Service not found');
+
+    const next = service.internalDomains.filter((entry) => entry !== domain);
+    const updated = await this.repository.updateInternalDomains(
+      user.orgId,
+      id,
+      next,
+    );
+    if (!updated) throw new NotFoundException('Service not found');
+    await this.registry.reconcileServer(service.serverId);
+    return ServiceMapper.toDto(updated);
   }
 
   async runAction(

@@ -6,6 +6,7 @@ mod enroll;
 mod host;
 mod panel;
 mod protocol;
+mod telemetry;
 mod tls;
 mod validators;
 

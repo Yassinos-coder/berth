@@ -12,6 +12,8 @@ pub struct ServiceSpec {
     pub volumes: Vec<VolumeMount>,
     #[serde(default)]
     pub command: Vec<String>,
+    #[serde(default)]
+    pub aliases: Vec<String>,
     pub resources: ResourceLimits,
     pub health_check: Option<HealthCheck>,
     pub restart_policy: RestartPolicy,
@@ -201,6 +203,10 @@ pub enum AgentToPanel {
         cpu_pct: f64,
         #[serde(rename = "memMb")]
         mem_mb: f64,
+        #[serde(rename = "netRxMb")]
+        net_rx_mb: f64,
+        #[serde(rename = "netTxMb")]
+        net_tx_mb: f64,
     },
     ReconcileResult {
         applied: Vec<String>,

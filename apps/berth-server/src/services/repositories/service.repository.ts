@@ -70,6 +70,7 @@ export class ServiceRepository {
     publicNetworking?: boolean;
     volumeName?: string;
     volumePath?: string;
+    internalDomains?: string[];
     env?: { key: string; value: string; isSecret: boolean }[];
   }): Promise<ServiceWithServer> {
     const { env, ...fields } = data;
@@ -108,6 +109,19 @@ export class ServiceRepository {
     const result = await this.prisma.service.updateMany({
       where: { id, orgId },
       data,
+    });
+    if (result.count === 0) return null;
+    return this.findById(orgId, id);
+  }
+
+  async updateInternalDomains(
+    orgId: string,
+    id: string,
+    internalDomains: string[],
+  ): Promise<ServiceWithServer | null> {
+    const result = await this.prisma.service.updateMany({
+      where: { id, orgId },
+      data: { internalDomains },
     });
     if (result.count === 0) return null;
     return this.findById(orgId, id);

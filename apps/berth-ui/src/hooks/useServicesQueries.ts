@@ -22,7 +22,7 @@ export function useServiceLogs(id: string) {
     queryKey: queryKeys.serviceLogs(id),
     queryFn: () => servicesService.logs(id),
     enabled: Boolean(id),
-    refetchInterval: 5000,
+    refetchInterval: 2500,
   });
 }
 
@@ -31,7 +31,7 @@ export function useServiceMetrics(id: string) {
     queryKey: queryKeys.serviceMetrics(id),
     queryFn: () => servicesService.metrics(id),
     enabled: Boolean(id),
-    refetchInterval: 10000,
+    refetchInterval: 4000,
   });
 }
 

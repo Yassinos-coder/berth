@@ -172,6 +172,7 @@ model Service {
   rootDirectory  String?
   buildCommand   String?
   startCommand   String?
+  internalDomains String[]  @default([])
   command          String[]   @default([])
   cpuCores         Float      @default(1)
   memoryMb         Int        @default(1024)

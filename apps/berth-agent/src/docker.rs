@@ -369,6 +369,11 @@ impl DockerReconciler {
             args.push(pids_limit.to_string());
         }
 
+        for alias in &spec.aliases {
+            args.push("--network-alias".to_string());
+            args.push(alias.clone());
+        }
+
         for env_var in &spec.env {
             args.push("-e".to_string());
             args.push(format!("{}={}", env_var.key, env_var.value));

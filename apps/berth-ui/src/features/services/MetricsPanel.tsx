@@ -6,8 +6,11 @@ import type { MetricPoint } from '@/interfaces';
 export function MetricsPanel({ points }: { points: MetricPoint[] }) {
   const cpu = points.map((p) => p.cpuPct);
   const mem = points.map((p) => p.memMb);
+  const net = points.map((p) => (p.netRxMb ?? 0) + (p.netTxMb ?? 0));
   const lastCpu = cpu.at(-1) ?? 0;
   const lastMem = mem.at(-1) ?? 0;
+  const lastRx = points.at(-1)?.netRxMb ?? 0;
+  const lastTx = points.at(-1)?.netTxMb ?? 0;
   const peakCpu = cpu.length ? Math.max(...cpu) : 0;
   const peakMem = mem.length ? Math.max(...mem) : 0;
 
@@ -54,6 +57,32 @@ export function MetricsPanel({ points }: { points: MetricPoint[] }) {
           </div>
           <p className="text-muted-foreground mt-2 text-xs">
             Peak {Format.bytes(peakMem)} over last hour
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="md:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-muted-foreground text-sm font-medium">
+            Network I/O
+          </CardTitle>
+          <p className="text-2xl font-semibold tabular-nums">
+            ↓ {Format.bytes(lastRx)} · ↑ {Format.bytes(lastTx)}
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="text-warning">
+            <Sparkline
+              data={net}
+              width={480}
+              height={80}
+              className="w-full"
+              strokeClassName="stroke-warning"
+              fillClassName="fill-warning/10"
+            />
+          </div>
+          <p className="text-muted-foreground mt-2 text-xs">
+            Cumulative received / transmitted
           </p>
         </CardContent>
       </Card>

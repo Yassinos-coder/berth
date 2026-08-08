@@ -49,6 +49,7 @@ export class ReconcilePlanner {
       ports: this.toPorts(service),
       volumes: this.toVolumes(service),
       command: this.toCommand(service, env),
+      aliases: service.internalDomains,
       resources: {
         cpuCores: service.cpuCores,
         memoryMb: service.memoryMb,

@@ -7,6 +7,7 @@ export interface ServiceSpec {
   ports: PortMapping[];
   volumes: VolumeMount[];
   command: string[];
+  aliases: string[];
   resources: ResourceLimits;
   healthCheck?: HealthCheck;
   restartPolicy: RestartPolicy;
@@ -102,5 +103,12 @@ export type AgentToPanel =
   | { type: 'ServiceStatus'; serviceId: string; state: ServiceState; containerId?: string }
   | { type: 'BuildProgress'; serviceId: string; stage: string; logChunk: string }
   | { type: 'LogChunk'; serviceId: string; line: string; ts: number }
-  | { type: 'Metrics'; serviceId: string; cpuPct: number; memMb: number }
+  | {
+      type: 'Metrics';
+      serviceId: string;
+      cpuPct: number;
+      memMb: number;
+      netRxMb: number;
+      netTxMb: number;
+    }
   | { type: 'ReconcileResult'; applied: string[]; failed: FailedApply[] };

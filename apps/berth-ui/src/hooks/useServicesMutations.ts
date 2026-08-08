@@ -86,6 +86,40 @@ export function useSetServiceEnv(id: string) {
   });
 }
 
+export function useAddInternalDomain(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => servicesService.addInternalDomain(id),
+    onSuccess: (service) => {
+      qc.setQueryData(queryKeys.service(id), service);
+      qc.invalidateQueries({ queryKey: queryKeys.services });
+      notify.success('Internal domain generated', {
+        description: 'Applied as a network alias on the next reconcile.',
+      });
+    },
+    onError: (error) =>
+      notify.error('Could not generate internal domain', {
+        description: error.message,
+      }),
+  });
+}
+
+export function useRemoveInternalDomain(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (domain: string) => servicesService.removeInternalDomain(id, domain),
+    onSuccess: (service) => {
+      qc.setQueryData(queryKeys.service(id), service);
+      qc.invalidateQueries({ queryKey: queryKeys.services });
+      notify.success('Internal domain removed');
+    },
+    onError: (error) =>
+      notify.error('Could not remove internal domain', {
+        description: error.message,
+      }),
+  });
+}
+
 export function useRemoveService() {
   const qc = useQueryClient();
   return useMutation({

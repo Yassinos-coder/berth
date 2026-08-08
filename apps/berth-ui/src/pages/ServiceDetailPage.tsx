@@ -21,6 +21,7 @@ import { EnvironmentEditor } from '@/features/services/EnvironmentEditor';
 import { ConnectionPanel } from '@/features/services/ConnectionPanel';
 import { BuildSettings } from '@/features/services/BuildSettings';
 import { EditableServiceName } from '@/features/services/EditableServiceName';
+import { ServiceDomains } from '@/features/services/ServiceDomains';
 import {
   KIND_META,
   builderLabel,
@@ -147,6 +148,7 @@ export function ServiceDetailPage() {
                 <TabsTrigger value="logs">Logs</TabsTrigger>
                 <TabsTrigger value="metrics">Metrics</TabsTrigger>
                 <TabsTrigger value="env">Variables</TabsTrigger>
+                <TabsTrigger value="domains">Domains</TabsTrigger>
                 <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
 
@@ -275,6 +277,10 @@ export function ServiceDetailPage() {
 
               <TabsContent value="env" className="mt-4">
                 <EnvironmentEditor serviceId={svc.id} />
+              </TabsContent>
+
+              <TabsContent value="domains" className="mt-4">
+                <ServiceDomains service={svc} />
               </TabsContent>
 
               <TabsContent value="settings" className="mt-4 space-y-4">

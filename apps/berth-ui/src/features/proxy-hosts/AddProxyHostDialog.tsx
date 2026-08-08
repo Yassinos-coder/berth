@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, Plus } from 'lucide-react';
 import {
   Dialog,
@@ -23,19 +23,29 @@ import {
 import { useServices } from '@/hooks/useServicesQueries';
 import { useCreateProxyHost } from '@/hooks/useProxyHostsMutations';
 
-export function AddProxyHostDialog() {
+export function AddProxyHostDialog({
+  defaultServiceId,
+}: {
+  defaultServiceId?: string;
+} = {}) {
   const [open, setOpen] = useState(false);
   const [domain, setDomain] = useState('');
-  const [serviceId, setServiceId] = useState('');
+  const [serviceId, setServiceId] = useState(defaultServiceId ?? '');
   const [targetPort, setTargetPort] = useState('80');
   const [ssl, setSsl] = useState(true);
   const [forceHttps, setForceHttps] = useState(true);
   const services = useServices();
   const create = useCreateProxyHost();
 
+  useEffect(() => {
+    if (!defaultServiceId) return;
+    const svc = services.data?.find((s) => s.id === defaultServiceId);
+    if (svc?.containerPort) setTargetPort(String(svc.containerPort));
+  }, [defaultServiceId, services.data]);
+
   const reset = () => {
     setDomain('');
-    setServiceId('');
+    setServiceId(defaultServiceId ?? '');
     setTargetPort('80');
     setSsl(true);
     setForceHttps(true);

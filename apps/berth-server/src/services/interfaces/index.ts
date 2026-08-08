@@ -14,6 +14,8 @@ export interface MetricPoint {
   ts: number;
   cpuPct: number;
   memMb: number;
+  netRxMb: number;
+  netTxMb: number;
 }
 
 export interface ServiceDto {
@@ -29,6 +31,7 @@ export interface ServiceDto {
   domain?: string;
   templateKind?: string;
   containerPort?: number;
+  internalDomains: string[];
   usage: { cpuPct: number; memMb: number };
   lastDeployedAt?: string;
   createdAt: string;

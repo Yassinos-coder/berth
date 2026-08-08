@@ -115,6 +115,25 @@ export class ServicesController {
   }
 
   @Roles(Role.owner, Role.admin, Role.deployer)
+  @Post(':id/internal-domains')
+  addInternalDomain(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<ServiceDto> {
+    return this.servicesService.addInternalDomain(user, id);
+  }
+
+  @Roles(Role.owner, Role.admin, Role.deployer)
+  @Delete(':id/internal-domains/:domain')
+  removeInternalDomain(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Param('domain') domain: string,
+  ): Promise<ServiceDto> {
+    return this.servicesService.removeInternalDomain(user, id, domain);
+  }
+
+  @Roles(Role.owner, Role.admin, Role.deployer)
   @Post(':id/:action')
   runAction(
     @CurrentUser() user: AuthenticatedUser,

@@ -1,7 +1,9 @@
 use std::time::Duration;
 
+use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
+use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::{
     connect_async_tls_with_config, tungstenite::Message, Connector, MaybeTlsStream,
@@ -13,9 +15,11 @@ use crate::docker::{AgentResult, DockerReconciler};
 use crate::enroll;
 use crate::host::collect_server_specs;
 use crate::protocol::{AgentToPanel, PanelToAgent, ServiceState};
+use crate::telemetry::Telemetry;
 use crate::tls;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
+type WsSink = SplitSink<Socket, Message>;
 
 const MAX_MESSAGE_BYTES: usize = 1 << 20;
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
@@ -88,43 +92,57 @@ async fn connect_and_serve(
         ..Default::default()
     };
 
-    let (mut socket, _) =
+    let (socket, _) =
         connect_async_tls_with_config(url, Some(ws_config), false, Some(connector)).await?;
+    let (mut sink, mut stream) = socket.split();
 
     let enrolled = AgentToPanel::Enrolled {
         agent_id: config.agent_id.clone(),
         server_specs: collect_server_specs(),
     };
-    send_json(&mut socket, &enrolled).await?;
+    send_json(&mut sink, &enrolled).await?;
 
-    while let Some(message) = socket.next().await {
-        let message = match message {
-            Ok(message) => message,
-            Err(error) => {
-                eprintln!("[berth-agent] websocket error: {error}");
-                break;
+    let (tx, mut rx) = mpsc::channel::<AgentToPanel>(1024);
+    let telemetry = Telemetry::new(config.docker_bin.clone(), tx);
+    telemetry.start_metrics();
+
+    loop {
+        tokio::select! {
+            inbound = stream.next() => {
+                let Some(message) = inbound else { break };
+                let message = match message {
+                    Ok(message) => message,
+                    Err(error) => {
+                        eprintln!("[berth-agent] websocket error: {error}");
+                        break;
+                    }
+                };
+                if !message.is_text() {
+                    continue;
+                }
+                let text = match message.to_text() {
+                    Ok(text) => text,
+                    Err(_) => continue,
+                };
+                let inbound = match serde_json::from_str::<PanelToAgent>(text) {
+                    Ok(inbound) => inbound,
+                    Err(error) => {
+                        eprintln!("[berth-agent] ignoring malformed message: {error}");
+                        continue;
+                    }
+                };
+                if let Err(error) =
+                    handle_message(inbound, reconciler, &mut sink, &telemetry).await
+                {
+                    eprintln!("[berth-agent] handler error (continuing): {error}");
+                }
             }
-        };
-
-        if !message.is_text() {
-            continue;
-        }
-
-        let text = match message.to_text() {
-            Ok(text) => text,
-            Err(_) => continue,
-        };
-
-        let inbound = match serde_json::from_str::<PanelToAgent>(text) {
-            Ok(inbound) => inbound,
-            Err(error) => {
-                eprintln!("[berth-agent] ignoring malformed message: {error}");
-                continue;
+            Some(outbound) = rx.recv() => {
+                if let Err(error) = send_json(&mut sink, &outbound).await {
+                    eprintln!("[berth-agent] telemetry send failed: {error}");
+                    break;
+                }
             }
-        };
-
-        if let Err(error) = handle_message(inbound, reconciler, &mut socket).await {
-            eprintln!("[berth-agent] handler error (continuing): {error}");
         }
     }
 
@@ -134,11 +152,20 @@ async fn connect_and_serve(
 async fn handle_message(
     inbound: PanelToAgent,
     reconciler: &DockerReconciler,
-    socket: &mut Socket,
+    sink: &mut WsSink,
+    telemetry: &Telemetry,
 ) -> AgentResult<()> {
     match inbound {
         PanelToAgent::Reconcile { services, proxies } => {
             let outcome = reconciler.reconcile(&services, &proxies).await?;
+
+            let running: Vec<String> = outcome
+                .statuses
+                .iter()
+                .filter(|status| matches!(status.state, ServiceState::Running))
+                .map(|status| status.service_id.clone())
+                .collect();
+            telemetry.sync_logs(&running);
 
             for status in outcome.statuses {
                 let event = AgentToPanel::ServiceStatus {
@@ -146,14 +173,14 @@ async fn handle_message(
                     state: status.state,
                     container_id: status.container_id,
                 };
-                send_json(socket, &event).await?;
+                send_json(sink, &event).await?;
             }
 
             let result = AgentToPanel::ReconcileResult {
                 applied: outcome.applied,
                 failed: outcome.failed,
             };
-            send_json(socket, &result).await?;
+            send_json(sink, &result).await?;
         }
         PanelToAgent::RemoveService { service_id } => {
             let removed = reconciler.remove_service(&service_id).await?;
@@ -163,7 +190,7 @@ async fn handle_message(
                     state: ServiceState::Stopped,
                     container_id: None,
                 };
-                send_json(socket, &event).await?;
+                send_json(sink, &event).await?;
             }
         }
         PanelToAgent::StreamLogs { service_id, .. } => {
@@ -205,9 +232,9 @@ fn launch_self_update() {
     }
 }
 
-async fn send_json(socket: &mut Socket, message: &AgentToPanel) -> AgentResult<()> {
+async fn send_json(sink: &mut WsSink, message: &AgentToPanel) -> AgentResult<()> {
     let payload = serde_json::to_string(message)?;
-    socket.send(Message::Text(payload)).await?;
+    sink.send(Message::Text(payload)).await?;
     Ok(())
 }
 

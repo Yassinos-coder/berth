@@ -45,6 +45,8 @@ export class AgentMessageHandler {
           ts: Date.now(),
           cpuPct: message.cpuPct,
           memMb: message.memMb,
+          netRxMb: message.netRxMb,
+          netTxMb: message.netTxMb,
         });
         return;
       case 'ReconcileResult':
