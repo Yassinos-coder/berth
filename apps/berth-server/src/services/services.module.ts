@@ -19,6 +19,6 @@ import { RegistryCredentialsModule } from '../registry-credentials/registry-cred
   ],
   controllers: [ServicesController],
   providers: [ServicesService, ConnectionService, ServiceRepository],
-  exports: [ServiceRepository],
+  exports: [ServicesService, ServiceRepository],
 })
 export class ServicesModule {}
