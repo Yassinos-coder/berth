@@ -18,6 +18,8 @@ pub struct ServiceSpec {
     pub health_check: Option<HealthCheck>,
     pub restart_policy: RestartPolicy,
     pub replicas: u32,
+    #[serde(rename = "templateKind")]
+    pub template_kind: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -215,6 +217,12 @@ pub enum AgentToPanel {
         net_rx_mb: f64,
         #[serde(rename = "netTxMb")]
         net_tx_mb: f64,
+    },
+    HostUsage {
+        #[serde(rename = "diskUsedGb")]
+        disk_used_gb: f64,
+        #[serde(rename = "diskTotalGb")]
+        disk_total_gb: f64,
     },
     ReconcileResult {
         applied: Vec<String>,

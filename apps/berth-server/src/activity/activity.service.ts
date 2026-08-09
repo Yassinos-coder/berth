@@ -22,6 +22,10 @@ export class ActivityService {
     });
   }
 
+  async clear(orgId: string): Promise<void> {
+    await this.repository.clear(orgId);
+  }
+
   private static toDto(activity: Activity): ActivityItemDto {
     return {
       id: activity.id,

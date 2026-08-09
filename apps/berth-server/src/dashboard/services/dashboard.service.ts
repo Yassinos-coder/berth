@@ -23,4 +23,8 @@ export class DashboardService {
   activity(orgId: string): Promise<ActivityItemDto[]> {
     return this.activityService.recent(orgId);
   }
+
+  clearActivity(orgId: string): Promise<void> {
+    return this.activityService.clear(orgId);
+  }
 }

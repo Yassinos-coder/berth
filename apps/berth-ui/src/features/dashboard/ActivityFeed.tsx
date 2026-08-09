@@ -1,5 +1,17 @@
-import { GitCommitHorizontal, Server, UserPlus, Bell } from 'lucide-react';
+import { GitCommitHorizontal, Loader2, Server, Trash2, UserPlus, Bell } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { useClearActivity } from '@/hooks/useDashboardQueries';
 import { Format } from '@/lib/format';
 import type { ActivityItem } from '@/interfaces';
 
@@ -11,10 +23,46 @@ const ICONS = {
 } as const;
 
 export function ActivityFeed({ items }: { items: ActivityItem[] }) {
+  const clearActivity = useClearActivity();
+
   return (
     <Card className="gap-0 py-0">
-      <CardHeader className="border-b py-4">
+      <CardHeader className="flex flex-row items-center justify-between border-b py-4">
         <CardTitle className="text-base">Recent activity</CardTitle>
+        {items.length > 0 ? (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-muted-foreground -mr-2">
+                <Trash2 className="size-3.5" /> Clear
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Clear activity?</DialogTitle>
+                <DialogDescription>
+                  This permanently deletes the organization's activity history. This cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <DialogClose asChild>
+                  <Button
+                    variant="destructive"
+                    disabled={clearActivity.isPending}
+                    onClick={() => clearActivity.mutate()}
+                  >
+                    {clearActivity.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : null}
+                    Clear
+                  </Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent className="p-0">
         {items.length === 0 ? (

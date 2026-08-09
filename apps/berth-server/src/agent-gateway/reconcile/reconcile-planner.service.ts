@@ -62,6 +62,7 @@ export class ReconcilePlanner {
       },
       restartPolicy: 'unless-stopped',
       replicas: service.replicas,
+      templateKind: service.templateKind ?? undefined,
     };
   }
 

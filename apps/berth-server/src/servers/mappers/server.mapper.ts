@@ -21,7 +21,7 @@ export class ServerMapper {
         cpuPct: 0,
         memMb: 0,
         memTotalMb: server.memoryMb,
-        diskGb: 0,
+        diskGb: server.diskUsedGb,
         diskTotalGb: server.diskGb,
       },
       lastSeen: server.lastSeenAt.toISOString(),

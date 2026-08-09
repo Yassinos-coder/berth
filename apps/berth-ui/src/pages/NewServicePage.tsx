@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, Database, Globe, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  Database,
+  Globe,
+  KeyRound,
+  Loader2,
+} from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -44,16 +52,25 @@ export function NewServicePage() {
   const [domain, setDomain] = useState('');
   const [templateKind, setTemplateKind] = useState<string | undefined>();
   const [asDatabase, setAsDatabase] = useState(true);
+  const [customCredentials, setCustomCredentials] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [publicNetworking, setPublicNetworking] = useState(false);
   const [resources, setResources] = useState<ResourceLimits>({
     cpuCores: 1,
     memoryMb: 1024,
   });
+  const [diskGb, setDiskGb] = useState(5);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const option = SOURCE_OPTIONS.find((o) => o.id === choice);
   const isGit = choice === 'git';
   const isImageChoice =
     choice === 'image' || choice === 'database' || choice === 'empty';
+  const selectedServer = servers.data?.find((s) => s.id === serverId);
+  const diskHint = selectedServer
+    ? `${Math.max(0, Math.round(selectedServer.usage.diskTotalGb - selectedServer.usage.diskGb))} GB free of ${selectedServer.usage.diskTotalGb} GB on ${selectedServer.name}.`
+    : undefined;
   const managedDb = Boolean(templateKind) && asDatabase;
   const github = useGithubStatus();
   const repos = useGithubRepos(isGit && Boolean(github.data?.connected));
@@ -86,6 +103,9 @@ export function NewServicePage() {
     if (!serverId) return notify.warn('Pick a server to deploy on');
 
     if (managedDb) {
+      if (customCredentials && password.trim() && password.trim().length < 8) {
+        return notify.warn('Password must be at least 8 characters');
+      }
       createService.mutate(
         {
           name: name.trim(),
@@ -94,6 +114,9 @@ export function NewServicePage() {
           resources,
           template: templateKind,
           publicNetworking,
+          username: customCredentials ? username.trim() || undefined : undefined,
+          password: customCredentials ? password.trim() || undefined : undefined,
+          diskGb,
         },
         { onSuccess: () => navigate('/services') },
       );
@@ -110,6 +133,7 @@ export function NewServicePage() {
           source: { kind: 'git', repo: reference, branch, build: { builder: 'auto' } },
           resources,
           domain: domain.trim() || undefined,
+          diskGb,
         },
         { onSuccess: () => navigate('/services') },
       );
@@ -128,6 +152,7 @@ export function NewServicePage() {
         resources,
         domain: domain.trim() || undefined,
         publicNetworking,
+        diskGb,
       },
       { onSuccess: () => navigate('/services') },
     );
@@ -157,6 +182,9 @@ export function NewServicePage() {
               setReference('');
               setTemplateKind(opt.id === 'bucket' ? 'minio' : undefined);
               setAsDatabase(true);
+              setCustomCredentials(false);
+              setUsername('');
+              setPassword('');
             }}
             className={cn(
               'group hover:border-primary/50 relative flex flex-col gap-2 rounded-xl border bg-card p-4 text-left transition-colors',
@@ -298,6 +326,61 @@ export function NewServicePage() {
                     />
                   </div>
                 ) : null}
+                {managedDb ? (
+                  <div className="border-t border-primary/20 pt-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-start gap-2">
+                        <KeyRound className="text-muted-foreground mt-0.5 size-4" />
+                        <div>
+                          <p className="text-sm font-medium">
+                            Custom username & password
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            Leave off to auto-generate secure credentials.
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={customCredentials}
+                        onCheckedChange={(checked) => {
+                          setCustomCredentials(checked);
+                          if (!checked) {
+                            setUsername('');
+                            setPassword('');
+                          }
+                        }}
+                      />
+                    </div>
+                    {customCredentials ? (
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="db-username" className="text-xs">
+                            Username
+                          </Label>
+                          <Input
+                            id="db-username"
+                            placeholder="berth"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="db-password" className="text-xs">
+                            Password
+                          </Label>
+                          <Input
+                            id="db-password"
+                            type="text"
+                            placeholder="min. 8 characters"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="font-mono"
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -335,7 +418,32 @@ export function NewServicePage() {
               </div>
             ) : null}
 
-            <ResourceLimitsField value={resources} onChange={setResources} />
+            <div className="border-t pt-4">
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen((open) => !open)}
+                className="text-muted-foreground hover:text-foreground flex w-full items-center justify-between text-sm font-medium transition-colors"
+              >
+                Advanced settings
+                <ChevronDown
+                  className={cn(
+                    'size-4 transition-transform',
+                    advancedOpen && 'rotate-180',
+                  )}
+                />
+              </button>
+              {advancedOpen ? (
+                <div className="pt-4">
+                  <ResourceLimitsField
+                    value={resources}
+                    onChange={setResources}
+                    diskGb={diskGb}
+                    onDiskGbChange={setDiskGb}
+                    diskHint={diskHint}
+                  />
+                </div>
+              ) : null}
+            </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" asChild>

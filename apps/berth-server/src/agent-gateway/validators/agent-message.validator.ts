@@ -8,6 +8,7 @@ const KNOWN_TYPES = new Set<AgentToPanel['type']>([
   'BuildProgress',
   'LogChunk',
   'Metrics',
+  'HostUsage',
   'ReconcileResult',
 ]);
 

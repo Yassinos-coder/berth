@@ -12,6 +12,7 @@ export interface ServiceSpec {
   healthCheck?: HealthCheck;
   restartPolicy: RestartPolicy;
   replicas: number;
+  templateKind?: string;
 }
 
 export type ServiceSource =
@@ -120,4 +121,5 @@ export type AgentToPanel =
       netRxMb: number;
       netTxMb: number;
     }
+  | { type: 'HostUsage'; diskUsedGb: number; diskTotalGb: number }
   | { type: 'ReconcileResult'; applied: string[]; failed: FailedApply[] };

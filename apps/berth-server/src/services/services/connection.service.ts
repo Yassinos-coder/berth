@@ -4,6 +4,8 @@ import { SecretCipher } from '../../common/crypto/secret-cipher.service';
 import { DATABASE_TEMPLATES } from '../../common/database/database-catalog';
 import type { ConnectionDto, ConnectionVariable } from '../interfaces';
 
+const SFTP_GATEWAY_PORT = 2022;
+
 @Injectable()
 export class ConnectionService {
   constructor(
@@ -70,6 +72,10 @@ export class ConnectionService {
             database,
           )
         : undefined;
+    const sftpUrl =
+      kind === 'minio' && publicHost && username
+        ? `sftp://${username}@${publicHost}:${SFTP_GATEWAY_PORT}`
+        : undefined;
 
     return {
       available: true,
@@ -82,6 +88,7 @@ export class ConnectionService {
       port,
       privateUrl,
       publicUrl,
+      sftpUrl,
       variables,
     };
   }

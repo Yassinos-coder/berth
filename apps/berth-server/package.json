@@ -1,6 +1,6 @@
 {
   "name": "@berth/server",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "private": true,
   "description": "Berth control plane - NestJS API.",
   "scripts": {

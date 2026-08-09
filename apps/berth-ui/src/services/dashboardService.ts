@@ -11,6 +11,10 @@ class DashboardService extends BaseApiClient {
   activity(): Promise<ActivityItem[]> {
     return this.get<ActivityItem[]>('/activity');
   }
+
+  clearActivity(): Promise<void> {
+    return this.delete<void>('/activity');
+  }
 }
 
 export const dashboardService = new DashboardService();

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Globe, Lock, Network } from 'lucide-react';
+import { Eye, EyeOff, FolderKey, Globe, Lock, Network } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CopyButton } from '@/components/shared/CopyButton';
@@ -107,6 +107,14 @@ function ConnectionView({ connection }: { connection: Connection }) {
               This database is reachable from the public internet. Make sure your
               firewall and credentials are strong.
             </div>
+          ) : null}
+          {connection.sftpUrl ? (
+            <UrlRow
+              icon={FolderKey}
+              label="SFTP"
+              url={connection.sftpUrl}
+              hint="Log in with the password shown below."
+            />
           ) : null}
         </CardContent>
       </Card>

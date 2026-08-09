@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.3] - 2026-08-09
+
+### Added
+- **Bucket SFTP access.** The agent now runs a second managed container, `berth-sftpgo`, and provisions one SFTP user per bucket (port 2022, same login as the bucket's S3 credentials), backed by that bucket's own MinIO instance. The agent also auto-creates the bucket inside MinIO on reconcile, since a fresh `minio/minio` server ships with none. Shown as a new SFTP row in the service Connect tab. Legacy FTP was deliberately left out — passive-mode FTP needs a large published port range that doesn't fit the per-container model here.
+- Custom username/password override when creating a managed Database, Template, or Bucket — leave blank to keep auto-generating credentials as before.
+- A collapsible **Advanced settings** section in New Service exposing a Disk allocation field (planning only — Docker can't enforce per-container disk quotas on most filesystems) alongside CPU/Memory, plus a live free/total disk hint for the selected server.
+- Real disk usage reporting from the agent (`df`-based, every 60s), replacing a stub that always reported 0. Also fixes a latent bug where the disk figure captured at enrollment was actually free space mislabeled as total capacity.
+- A "Recent activity" clear button (owner/admin only, confirmation required).
+- An "Auto-scaled" badge on service cards when smart resources has raised that service's memory limit, with a tooltip showing when.
+
+### Changed
+- The metrics "Peak … over last hour" stat is now a real rolling 24-hour peak tracked server-side, replacing a label that was already inaccurate (the underlying buffer only held about 8 minutes of samples).
+- Managed database/template services default to a username derived from the service name instead of the fixed `berth`, so SFTPGo users (which must be unique per server) don't collide by default across buckets.
+
 ## [0.10.2] - 2026-08-09
 
 ### Fixed

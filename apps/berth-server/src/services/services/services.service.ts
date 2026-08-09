@@ -26,7 +26,7 @@ import { SecretCipher } from '../../common/crypto/secret-cipher.service';
 import { CreateServiceDto } from '../dto/create-service.dto';
 import { UpdateServiceDto } from '../dto/update-service.dto';
 import type { AuthenticatedUser } from '../../common/interfaces';
-import type { LogLine, MetricPoint, ServiceDto } from '../interfaces';
+import type { LogLine, MetricPeak, MetricPoint, ServiceDto } from '../interfaces';
 
 function emptyToNull(value?: string): string | null | undefined {
   if (value === undefined) return undefined;
@@ -84,6 +84,11 @@ export class ServicesService {
   async metrics(orgId: string, id: string): Promise<MetricPoint[]> {
     await this.getById(orgId, id);
     return this.telemetry.getMetrics(id);
+  }
+
+  async metricsPeak(orgId: string, id: string): Promise<MetricPeak> {
+    await this.getById(orgId, id);
+    return this.telemetry.getDailyPeak(id);
   }
 
   async create(
@@ -290,7 +295,10 @@ export class ServicesService {
     user: AuthenticatedUser,
     dto: CreateServiceDto,
   ): CreateInput {
-    const generated = DatabaseTemplateFactory.build(dto.template!, dto.name);
+    const generated = DatabaseTemplateFactory.build(dto.template!, dto.name, {
+      username: dto.username,
+      password: dto.password,
+    });
     return {
       orgId: user.orgId,
       serverId: dto.serverId,
@@ -305,6 +313,7 @@ export class ServicesService {
       cpuCores: dto.resources.cpuCores,
       memoryMb: dto.resources.memoryMb,
       cpuShares: dto.resources.cpuShares,
+      diskGb: dto.diskGb,
       templateKind: generated.templateKind,
       containerPort: generated.containerPort,
       publicNetworking: dto.publicNetworking ?? false,
@@ -332,6 +341,7 @@ export class ServicesService {
       cpuCores: dto.resources.cpuCores,
       memoryMb: dto.resources.memoryMb,
       cpuShares: dto.resources.cpuShares,
+      diskGb: dto.diskGb,
       publicNetworking: dto.publicNetworking ?? false,
       env: this.encryptEnv(
         (dto.env ?? []).map((item) => ({

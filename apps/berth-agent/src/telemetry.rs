@@ -9,9 +9,11 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::docker::AgentResult;
+use crate::host::root_disk_usage_gb;
 use crate::protocol::AgentToPanel;
 
 const METRICS_INTERVAL: Duration = Duration::from_secs(4);
+const HOST_USAGE_INTERVAL: Duration = Duration::from_secs(60);
 const CONTAINER_PREFIX: &str = "berth-";
 
 /// Streams live container logs and metrics to the panel over an mpsc channel.
@@ -42,6 +44,28 @@ impl Telemetry {
                     eprintln!("[berth-agent] metrics sample failed: {error}");
                 }
                 tokio::time::sleep(METRICS_INTERVAL).await;
+            }
+        });
+        self.handles.lock().unwrap().push(handle);
+    }
+
+    /// Reports live root-filesystem disk usage on a slow interval — disk
+    /// space doesn't move fast enough to warrant the 4s container-metrics
+    /// cadence.
+    pub fn start_host_usage(&self) {
+        let tx = self.tx.clone();
+        let handle = tokio::spawn(async move {
+            while !tx.is_closed() {
+                if let Some((used_gb, total_gb)) = root_disk_usage_gb() {
+                    let event = AgentToPanel::HostUsage {
+                        disk_used_gb: used_gb,
+                        disk_total_gb: total_gb,
+                    };
+                    if tx.send(event).await.is_err() {
+                        break;
+                    }
+                }
+                tokio::time::sleep(HOST_USAGE_INTERVAL).await;
             }
         });
         self.handles.lock().unwrap().push(handle);

@@ -105,6 +105,7 @@ async fn connect_and_serve(
     let (tx, mut rx) = mpsc::channel::<AgentToPanel>(1024);
     let telemetry = Telemetry::new(config.docker_bin.clone(), tx);
     telemetry.start_metrics();
+    telemetry.start_host_usage();
 
     loop {
         tokio::select! {

@@ -95,7 +95,7 @@ export class SmartResourceService {
 
     const updated = await this.prisma.service.updateMany({
       where: { id: service.id, memoryMb: service.memoryMb },
-      data: { memoryMb: nextMemoryMb },
+      data: { memoryMb: nextMemoryMb, lastSmartResourceAt: new Date() },
     });
     if (updated.count === 0) return;
 

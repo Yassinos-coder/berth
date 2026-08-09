@@ -107,8 +107,21 @@ export class CreateServiceDto {
   template?: string;
 
   @IsOptional()
+  @IsString()
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  password?: string;
+
+  @IsOptional()
   @IsBoolean()
   publicNetworking?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  diskGb?: number;
 
   @IsOptional()
   @ValidateNested({ each: true })

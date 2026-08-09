@@ -25,6 +25,7 @@ import type { AuthenticatedUser } from '../../common/interfaces';
 import type {
   ConnectionDto,
   LogLine,
+  MetricPeak,
   MetricPoint,
   ServiceDto,
 } from '../interfaces';
@@ -74,6 +75,14 @@ export class ServicesController {
     @Param('id') id: string,
   ): Promise<MetricPoint[]> {
     return this.servicesService.metrics(user.orgId, id);
+  }
+
+  @Get(':id/metrics/peak')
+  metricsPeak(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<MetricPeak> {
+    return this.servicesService.metricsPeak(user.orgId, id);
   }
 
   @Roles(Role.owner, Role.admin, Role.deployer)

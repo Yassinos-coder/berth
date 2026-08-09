@@ -45,6 +45,7 @@ import {
   useService,
   useServiceLogs,
   useServiceMetrics,
+  useServiceMetricsPeak,
 } from '@/hooks/useServicesQueries';
 import {
   useServiceAction,
@@ -68,6 +69,7 @@ export function ServiceDetailPage() {
   const service = useService(id);
   const logs = useServiceLogs(id);
   const metrics = useServiceMetrics(id);
+  const metricsPeak = useServiceMetricsPeak(id);
   const deployments = useServiceDeployments(id);
   const action = useServiceAction(id);
   const removeService = useRemoveService();
@@ -190,6 +192,12 @@ export function ServiceDetailPage() {
                         label="Memory limit"
                         value={Format.bytes(svc.resources.memoryMb)}
                       />
+                      {svc.diskGb ? (
+                        <DetailRow
+                          label="Disk allocation"
+                          value={`${svc.diskGb} GB (planning only)`}
+                        />
+                      ) : null}
                       <DetailRow
                         label="CPU usage"
                         value={Format.percent(svc.usage.cpuPct)}
@@ -271,7 +279,7 @@ export function ServiceDetailPage() {
                   onRetry={() => metrics.refetch()}
                   loadingFallback={<Skeleton className="h-56" />}
                 >
-                  <MetricsPanel points={metrics.data ?? []} />
+                  <MetricsPanel points={metrics.data ?? []} peak={metricsPeak.data} />
                 </QueryBoundary>
               </TabsContent>
 

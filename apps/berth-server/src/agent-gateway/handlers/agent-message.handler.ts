@@ -52,6 +52,15 @@ export class AgentMessageHandler {
         });
         await this.smartResources.observe(message.serviceId, message.memMb);
         return;
+      case 'HostUsage':
+        await this.prisma.server.updateMany({
+          where: { id: serverId },
+          data: {
+            diskUsedGb: message.diskUsedGb,
+            diskGb: Math.round(message.diskTotalGb),
+          },
+        });
+        return;
       case 'ReconcileResult':
         if (message.failed.length > 0) {
           this.logger.warn(

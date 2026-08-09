@@ -23,4 +23,8 @@ export class ActivityRepository {
   }): Promise<Activity> {
     return this.prisma.activity.create({ data });
   }
+
+  async clear(orgId: string): Promise<void> {
+    await this.prisma.activity.deleteMany({ where: { orgId } });
+  }
 }

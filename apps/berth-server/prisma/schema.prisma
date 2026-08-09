@@ -143,6 +143,7 @@ model Server {
   cpuCores          Int         @default(1)
   memoryMb          Int         @default(1024)
   diskGb            Int         @default(20)
+  diskUsedGb        Float       @default(0)
   status            AgentStatus @default(enrolling)
   isLocal           Boolean     @default(false)
   bootstrapToken    String?     @unique
@@ -179,6 +180,7 @@ model Service {
   cpuCores         Float      @default(1)
   memoryMb         Int        @default(1024)
   cpuShares        Int?
+  diskGb           Int?
   replicas         Int        @default(1)
   domain           String?
   templateKind     String?
@@ -188,6 +190,7 @@ model Service {
   volumePath       String?
   specHash         String?
   lastDeployedAt   DateTime?
+  lastSmartResourceAt DateTime?
   createdAt        DateTime   @default(now())
 
   org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)

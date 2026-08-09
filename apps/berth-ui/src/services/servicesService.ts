@@ -1,5 +1,11 @@
 import { BaseApiClient } from '@/services/baseApiClient';
-import type { Connection, LogLine, MetricPoint, Service } from '@/interfaces';
+import type {
+  Connection,
+  LogLine,
+  MetricPeak,
+  MetricPoint,
+  Service,
+} from '@/interfaces';
 import type { EnvVar } from '@berth/protocol';
 
 export interface CreateServicePayload {
@@ -10,6 +16,9 @@ export interface CreateServicePayload {
   source?: Service['source'];
   domain?: string;
   template?: string;
+  username?: string;
+  password?: string;
+  diskGb?: number;
   publicNetworking?: boolean;
   env?: { key: string; value: string; isSecret?: boolean }[];
 }
@@ -42,6 +51,10 @@ class ServicesService extends BaseApiClient {
 
   metrics(id: string): Promise<MetricPoint[]> {
     return this.get<MetricPoint[]>(`/${id}/metrics`);
+  }
+
+  metricsPeak(id: string): Promise<MetricPeak> {
+    return this.get<MetricPeak>(`/${id}/metrics/peak`);
   }
 
   connection(id: string): Promise<Connection> {

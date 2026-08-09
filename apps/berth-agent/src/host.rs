@@ -10,7 +10,9 @@ pub fn collect_server_specs() -> ServerSpecs {
             .map(|value| value.get() as u32)
             .unwrap_or(1),
         memory_mb: linux_memory_mb().unwrap_or(0),
-        disk_gb: root_disk_gb().unwrap_or(0),
+        disk_gb: root_disk_usage_gb()
+            .map(|(_, total_gb)| total_gb as u64)
+            .unwrap_or(0),
         os: std::env::consts::OS.to_string(),
     }
 }
@@ -51,7 +53,8 @@ fn linux_memory_mb() -> Option<u64> {
     None
 }
 
-fn root_disk_gb() -> Option<u64> {
+/// Returns `(used_gb, total_gb)` for the root filesystem, via `df`.
+pub fn root_disk_usage_gb() -> Option<(f64, f64)> {
     let output = Command::new("df").args(["-k", "/"]).output().ok()?;
 
     if !output.status.success() {
@@ -60,10 +63,11 @@ fn root_disk_gb() -> Option<u64> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let line = stdout.lines().nth(1)?;
-    let available_kib = line
-        .split_whitespace()
-        .nth(3)
-        .and_then(|value| value.parse::<u64>().ok())?;
+    let fields: Vec<&str> = line.split_whitespace().collect();
+    let total_kib: f64 = fields.get(1)?.parse().ok()?;
+    let available_kib: f64 = fields.get(3)?.parse().ok()?;
+    let used_kib = (total_kib - available_kib).max(0.0);
+    let to_gb = |kib: f64| kib / 1024.0 / 1024.0;
 
-    Some(available_kib / 1024 / 1024)
+    Some((to_gb(used_kib), to_gb(total_kib)))
 }

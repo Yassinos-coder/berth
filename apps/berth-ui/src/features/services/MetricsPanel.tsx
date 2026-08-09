@@ -1,9 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkline } from '@/components/shared/Sparkline';
 import { Format } from '@/lib/format';
-import type { MetricPoint } from '@/interfaces';
+import type { MetricPeak, MetricPoint } from '@/interfaces';
 
-export function MetricsPanel({ points }: { points: MetricPoint[] }) {
+export function MetricsPanel({
+  points,
+  peak,
+}: {
+  points: MetricPoint[];
+  peak?: MetricPeak;
+}) {
   const cpu = points.map((p) => p.cpuPct);
   const mem = points.map((p) => p.memMb);
   const net = points.map((p) => (p.netRxMb ?? 0) + (p.netTxMb ?? 0));
@@ -11,8 +17,8 @@ export function MetricsPanel({ points }: { points: MetricPoint[] }) {
   const lastMem = mem.at(-1) ?? 0;
   const lastRx = points.at(-1)?.netRxMb ?? 0;
   const lastTx = points.at(-1)?.netTxMb ?? 0;
-  const peakCpu = cpu.length ? Math.max(...cpu) : 0;
-  const peakMem = mem.length ? Math.max(...mem) : 0;
+  const peakCpu = peak ? peak.cpuPct : cpu.length ? Math.max(...cpu) : 0;
+  const peakMem = peak ? peak.memMb : mem.length ? Math.max(...mem) : 0;
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -30,7 +36,7 @@ export function MetricsPanel({ points }: { points: MetricPoint[] }) {
             <Sparkline data={cpu} width={480} height={80} className="w-full" />
           </div>
           <p className="text-muted-foreground mt-2 text-xs">
-            Peak {Format.percent(peakCpu)} over last hour
+            Peak {Format.percent(peakCpu)} over last 24 hours
           </p>
         </CardContent>
       </Card>
@@ -56,7 +62,7 @@ export function MetricsPanel({ points }: { points: MetricPoint[] }) {
             />
           </div>
           <p className="text-muted-foreground mt-2 text-xs">
-            Peak {Format.bytes(peakMem)} over last hour
+            Peak {Format.bytes(peakMem)} over last 24 hours
           </p>
         </CardContent>
       </Card>

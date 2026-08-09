@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { Cpu, Globe, MemoryStick, Server } from 'lucide-react';
+import { Cpu, Gauge, Globe, MemoryStick, Server } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { ServiceStateBadge } from '@/components/shared/StatusBadge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { KIND_META, sourceSummary } from '@/features/services/serviceMeta';
 import { Format } from '@/lib/format';
 import type { Service } from '@/interfaces';
@@ -60,6 +61,21 @@ export function ServiceCard({
               </span>
             ) : null}
           </div>
+        ) : null}
+
+        {service.lastSmartResourceAt ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="border-warning/30 bg-warning/10 text-warning inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium">
+                <Gauge className="size-3" />
+                Auto-scaled
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              Smart resources raised the memory limit{' '}
+              {Format.relativeTime(service.lastSmartResourceAt)}
+            </TooltipContent>
+          </Tooltip>
         ) : null}
 
         <div className="border-border/60 text-muted-foreground flex items-center gap-4 border-t pt-3 text-xs">

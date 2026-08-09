@@ -28,18 +28,26 @@ export class DatabaseTemplateFactory {
     return Boolean(DATABASE_TEMPLATES[kind]);
   }
 
-  static build(kind: string, serviceName: string): GeneratedDatabase {
+  static build(
+    kind: string,
+    serviceName: string,
+    overrides?: { username?: string; password?: string },
+  ): GeneratedDatabase {
     const template = DATABASE_TEMPLATES[kind];
     if (!template) {
       throw new BadRequestException(`Unknown database template "${kind}"`);
     }
 
     const dbName = this.sanitize(serviceName);
-    const password = this.secret();
+    // Defaults to the sanitized service name rather than a fixed constant so
+    // that services sharing an SFTPGo gateway (buckets) don't collide on
+    // username when nobody sets a custom one.
+    const username = overrides?.username?.trim() || dbName;
+    const password = overrides?.password?.trim() || this.secret();
     const env: GeneratedEnvVar[] = [];
 
     if (template.usernameEnv) {
-      env.push({ key: template.usernameEnv, value: 'berth', isSecret: false });
+      env.push({ key: template.usernameEnv, value: username, isSecret: false });
     }
     if (template.passwordEnv) {
       env.push({ key: template.passwordEnv, value: password, isSecret: true });

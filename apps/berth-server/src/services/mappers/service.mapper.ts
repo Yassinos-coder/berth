@@ -19,6 +19,7 @@ export class ServiceMapper {
         memoryMb: service.memoryMb,
         cpuShares: service.cpuShares ?? undefined,
       },
+      diskGb: service.diskGb ?? undefined,
       replicas: service.replicas,
       domain: service.domain ?? undefined,
       templateKind: service.templateKind ?? undefined,
@@ -26,6 +27,7 @@ export class ServiceMapper {
       internalDomains: service.internalDomains,
       usage: { cpuPct: 0, memMb: 0 },
       lastDeployedAt: service.lastDeployedAt?.toISOString(),
+      lastSmartResourceAt: service.lastSmartResourceAt?.toISOString(),
       createdAt: service.createdAt.toISOString(),
     };
   }

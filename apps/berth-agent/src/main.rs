@@ -6,6 +6,7 @@ mod enroll;
 mod host;
 mod panel;
 mod protocol;
+mod sftpgo;
 mod telemetry;
 mod tls;
 mod validators;

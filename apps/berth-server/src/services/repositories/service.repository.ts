@@ -64,6 +64,7 @@ export class ServiceRepository {
     cpuCores: number;
     memoryMb: number;
     cpuShares?: number;
+    diskGb?: number;
     domain?: string;
     templateKind?: string;
     containerPort?: number;

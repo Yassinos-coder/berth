@@ -13,6 +13,9 @@ pub const LABEL_SPEC_HASH: &str = "berth.spec_hash";
 pub const BERTH_NETWORK: &str = "berth";
 const CADDY_CONTAINER: &str = "berth-caddy";
 const CADDY_CONFIG_DIR: &str = "/var/lib/berth/caddy";
+const SFTPGO_CONTAINER: &str = "berth-sftpgo";
+const SFTPGO_MINIO_PORT: u16 = 9000;
+const SFTPGO_BUCKET_NAME: &str = "bucket";
 
 pub type AgentResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -192,6 +195,10 @@ impl DockerReconciler {
             eprintln!("[berth-agent] proxy reconcile failed: {error}");
         }
 
+        if let Err(error) = self.ensure_sftpgo(desired).await {
+            eprintln!("[berth-agent] sftpgo reconcile failed: {error}");
+        }
+
         Ok(ReconcileOutcome {
             applied,
             failed,
@@ -262,6 +269,129 @@ impl DockerReconciler {
             "run",
             "--config",
             "/etc/berth-caddy/caddy.json",
+        ])
+        .await?;
+        Ok(())
+    }
+
+    /// Provisions SFTP access for `bucket`-templated services: ensures the
+    /// shared `berth-sftpgo` gateway container is running, makes sure each
+    /// bucket's MinIO instance actually has a bucket to serve, and syncs one
+    /// SFTPGo user per bucket via its REST API (same username/password as
+    /// the bucket's S3 credentials).
+    async fn ensure_sftpgo(&self, desired: &[ServiceSpec]) -> AgentResult<()> {
+        let buckets: Vec<&ServiceSpec> = desired
+            .iter()
+            .filter(|spec| spec.template_kind.as_deref() == Some("minio"))
+            .collect();
+
+        if buckets.is_empty() {
+            let _ = self.docker(&["rm", "-f", SFTPGO_CONTAINER]).await;
+            return Ok(());
+        }
+
+        self.ensure_network().await?;
+        let admin_password = crate::sftpgo::ensure_admin_secret().await?;
+
+        if !self.container_running(SFTPGO_CONTAINER).await {
+            let _ = self.docker(&["rm", "-f", SFTPGO_CONTAINER]).await;
+            self.docker(&[
+                "run",
+                "-d",
+                "--name",
+                SFTPGO_CONTAINER,
+                "--label",
+                &format!("{LABEL_MANAGED}=true"),
+                "--label",
+                "berth.role=sftpgo",
+                "--restart",
+                "unless-stopped",
+                "--network",
+                BERTH_NETWORK,
+                "-p",
+                "2022:2022",
+                "-v",
+                "berth-sftpgo-data:/srv/sftpgo/data",
+                "-v",
+                "berth-sftpgo-config:/var/lib/sftpgo",
+                "-e",
+                "SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN=true",
+                "-e",
+                &format!("SFTPGO_DEFAULT_ADMIN_USERNAME={}", crate::sftpgo::ADMIN_USERNAME),
+                "-e",
+                &format!("SFTPGO_DEFAULT_ADMIN_PASSWORD={admin_password}"),
+                "drakkan/sftpgo:latest",
+            ])
+            .await?;
+            // Give the API a moment to come up before the first sync below.
+            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        }
+
+        let mut entries = Vec::new();
+        for spec in &buckets {
+            let (Some(user), Some(pass)) = (
+                env_value(spec, "MINIO_ROOT_USER"),
+                env_value(spec, "MINIO_ROOT_PASSWORD"),
+            ) else {
+                continue;
+            };
+            let endpoint = format!("http://{}:{SFTPGO_MINIO_PORT}", container_name(&spec.id));
+
+            if let Err(error) = self
+                .ensure_bucket(&endpoint, &user, &pass, SFTPGO_BUCKET_NAME)
+                .await
+            {
+                eprintln!(
+                    "[berth-agent] sftpgo: bucket create failed for {}: {error}",
+                    spec.id
+                );
+                continue;
+            }
+
+            entries.push(crate::sftpgo::BucketUser {
+                username: user,
+                password: pass,
+                endpoint,
+                bucket: SFTPGO_BUCKET_NAME.to_string(),
+            });
+        }
+
+        if let Err(error) = crate::sftpgo::sync_users(&admin_password, &entries).await {
+            eprintln!("[berth-agent] sftpgo: user sync failed: {error}");
+        }
+
+        Ok(())
+    }
+
+    /// Idempotently creates `bucket` inside a bucket service's own MinIO
+    /// instance via a one-shot `minio/mc` container — a fresh `minio/minio`
+    /// server has no buckets until one is created.
+    async fn ensure_bucket(
+        &self,
+        endpoint: &str,
+        user: &str,
+        pass: &str,
+        bucket: &str,
+    ) -> AgentResult<()> {
+        let mut alias_url = reqwest::Url::parse(endpoint)?;
+        alias_url
+            .set_username(user)
+            .map_err(|_| "invalid MinIO username")?;
+        alias_url
+            .set_password(Some(pass))
+            .map_err(|_| "invalid MinIO password")?;
+
+        self.docker(&[
+            "run",
+            "--rm",
+            "--network",
+            BERTH_NETWORK,
+            "-e",
+            &format!("MC_HOST_b={alias_url}"),
+            "minio/mc",
+            "mb",
+            "--ignore-existing",
+            &format!("b/{bucket}"),
         ])
         .await?;
         Ok(())
@@ -578,6 +708,13 @@ impl DockerReconciler {
 
 fn container_name(service_id: &str) -> String {
     format!("berth-{service_id}")
+}
+
+fn env_value(spec: &ServiceSpec, key: &str) -> Option<String> {
+    spec.env
+        .iter()
+        .find(|item| item.key == key)
+        .map(|item| item.value.clone())
 }
 
 fn redact_credentials(message: &str) -> String {
