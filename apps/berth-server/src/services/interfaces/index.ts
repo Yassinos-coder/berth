@@ -37,6 +37,8 @@ export interface ServiceDto {
   domain?: string;
   templateKind?: string;
   containerPort?: number;
+  registryCredentialId?: string;
+  targetPlatform?: string;
   internalDomains: string[];
   usage: { cpuPct: number; memMb: number };
   lastDeployedAt?: string;

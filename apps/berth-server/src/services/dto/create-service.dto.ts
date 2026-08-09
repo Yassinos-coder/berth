@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsArray,
   IsEnum,
   IsIn,
   IsInt,
@@ -118,6 +119,15 @@ export class CreateServiceDto {
   @IsOptional()
   @IsBoolean()
   publicNetworking?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  containerPort?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  command?: string[];
 
   @IsOptional()
   @IsInt()

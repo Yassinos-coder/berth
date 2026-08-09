@@ -23,6 +23,7 @@ import { ActivityService } from '../../activity/activity.service';
 import { AgentRegistry } from '../../agent-gateway/registry/agent-registry.service';
 import { TelemetryBuffer } from '../../agent-gateway/buffers/telemetry-buffer.service';
 import { SecretCipher } from '../../common/crypto/secret-cipher.service';
+import { RegistryCredentialRepository } from '../../registry-credentials/repositories/registry-credential.repository';
 import { CreateServiceDto } from '../dto/create-service.dto';
 import { UpdateServiceDto } from '../dto/update-service.dto';
 import type { AuthenticatedUser } from '../../common/interfaces';
@@ -63,6 +64,7 @@ export class ServicesService {
     private readonly registry: AgentRegistry,
     private readonly telemetry: TelemetryBuffer,
     private readonly cipher: SecretCipher,
+    private readonly registryCredentials: RegistryCredentialRepository,
   ) {}
 
   async list(orgId: string): Promise<ServiceDto[]> {
@@ -149,6 +151,23 @@ export class ServicesService {
       );
     }
 
+    let registryCredentialId: string | null | undefined;
+    if (dto.registryCredentialId !== undefined) {
+      const trimmed = dto.registryCredentialId.trim();
+      if (trimmed.length === 0) {
+        registryCredentialId = null;
+      } else {
+        const credential = await this.registryCredentials.findById(
+          user.orgId,
+          trimmed,
+        );
+        if (!credential) {
+          throw new BadRequestException('Registry credential not found');
+        }
+        registryCredentialId = trimmed;
+      }
+    }
+
     const name = dto.name?.trim();
     const updated = await this.repository.updateBuildConfig(user.orgId, id, {
       name: name && name.length > 0 ? name : undefined,
@@ -157,6 +176,8 @@ export class ServicesService {
       startCommand: emptyToNull(dto.startCommand),
       dockerfilePath: emptyToNull(dto.dockerfilePath),
       builder: dto.builder as Builder | undefined,
+      registryCredentialId,
+      targetPlatform: dto.targetPlatform,
     });
     if (!updated) throw new NotFoundException('Service not found');
 
@@ -343,6 +364,8 @@ export class ServicesService {
       cpuShares: dto.resources.cpuShares,
       diskGb: dto.diskGb,
       publicNetworking: dto.publicNetworking ?? false,
+      containerPort: dto.containerPort,
+      command: dto.command,
       env: this.encryptEnv(
         (dto.env ?? []).map((item) => ({
           key: item.key,

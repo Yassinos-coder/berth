@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Role, User } from '@prisma/client';
+import { MemberStatus, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -44,5 +44,47 @@ export class UserRepository {
 
   create(data: Prisma.UserCreateInput): Promise<User> {
     return this.prisma.user.create({ data });
+  }
+
+  setTotpSecret(userId: string, encryptedSecret: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { totpSecret: encryptedSecret },
+    });
+  }
+
+  enableTotp(userId: string, recoveryCodeHashes: string[]): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { totpEnabled: true, recoveryCodeHashes },
+    });
+  }
+
+  disableTotp(userId: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { totpEnabled: false, totpSecret: null, recoveryCodeHashes: [] },
+    });
+  }
+
+  setRecoveryCodeHashes(userId: string, hashes: string[]): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { recoveryCodeHashes: hashes },
+    });
+  }
+
+  setPasswordAndActivate(userId: string, passwordHash: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, status: MemberStatus.active },
+    });
+  }
+
+  updatePassword(userId: string, passwordHash: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
   }
 }

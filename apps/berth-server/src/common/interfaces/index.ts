@@ -4,6 +4,13 @@ export interface JwtPayload {
   sub: string;
   orgId: string;
   role: Role;
+  type?: 'session';
+  sid?: string;
+}
+
+export interface MfaChallengePayload {
+  sub: string;
+  type: 'mfa_challenge';
 }
 
 export interface AuthenticatedUser {

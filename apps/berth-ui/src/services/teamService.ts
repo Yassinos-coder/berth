@@ -6,6 +6,11 @@ export interface InviteMemberPayload {
   role: Role;
 }
 
+export interface InviteMemberResult {
+  member: Member;
+  inviteToken: string;
+}
+
 class TeamService extends BaseApiClient {
   protected resource = 'team';
 
@@ -13,8 +18,8 @@ class TeamService extends BaseApiClient {
     return this.get<Member[]>();
   }
 
-  invite(payload: InviteMemberPayload): Promise<Member> {
-    return this.post<Member>('/invite', payload);
+  invite(payload: InviteMemberPayload): Promise<InviteMemberResult> {
+    return this.post<InviteMemberResult>('/invite', payload);
   }
 
   updateRole(id: string, role: Role): Promise<Member> {

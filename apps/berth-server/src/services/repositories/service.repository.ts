@@ -106,6 +106,8 @@ export class ServiceRepository {
       startCommand?: string | null;
       dockerfilePath?: string | null;
       builder?: Builder;
+      registryCredentialId?: string | null;
+      targetPlatform?: string | null;
     },
   ): Promise<ServiceWithServer | null> {
     const result = await this.prisma.service.updateMany({

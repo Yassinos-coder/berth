@@ -3,6 +3,9 @@ import { AppShell } from '@/layout/AppShell';
 import { RequireAuth } from '@/layout/RequireAuth';
 import { LoginPage } from '@/pages/LoginPage';
 import { OnboardingPage } from '@/pages/OnboardingPage';
+import { AcceptInvitePage } from '@/pages/AcceptInvitePage';
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { ServicesPage } from '@/pages/ServicesPage';
 import { NewServicePage } from '@/pages/NewServicePage';
@@ -15,6 +18,7 @@ import { TemplatesPage } from '@/pages/TemplatesPage';
 import { TeamPage } from '@/pages/TeamPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { PublicStatusPage } from '@/pages/PublicStatusPage';
 
 export function App() {
   return (
@@ -22,6 +26,10 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/setup" element={<OnboardingPage />} />
       <Route path="/onboarding" element={<Navigate to="/setup" replace />} />
+      <Route path="/accept-invite" element={<AcceptInvitePage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/status/:slug" element={<PublicStatusPage />} />
 
       <Route
         element={

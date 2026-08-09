@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { EnvVar, Service } from '@prisma/client';
+import { EnvVar, RegistryCredential, Service } from '@prisma/client';
 import type { PanelRoute, ProxyRoute } from '@berth/protocol';
 import { PrismaService } from '../../prisma/prisma.service';
 
-export type ServiceWithEnv = Service & { envVars: EnvVar[] };
+export type ServiceWithEnv = Service & {
+  envVars: EnvVar[];
+  registryCredential: RegistryCredential | null;
+};
 
 @Injectable()
 export class ReconcileRepository {
@@ -12,7 +15,7 @@ export class ReconcileRepository {
   servicesForServer(serverId: string): Promise<ServiceWithEnv[]> {
     return this.prisma.service.findMany({
       where: { serverId },
-      include: { envVars: true },
+      include: { envVars: true, registryCredential: true },
     });
   }
 

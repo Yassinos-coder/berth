@@ -1,8 +1,10 @@
 #![forbid(unsafe_code)]
 
+mod backup;
 mod config;
 mod docker;
 mod enroll;
+mod exec;
 mod host;
 mod panel;
 mod protocol;

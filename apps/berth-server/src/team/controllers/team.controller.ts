@@ -9,7 +9,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { TeamService } from '../services/team.service';
+import { TeamService, InviteResult } from '../services/team.service';
 import { InviteMemberDto, UpdateRoleDto } from '../dto/invite-member.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -30,7 +30,7 @@ export class TeamController {
   invite(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: InviteMemberDto,
-  ): Promise<MemberDto> {
+  ): Promise<InviteResult> {
     return this.teamService.invite(user, dto.email, dto.role);
   }
 

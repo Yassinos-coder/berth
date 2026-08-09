@@ -30,6 +30,8 @@ export interface UpdateServicePayload {
   startCommand?: string;
   dockerfilePath?: string;
   builder?: 'auto' | 'nixpacks' | 'dockerfile';
+  registryCredentialId?: string;
+  targetPlatform?: 'linux/amd64' | 'linux/arm64';
 }
 
 export type ServiceAction = 'start' | 'stop' | 'restart' | 'redeploy';

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-08-09
+
+### Added
+- Account security: TOTP two-factor authentication with recovery codes, scoped personal API tokens, active-session listing and revocation, private registry credentials, and verified invite/password-reset token flows.
+- Managed database and bucket backup/restore to S3-compatible storage, including encrypted backup targets, agent-side execution, history, and restore controls.
+- Slack, Discord, email, and signed generic webhook notification channels for deployments, crashes, backups, and restores.
+- Authenticated browser container terminals, plus persisted five-field cron schedules and one-off command runs with captured output and exit status.
+- The `berth` CLI with deploy, logs, interactive shell, and environment-variable commands.
+- Docker Compose import for image services, environment variables, commands, and exposed ports.
+- First-class production, staging, and preview environments with service assignment support.
+- Public OpenAPI documentation at `/api/openapi.json` and `/api/docs`, plus typed, HMAC-signed outbound deployment webhooks.
+- Per-service `linux/amd64` and `linux/arm64` target selection for Docker builds and container runs.
+- Encrypted GitLab and Bitbucket source credentials matched by repository host.
+- MariaDB, TimescaleDB, CouchDB, Valkey, and KeyDB marketplace templates.
+- Organization-scoped security audit events for authenticated mutations.
+- Public status pages with service health, overall status, and incident history.
+
+### Changed
+- The UI reverse proxy now forwards WebSocket upgrade headers for terminal sessions.
+- Generic webhooks include an `X-Berth-Event` header and typed deployment/service event names.
+
+### Security
+- Session JWTs are backed by revocable persisted sessions, and MFA challenge tokens cannot access authenticated APIs.
+- Registry, backup-target, SMTP, and source-provider credentials are encrypted at rest and omitted from API responses.
+
 ## [0.10.3] - 2026-08-09
 
 ### Added

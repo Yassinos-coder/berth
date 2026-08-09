@@ -25,4 +25,12 @@ export class UpdateServiceDto {
   @IsOptional()
   @IsIn(['auto', 'nixpacks', 'dockerfile'])
   builder?: 'auto' | 'nixpacks' | 'dockerfile';
+
+  @IsOptional()
+  @IsString()
+  registryCredentialId?: string;
+
+  @IsOptional()
+  @IsIn(['linux/amd64', 'linux/arm64'])
+  targetPlatform?: 'linux/amd64' | 'linux/arm64';
 }

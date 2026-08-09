@@ -63,6 +63,8 @@ export interface Service {
   domain?: string;
   templateKind?: string;
   containerPort?: number;
+  registryCredentialId?: string;
+  targetPlatform?: 'linux/amd64' | 'linux/arm64';
   internalDomains: string[];
   usage: ServiceUsage;
   lastDeployedAt?: string;
@@ -223,6 +225,89 @@ export interface ProxyHost {
   ssl: boolean;
   forceHttps: boolean;
   createdAt: string;
+}
+
+export interface TotpStatus {
+  enabled: boolean;
+}
+
+export interface ApiToken {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export interface CreatedApiToken extends ApiToken {
+  token: string;
+}
+
+export type NotificationChannelKind = 'slack' | 'discord' | 'webhook' | 'email';
+
+export interface NotificationChannel {
+  id: string;
+  name: string;
+  kind: NotificationChannelKind;
+  enabled: boolean;
+  webhookUrl?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  emailFrom?: string;
+  emailTo?: string;
+  createdAt: string;
+}
+
+export interface BackupTarget {
+  id: string;
+  name: string;
+  endpoint: string;
+  bucket: string;
+  region: string;
+  accessKeyId: string;
+  createdAt: string;
+}
+
+export type BackupStatus = 'running' | 'success' | 'failed';
+
+export interface Backup {
+  id: string;
+  serviceId: string;
+  backupTargetId: string;
+  backupTargetName: string;
+  status: BackupStatus;
+  sizeBytes?: number;
+  errorMessage?: string;
+  startedAt: string;
+  finishedAt?: string;
+}
+
+export interface RegistryCredential {
+  id: string;
+  name: string;
+  server: string;
+  username: string;
+  createdAt: string;
+}
+
+export interface ActiveSession {
+  id: string;
+  userAgent: string;
+  ip: string;
+  createdAt: string;
+  lastSeenAt: string;
+  current: boolean;
+}
+
+export interface TotpSetup {
+  otpauthUrl: string;
+  qrCodeDataUrl: string;
+}
+
+export interface RecoveryCodes {
+  recoveryCodes: string[];
 }
 
 export type { ServiceSpec, ServiceSource, ServiceState, ResourceLimits };

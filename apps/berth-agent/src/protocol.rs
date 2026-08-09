@@ -20,6 +20,18 @@ pub struct ServiceSpec {
     pub replicas: u32,
     #[serde(rename = "templateKind")]
     pub template_kind: Option<String>,
+    #[serde(default)]
+    pub registry_auth: Option<RegistryAuth>,
+    #[serde(default)]
+    pub target_platform: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryAuth {
+    pub server: String,
+    pub username: String,
+    pub password: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -175,6 +187,63 @@ pub enum PanelToAgent {
         service_id: Option<String>,
     },
     SelfUpdate,
+    RunBackup {
+        #[serde(rename = "serviceId")]
+        service_id: String,
+        #[serde(rename = "backupId")]
+        backup_id: String,
+        #[serde(rename = "containerName")]
+        container_name: String,
+        #[serde(rename = "dumpCommand")]
+        dump_command: String,
+        target: BackupTarget,
+        #[serde(rename = "objectKey")]
+        object_key: String,
+    },
+    RunRestore {
+        #[serde(rename = "serviceId")]
+        service_id: String,
+        #[serde(rename = "containerName")]
+        container_name: String,
+        #[serde(rename = "restoreCommand")]
+        restore_command: String,
+        target: BackupTarget,
+        #[serde(rename = "objectKey")]
+        object_key: String,
+    },
+    ExecStart {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "containerName")]
+        container_name: String,
+    },
+    ExecInput {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        data: String,
+    },
+    ExecStop {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+    },
+    RunCommand {
+        #[serde(rename = "runId")]
+        run_id: String,
+        #[serde(rename = "containerName")]
+        container_name: String,
+        command: Vec<String>,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupTarget {
+    pub endpoint: String,
+    pub bucket: String,
+    #[serde(default)]
+    pub region: Option<String>,
+    pub access_key_id: String,
+    pub secret_access_key: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -227,5 +296,37 @@ pub enum AgentToPanel {
     ReconcileResult {
         applied: Vec<String>,
         failed: Vec<FailedApply>,
+    },
+    BackupResult {
+        #[serde(rename = "backupId")]
+        backup_id: String,
+        success: bool,
+        #[serde(rename = "sizeBytes")]
+        size_bytes: Option<u64>,
+        error: Option<String>,
+    },
+    RestoreResult {
+        #[serde(rename = "serviceId")]
+        service_id: String,
+        success: bool,
+        error: Option<String>,
+    },
+    ExecOutput {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        data: String,
+    },
+    ExecExit {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "exitCode")]
+        exit_code: Option<i32>,
+    },
+    CommandResult {
+        #[serde(rename = "runId")]
+        run_id: String,
+        output: String,
+        #[serde(rename = "exitCode")]
+        exit_code: Option<i32>,
     },
 }

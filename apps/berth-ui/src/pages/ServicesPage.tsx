@@ -18,6 +18,7 @@ import {
 import { useServices } from '@/hooks/useServicesQueries';
 import { useProxyHosts } from '@/hooks/useProxyHostsQueries';
 import type { ServiceKind } from '@/interfaces';
+import { ComposeImportDialog } from '@/features/services/ComposeImportDialog';
 
 export function ServicesPage() {
   const { data, isLoading, isError, error, refetch } = useServices();
@@ -51,12 +52,12 @@ export function ServicesPage() {
         title="Services"
         description="Every deployable is a ServiceSpec — apps, databases, buckets."
         actions={
-          <Button asChild>
+          <div className="flex gap-2"><ComposeImportDialog /><Button asChild>
             <Link to="/services/new">
               <Plus className="size-4" />
               New service
             </Link>
-          </Button>
+          </Button></div>
         }
       />
 

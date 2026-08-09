@@ -10,14 +10,24 @@ import { ActivityKind, Role } from '@prisma/client';
 import { MemberRepository } from '../repositories/member.repository';
 import { MemberMapper } from '../mappers/member.mapper';
 import { ActivityService } from '../../activity/activity.service';
+import { InviteTokenRepository } from '../../auth/repositories/invite-token.repository';
+import { OpaqueTokenGenerator } from '../../common/utils/opaque-token.util';
 import type { AuthenticatedUser } from '../../common/interfaces';
 import type { MemberDto } from '../interfaces';
+
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface InviteResult {
+  member: MemberDto;
+  inviteToken: string;
+}
 
 @Injectable()
 export class TeamService {
   constructor(
     private readonly repository: MemberRepository,
     private readonly activityService: ActivityService,
+    private readonly inviteTokens: InviteTokenRepository,
   ) {}
 
   async list(orgId: string): Promise<MemberDto[]> {
@@ -29,7 +39,7 @@ export class TeamService {
     user: AuthenticatedUser,
     email: string,
     role: Role,
-  ): Promise<MemberDto> {
+  ): Promise<InviteResult> {
     const normalized = email.toLowerCase();
     const existing = await this.repository.findByEmail(normalized);
     if (existing) throw new BadRequestException('That email is already a member');
@@ -43,13 +53,20 @@ export class TeamService {
       passwordHash: placeholderHash,
     });
 
+    const { token, tokenHash } = OpaqueTokenGenerator.generate();
+    await this.inviteTokens.replace(
+      member.id,
+      tokenHash,
+      new Date(Date.now() + INVITE_TTL_MS),
+    );
+
     await this.activityService.record(user.orgId, {
       kind: ActivityKind.member,
       title: `${normalized} invited`,
       detail: `Role: ${role}`,
       actor: user.id,
     });
-    return MemberMapper.toDto(member);
+    return { member: MemberMapper.toDto(member), inviteToken: token };
   }
 
   async updateRole(

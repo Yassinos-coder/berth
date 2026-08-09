@@ -24,6 +24,8 @@ export class ServiceMapper {
       domain: service.domain ?? undefined,
       templateKind: service.templateKind ?? undefined,
       containerPort: service.containerPort ?? undefined,
+      registryCredentialId: service.registryCredentialId ?? undefined,
+      targetPlatform: service.targetPlatform ?? undefined,
       internalDomains: service.internalDomains,
       usage: { cpuPct: 0, memMb: 0 },
       lastDeployedAt: service.lastDeployedAt?.toISOString(),

@@ -77,6 +77,31 @@ enum ActivityKind {
   system
 }
 
+enum BackupStatus {
+  running
+  success
+  failed
+}
+
+enum NotificationChannelKind {
+  slack
+  discord
+  webhook
+  email
+}
+
+enum GitProvider {
+  gitlab
+  bitbucket
+}
+
+enum JobRunStatus {
+  queued
+  running
+  success
+  failed
+}
+
 model Organization {
   id                   String   @id @default(cuid())
   name                 String
@@ -91,6 +116,40 @@ model Organization {
   activities  Activity[]
   github      GithubInstallation?
   proxyHosts  ProxyHost[]
+  apiTokens   ApiToken[]
+  sessions    Session[]
+  registryCredentials RegistryCredential[]
+  backupTargets BackupTarget[]
+  backups       Backup[]
+  notificationChannels NotificationChannel[]
+  jobs                 ScheduledJob[]
+  jobRuns              JobRun[]
+  environments         Environment[]
+  sourceCredentials    SourceCredential[]
+  auditEvents          AuditEvent[]
+  statusPages          StatusPage[]
+}
+
+model NotificationChannel {
+  id                    String                  @id @default(cuid())
+  orgId                 String
+  name                  String
+  kind                  NotificationChannelKind
+  enabled               Boolean                 @default(true)
+  webhookUrl            String?
+  webhookSecret         String?
+  smtpHost              String?
+  smtpPort              Int?
+  smtpSecure            Boolean?
+  smtpUser              String?
+  smtpPasswordEncrypted String?
+  emailFrom             String?
+  emailTo               String?
+  createdAt             DateTime                @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
 }
 
 model GithubInstallation {
@@ -116,20 +175,83 @@ model GithubApp {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  orgId        String
-  name         String
-  email        String       @unique
-  passwordHash String
-  role         Role         @default(viewer)
-  status       MemberStatus @default(active)
-  avatarUrl    String?
-  lastActiveAt DateTime     @default(now())
-  createdAt    DateTime     @default(now())
+  id                 String       @id @default(cuid())
+  orgId              String
+  name               String
+  email              String       @unique
+  passwordHash       String
+  role               Role         @default(viewer)
+  status             MemberStatus @default(active)
+  avatarUrl          String?
+  totpSecret         String?
+  totpEnabled        Boolean      @default(false)
+  recoveryCodeHashes String[]     @default([])
+  lastActiveAt       DateTime     @default(now())
+  createdAt          DateTime     @default(now())
 
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org                 Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  apiTokens           ApiToken[]
+  sessions            Session[]
+  inviteToken         InviteToken?
+  passwordResetTokens PasswordResetToken[]
 
   @@index([orgId])
+}
+
+model InviteToken {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  orgId      String
+  userId     String
+  userAgent  String   @default("")
+  ip         String   @default("")
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([userId])
+}
+
+model ApiToken {
+  id          String    @id @default(cuid())
+  orgId       String
+  userId      String
+  name        String
+  tokenHash   String    @unique
+  tokenPrefix String
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([userId])
 }
 
 model Server {
@@ -191,16 +313,202 @@ model Service {
   specHash         String?
   lastDeployedAt   DateTime?
   lastSmartResourceAt DateTime?
+  registryCredentialId String?
+  environmentId        String?
+  targetPlatform       String?
   createdAt        DateTime   @default(now())
 
-  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  server      Server       @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  envVars     EnvVar[]
-  deployments Deployment[]
-  proxyHosts  ProxyHost[]
+  org                Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  server             Server              @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  registryCredential RegistryCredential? @relation(fields: [registryCredentialId], references: [id], onDelete: SetNull)
+  environment        Environment?        @relation(fields: [environmentId], references: [id], onDelete: SetNull)
+  envVars            EnvVar[]
+  deployments        Deployment[]
+  proxyHosts         ProxyHost[]
+  backups            Backup[]
+  jobs               ScheduledJob[]
+  jobRuns            JobRun[]
 
   @@index([orgId])
   @@index([serverId])
+  @@index([registryCredentialId])
+  @@index([environmentId])
+}
+
+model StatusPage {
+  id          String   @id @default(cuid())
+  orgId       String
+  slug        String   @unique
+  title       String
+  description String   @default("")
+  serviceIds  String[] @default([])
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  incidents StatusIncident[]
+
+  @@index([orgId])
+}
+
+model StatusIncident {
+  id         String   @id @default(cuid())
+  statusPageId String
+  title      String
+  message    String
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  resolvedAt DateTime?
+
+  statusPage StatusPage @relation(fields: [statusPageId], references: [id], onDelete: Cascade)
+
+  @@index([statusPageId, createdAt])
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  orgId     String
+  actorId   String
+  action    String
+  resource  String
+  ip        String   @default("")
+  userAgent String   @default("")
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@index([actorId])
+}
+
+model SourceCredential {
+  id             String      @id @default(cuid())
+  orgId          String
+  provider       GitProvider
+  name           String
+  host           String
+  username       String
+  tokenEncrypted String
+  createdAt      DateTime    @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, provider, host])
+  @@index([orgId])
+}
+
+model Environment {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  slug        String
+  isProduction Boolean @default(false)
+  preview     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  services Service[]
+
+  @@unique([orgId, slug])
+  @@index([orgId])
+}
+
+model ScheduledJob {
+  id        String   @id @default(cuid())
+  orgId     String
+  serviceId String
+  name      String
+  command   String[]
+  cron      String
+  timezone  String   @default("UTC")
+  enabled   Boolean  @default(true)
+  lastRunAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  service Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  runs    JobRun[]
+
+  @@index([orgId])
+  @@index([serviceId])
+  @@index([enabled])
+}
+
+model JobRun {
+  id          String       @id @default(cuid())
+  orgId       String
+  serviceId   String
+  jobId       String?
+  command     String[]
+  status      JobRunStatus @default(queued)
+  output      String       @default("")
+  exitCode    Int?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime     @default(now())
+
+  org     Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  service Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  job     ScheduledJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([serviceId])
+  @@index([jobId])
+}
+
+model BackupTarget {
+  id                       String   @id @default(cuid())
+  orgId                    String
+  name                     String
+  endpoint                 String
+  bucket                   String
+  region                   String   @default("")
+  accessKeyId              String
+  secretAccessKeyEncrypted String
+  createdAt                DateTime @default(now())
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  backups Backup[]
+
+  @@index([orgId])
+}
+
+model Backup {
+  id             String       @id @default(cuid())
+  orgId          String
+  serviceId      String
+  backupTargetId String
+  status         BackupStatus @default(running)
+  objectKey      String?
+  sizeBytes      BigInt?
+  errorMessage   String?
+  startedAt      DateTime     @default(now())
+  finishedAt     DateTime?
+
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  backupTarget BackupTarget @relation(fields: [backupTargetId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([serviceId])
+}
+
+model RegistryCredential {
+  id                String   @id @default(cuid())
+  orgId             String
+  name              String
+  server            String   @default("")
+  username          String
+  passwordEncrypted String
+  createdAt         DateTime @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  services Service[]
+
+  @@index([orgId])
 }
 
 model ProxyHost {

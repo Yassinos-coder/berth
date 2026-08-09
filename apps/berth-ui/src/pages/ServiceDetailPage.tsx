@@ -20,8 +20,13 @@ import { MetricsPanel } from '@/features/services/MetricsPanel';
 import { EnvironmentEditor } from '@/features/services/EnvironmentEditor';
 import { ConnectionPanel } from '@/features/services/ConnectionPanel';
 import { BuildSettings } from '@/features/services/BuildSettings';
+import { RegistryCredentialPicker } from '@/features/services/RegistryCredentialPicker';
+import { BackupsPanel } from '@/features/services/BackupsPanel';
 import { EditableServiceName } from '@/features/services/EditableServiceName';
 import { ServiceDomains } from '@/features/services/ServiceDomains';
+import { ServiceTerminal } from '@/features/services/ServiceTerminal';
+import { JobsPanel } from '@/features/services/JobsPanel';
+import { PlatformPicker } from '@/features/services/PlatformPicker';
 import {
   KIND_META,
   builderLabel,
@@ -53,6 +58,13 @@ import {
 } from '@/hooks/useServicesMutations';
 import { useServiceDeployments, useRollback } from '@/hooks/useDeploymentsQueries';
 import { Format } from '@/lib/format';
+
+const BACKUP_SUPPORTED_TEMPLATE_KINDS = new Set([
+  'postgres',
+  'mysql',
+  'mariadb',
+  'mongo',
+]);
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -148,15 +160,28 @@ export function ServiceDetailPage() {
                 ) : null}
                 <TabsTrigger value="deployments">Deployments</TabsTrigger>
                 <TabsTrigger value="logs">Logs</TabsTrigger>
+                <TabsTrigger value="terminal">Terminal</TabsTrigger>
+                <TabsTrigger value="jobs">Jobs</TabsTrigger>
                 <TabsTrigger value="metrics">Metrics</TabsTrigger>
                 <TabsTrigger value="env">Variables</TabsTrigger>
                 <TabsTrigger value="domains">Domains</TabsTrigger>
+                {svc.templateKind &&
+                BACKUP_SUPPORTED_TEMPLATE_KINDS.has(svc.templateKind) ? (
+                  <TabsTrigger value="backups">Backups</TabsTrigger>
+                ) : null}
                 <TabsTrigger value="settings">Settings</TabsTrigger>
               </TabsList>
 
               {svc.templateKind ? (
                 <TabsContent value="connect" className="mt-4">
                   <ConnectionPanel serviceId={svc.id} />
+                </TabsContent>
+              ) : null}
+
+              {svc.templateKind &&
+              BACKUP_SUPPORTED_TEMPLATE_KINDS.has(svc.templateKind) ? (
+                <TabsContent value="backups" className="mt-4">
+                  <BackupsPanel serviceId={svc.id} />
                 </TabsContent>
               ) : null}
 
@@ -271,6 +296,14 @@ export function ServiceDetailPage() {
                 </QueryBoundary>
               </TabsContent>
 
+              <TabsContent value="terminal" className="mt-4">
+                <ServiceTerminal serviceId={svc.id} />
+              </TabsContent>
+
+              <TabsContent value="jobs" className="mt-4">
+                <JobsPanel serviceId={svc.id} />
+              </TabsContent>
+
               <TabsContent value="metrics" className="mt-4">
                 <QueryBoundary
                   isLoading={metrics.isLoading}
@@ -295,6 +328,11 @@ export function ServiceDetailPage() {
                 {svc.source.kind === 'git' ? (
                   <BuildSettings serviceId={svc.id} build={svc.source.build} />
                 ) : null}
+                <RegistryCredentialPicker
+                  serviceId={svc.id}
+                  registryCredentialId={svc.registryCredentialId}
+                />
+                <PlatformPicker serviceId={svc.id} value={svc.targetPlatform} />
                 <Card className="border-destructive/30">
                   <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>

@@ -93,6 +93,22 @@ export const DATABASE_TEMPLATES: Record<string, DatabaseTemplate> = {
     usernameEnv: 'RABBITMQ_DEFAULT_USER',
     passwordEnv: 'RABBITMQ_DEFAULT_PASS',
   },
+  valkey: {
+    kind: 'valkey', image: 'valkey/valkey', defaultTag: '8-alpine', port: 6379,
+    scheme: 'redis', volumePath: '/data', passwordEnv: 'REDIS_PASSWORD', usesCommandPassword: true,
+  },
+  keydb: {
+    kind: 'keydb', image: 'eqalpha/keydb', defaultTag: 'alpine', port: 6379,
+    scheme: 'redis', volumePath: '/data', passwordEnv: 'REDIS_PASSWORD', usesCommandPassword: true,
+  },
+  couchdb: {
+    kind: 'couchdb', image: 'couchdb', defaultTag: '3', port: 5984,
+    scheme: 'http', volumePath: '/opt/couchdb/data', usernameEnv: 'COUCHDB_USER', passwordEnv: 'COUCHDB_PASSWORD',
+  },
+  timescaledb: {
+    kind: 'timescaledb', image: 'timescale/timescaledb', defaultTag: 'latest-pg16', port: 5432,
+    scheme: 'postgresql', volumePath: '/var/lib/postgresql/data', usernameEnv: 'POSTGRES_USER', passwordEnv: 'POSTGRES_PASSWORD', databaseEnv: 'POSTGRES_DB',
+  },
 };
 
 const IMAGE_ALIASES: Record<string, string> = {
@@ -105,6 +121,10 @@ const IMAGE_ALIASES: Record<string, string> = {
   redis: 'redis',
   minio: 'minio',
   rabbitmq: 'rabbitmq',
+  valkey: 'valkey',
+  keydb: 'keydb',
+  couchdb: 'couchdb',
+  timescaledb: 'timescaledb',
 };
 
 export function matchDatabaseTemplate(

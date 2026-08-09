@@ -1,11 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AgentStatus, DeploymentStatus, ServiceState } from '@prisma/client';
+import {
+  ActivityKind,
+  AgentStatus,
+  BackupStatus,
+  DeploymentStatus,
+  JobRunStatus,
+  ServiceState,
+} from '@prisma/client';
 import type { AgentToPanel, ServerSpecs } from '@berth/protocol';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TelemetryBuffer } from '../buffers/telemetry-buffer.service';
 import type { AppConfig } from '../../config/configuration';
 import { SmartResourceService } from '../resources/smart-resource.service';
+import { ActivityService } from '../../activity/activity.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
+import { ExecSessionService } from '../exec/exec-session.service';
 
 @Injectable()
 export class AgentMessageHandler {
@@ -16,6 +26,9 @@ export class AgentMessageHandler {
     private readonly telemetry: TelemetryBuffer,
     private readonly config: ConfigService<AppConfig, true>,
     private readonly smartResources: SmartResourceService,
+    private readonly activityService: ActivityService,
+    private readonly notifications: NotificationsService,
+    private readonly exec: ExecSessionService,
   ) {}
 
   async handle(serverId: string, message: AgentToPanel): Promise<void> {
@@ -68,7 +81,85 @@ export class AgentMessageHandler {
           );
         }
         return;
+      case 'BackupResult':
+        await this.onBackupResult(message);
+        return;
+      case 'RestoreResult':
+        await this.onRestoreResult(message);
+        return;
+      case 'ExecOutput':
+      case 'ExecExit':
+        this.exec.handle(message);
+        return;
+      case 'CommandResult':
+        await this.prisma.jobRun.updateMany({
+          where: { id: message.runId },
+          data: {
+            status: message.exitCode === 0 ? JobRunStatus.success : JobRunStatus.failed,
+            output: message.output,
+            exitCode: message.exitCode,
+            finishedAt: new Date(),
+          },
+        });
+        return;
     }
+  }
+
+  private async onBackupResult(
+    message: Extract<AgentToPanel, { type: 'BackupResult' }>,
+  ): Promise<void> {
+    const backup = await this.prisma.backup.update({
+      where: { id: message.backupId },
+      data: {
+        status: message.success ? BackupStatus.success : BackupStatus.failed,
+        sizeBytes: message.sizeBytes ? BigInt(message.sizeBytes) : undefined,
+        errorMessage: message.error,
+        finishedAt: new Date(),
+      },
+      include: { service: { select: { name: true } } },
+    });
+    const title = `Backup ${message.success ? 'completed' : 'failed'} for ${backup.service.name}`;
+    const detail = message.success
+      ? `${formatBytes(message.sizeBytes)} uploaded`
+      : (message.error ?? 'Unknown error');
+    await this.activityService.record(backup.orgId, {
+      kind: ActivityKind.system,
+      title,
+      detail,
+      actor: 'agent',
+    });
+    if (!message.success) {
+      await this.notifications.notify(backup.orgId, {
+        title,
+        detail,
+        severity: 'error',
+      });
+    }
+  }
+
+  private async onRestoreResult(
+    message: Extract<AgentToPanel, { type: 'RestoreResult' }>,
+  ): Promise<void> {
+    const service = await this.prisma.service.findUnique({
+      where: { id: message.serviceId },
+      select: { orgId: true, name: true },
+    });
+    if (!service) return;
+    const title = `Restore ${message.success ? 'completed' : 'failed'} for ${service.name}`;
+    const detail = message.success
+      ? 'Restore finished successfully.'
+      : (message.error ?? 'Unknown error');
+    await this.activityService.record(service.orgId, {
+      kind: ActivityKind.system,
+      title,
+      detail,
+      actor: 'agent',
+    });
+    await this.notifications.notify(service.orgId, {
+      title,
+      detail,
+      severity: message.success ? 'info' : 'error',
+    });
   }
 
   private async onEnrolled(
@@ -103,6 +194,12 @@ export class AgentMessageHandler {
       data: { state: state as ServiceState },
     });
     if (state === ServiceState.running || state === ServiceState.crashed) {
+      const service = await this.prisma.service.findUnique({
+        where: { id: serviceId },
+        select: { orgId: true, name: true },
+      });
+      if (!service) return;
+
       const deployment = await this.prisma.deployment.findFirst({
         where: {
           serviceId,
@@ -110,11 +207,28 @@ export class AgentMessageHandler {
         },
         orderBy: { createdAt: 'desc' },
       });
+      const isLive = state === ServiceState.running;
+
       if (deployment) {
         const durationSeconds = Math.max(0, Math.round((Date.now() - deployment.createdAt.getTime()) / 1000));
         await this.prisma.deployment.update({
           where: { id: deployment.id },
-          data: { status: state === ServiceState.running ? DeploymentStatus.live : DeploymentStatus.failed, durationSeconds },
+          data: { status: isLive ? DeploymentStatus.live : DeploymentStatus.failed, durationSeconds },
+        });
+        await this.notifications.notify(service.orgId, {
+          type: isLive ? 'deployment.succeeded' : 'deployment.failed',
+          title: isLive ? `Deployed ${service.name}` : `Deploy failed for ${service.name}`,
+          detail: isLive
+            ? `Live after ${durationSeconds}s`
+            : `${service.name} did not become healthy after deploying.`,
+          severity: isLive ? 'info' : 'error',
+        });
+      } else if (!isLive) {
+        await this.notifications.notify(service.orgId, {
+          type: 'service.crashed',
+          title: `${service.name} crashed`,
+          detail: `${service.name} stopped unexpectedly and is not running.`,
+          severity: 'error',
         });
       }
     }
@@ -123,4 +237,10 @@ export class AgentMessageHandler {
 
 function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 8);
+}
+
+function formatBytes(bytes: number | undefined): string {
+  if (!bytes) return '0 B';
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

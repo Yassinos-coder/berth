@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { CopyButton } from '@/components/shared/CopyButton';
 import { QueryBoundary } from '@/components/shared/QueryBoundary';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -44,6 +45,19 @@ function parseDotenv(text: string): EnvVar[] {
     out.push({ key, value, isSecret: SECRET_HINT.test(key) });
   }
   return out;
+}
+
+function toDotenv(rows: EnvVar[]): string {
+  return rows
+    .filter((row) => row.key.trim())
+    .map((row) => {
+      const needsQuotes = row.value === '' || /[\s#"]/.test(row.value);
+      const value = needsQuotes
+        ? `"${row.value.replace(/"/g, '\\"')}"`
+        : row.value;
+      return `${row.key}=${value}`;
+    })
+    .join('\n');
 }
 
 function BulkPaste({ onImport }: { onImport: (vars: EnvVar[]) => void }) {
@@ -128,7 +142,10 @@ function Editor({ serviceId, initial }: { serviceId: string; initial: EnvVar[] }
             Passed to the container on the next deploy. Secrets are encrypted at
             rest.
           </p>
-          <BulkPaste onImport={importVars} />
+          <div className="flex items-center gap-2">
+            <CopyButton value={toDotenv(rows)} label="Copy .env" />
+            <BulkPaste onImport={importVars} />
+          </div>
         </div>
 
         <div className="space-y-3">

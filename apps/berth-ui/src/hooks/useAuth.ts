@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   authService,
   type Credentials,
+  type MfaVerifyPayload,
   type RegisterPayload,
 } from '@/services/authService';
 import { useAuthStore } from '@/store/authStore';
@@ -48,6 +49,24 @@ export function useLogin() {
   const setUser = useAuthStore((s) => s.setUser);
   return useMutation({
     mutationFn: (payload: Credentials) => authService.login(payload),
+    onSuccess: (result) => {
+      if ('mfaRequired' in result) return;
+      setUser(result.user);
+      qc.setQueryData(['auth', 'me'], result.user);
+      notify.success(`Welcome back, ${result.user.name}`);
+      navigate('/');
+    },
+    onError: (error) =>
+      notify.error('Login failed', { description: error.message }),
+  });
+}
+
+export function useVerifyMfa() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const setUser = useAuthStore((s) => s.setUser);
+  return useMutation({
+    mutationFn: (payload: MfaVerifyPayload) => authService.verifyMfa(payload),
     onSuccess: ({ user }) => {
       setUser(user);
       qc.setQueryData(['auth', 'me'], user);
@@ -55,7 +74,7 @@ export function useLogin() {
       navigate('/');
     },
     onError: (error) =>
-      notify.error('Login failed', { description: error.message }),
+      notify.error('Verification failed', { description: error.message }),
   });
 }
 
@@ -73,6 +92,70 @@ export function useRegister() {
     },
     onError: (error) =>
       notify.error('Setup failed', { description: error.message }),
+  });
+}
+
+export function useInvitePreview(token: string | undefined) {
+  return useQuery({
+    queryKey: ['auth', 'invite-preview', token],
+    queryFn: () => authService.previewInvite(token!),
+    enabled: Boolean(token),
+    retry: false,
+  });
+}
+
+export function useAcceptInvite() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const setUser = useAuthStore((s) => s.setUser);
+  return useMutation({
+    mutationFn: ({ token, password }: { token: string; password: string }) =>
+      authService.acceptInvite(token, password),
+    onSuccess: ({ user }) => {
+      setUser(user);
+      qc.setQueryData(['auth', 'me'], user);
+      notify.success(`Welcome to Berth, ${user.name}`);
+      navigate('/');
+    },
+    onError: (error) =>
+      notify.error('Could not accept invite', { description: error.message }),
+  });
+}
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (email: string) => authService.forgotPassword(email),
+    onError: (error) =>
+      notify.error('Could not request password reset', {
+        description: error.message,
+      }),
+  });
+}
+
+export function useResetTokenPreview(token: string | undefined) {
+  return useQuery({
+    queryKey: ['auth', 'reset-preview', token],
+    queryFn: () => authService.previewResetToken(token!),
+    enabled: Boolean(token),
+    retry: false,
+  });
+}
+
+export function useResetPassword() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const setUser = useAuthStore((s) => s.setUser);
+  return useMutation({
+    mutationFn: ({ token, password }: { token: string; password: string }) =>
+      authService.resetPassword(token, password),
+    onSuccess: ({ user }) => {
+      setUser(user);
+      qc.setQueryData(['auth', 'me'], user);
+      notify.success('Password updated');
+      navigate('/');
+    },
+    onError: (error) =>
+      notify.error('Could not reset password', { description: error.message }),
   });
 }
 

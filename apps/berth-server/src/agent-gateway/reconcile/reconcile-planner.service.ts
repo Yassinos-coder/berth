@@ -10,6 +10,7 @@ import type {
 import { ReconcileRepository, ServiceWithEnv } from './reconcile.repository';
 import { SecretCipher } from '../../common/crypto/secret-cipher.service';
 import { GithubAppService } from '../../github-app/github-app.service';
+import { SourceIntegrationsService } from '../../source-integrations/source-integrations.service';
 
 interface ResolvedEnv {
   key: string;
@@ -23,6 +24,7 @@ export class ReconcilePlanner {
     private readonly repository: ReconcileRepository,
     private readonly cipher: SecretCipher,
     private readonly github: GithubAppService,
+    private readonly sources: SourceIntegrationsService,
   ) {}
 
   async desiredForServer(serverId: string): Promise<ServiceSpec[]> {
@@ -63,6 +65,14 @@ export class ReconcilePlanner {
       restartPolicy: 'unless-stopped',
       replicas: service.replicas,
       templateKind: service.templateKind ?? undefined,
+      registryAuth: service.registryCredential
+        ? {
+            server: service.registryCredential.server,
+            username: service.registryCredential.username,
+            password: this.cipher.decrypt(service.registryCredential.passwordEncrypted),
+          }
+        : undefined,
+      targetPlatform: service.targetPlatform as 'linux/amd64' | 'linux/arm64' | undefined,
     };
   }
 
@@ -89,10 +99,11 @@ export class ReconcilePlanner {
   }
 
   private toCommand(service: ServiceWithEnv, env: ResolvedEnv[]): string[] {
-    if (service.templateKind === 'redis') {
+    if (['redis', 'valkey', 'keydb'].includes(service.templateKind ?? '')) {
       const password = env.find((item) => item.key === 'REDIS_PASSWORD')?.value;
       if (password) {
-        return ['redis-server', '--requirepass', password, '--appendonly', 'yes'];
+        const binary = service.templateKind === 'keydb' ? 'keydb-server' : service.templateKind === 'valkey' ? 'valkey-server' : 'redis-server';
+        return [binary, '--requirepass', password, '--appendonly', 'yes'];
       }
     }
     return service.command ?? [];
@@ -110,7 +121,7 @@ export class ReconcilePlanner {
       );
       return {
         kind: 'git',
-        repo: await this.github.cloneUrl(service.orgId, service.repo ?? ''),
+        repo: await this.cloneUrl(service.orgId, service.repo ?? ''),
         branch: service.branch ?? 'main',
         build: {
           builder: service.builder ?? 'auto',
@@ -129,5 +140,11 @@ export class ReconcilePlanner {
       image: service.image ?? '',
       tag: service.tag ?? 'latest',
     };
+  }
+
+  private async cloneUrl(orgId: string, repository: string): Promise<string> {
+    if (/^https?:\/\//i.test(repository)) return this.sources.authenticatedUrl(orgId, repository);
+    if (/^git@/i.test(repository)) return repository;
+    return this.github.cloneUrl(orgId, repository);
   }
 }

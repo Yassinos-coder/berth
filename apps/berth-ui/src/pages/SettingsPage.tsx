@@ -17,6 +17,16 @@ import {
 } from '@/components/ui/tabs';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuth } from '@/hooks/useAuth';
+import { TwoFactorSettings } from '@/features/auth/TwoFactorSettings';
+import { ApiTokensSettings } from '@/features/auth/ApiTokensSettings';
+import { SessionsSettings } from '@/features/auth/SessionsSettings';
+import { RegistryCredentialsSettings } from '@/features/auth/RegistryCredentialsSettings';
+import { BackupTargetsSettings } from '@/features/backups/BackupTargetsSettings';
+import { NotificationChannelsSettings } from '@/features/notifications/NotificationChannelsSettings';
+import { EnvironmentsSettings } from '@/features/environments/EnvironmentsSettings';
+import { SourceIntegrationsSettings } from '@/features/integrations/SourceIntegrationsSettings';
+import { AuditLog } from '@/features/audit/AuditLog';
+import { StatusPagesSettings } from '@/features/status/StatusPagesSettings';
 import { githubService } from '@/services/githubService';
 import { useGithubStatus } from '@/hooks/useGithubQueries';
 import {
@@ -112,6 +122,12 @@ export function SettingsPage() {
           <TabsTrigger value="networking">Networking</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="backups">Backups</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="environments">Environments</TabsTrigger>
+          <TabsTrigger value="audit">Audit</TabsTrigger>
+          <TabsTrigger value="status">Status pages</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-4 space-y-4">
@@ -168,8 +184,20 @@ export function SettingsPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="environments" className="mt-4">
+          <EnvironmentsSettings />
+        </TabsContent>
+
+        <TabsContent value="audit" className="mt-4">
+          <AuditLog />
+        </TabsContent>
+
+        <TabsContent value="status" className="mt-4">
+          <StatusPagesSettings />
+        </TabsContent>
+
         <TabsContent value="integrations" className="mt-4">
-          <Card>
+          <div className="space-y-4"><Card>
             <CardHeader>
               <CardTitle className="text-base">GitHub</CardTitle>
             </CardHeader>
@@ -199,7 +227,7 @@ export function SettingsPage() {
                 <Button onClick={createApp}>Create GitHub App</Button>
               )}
             </CardContent>
-          </Card>
+          </Card><SourceIntegrationsSettings /></div>
         </TabsContent>
 
         <TabsContent value="appearance" className="mt-4">
@@ -354,6 +382,21 @@ export function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="security" className="mt-4 space-y-4">
+          <TwoFactorSettings />
+          <SessionsSettings />
+          <ApiTokensSettings />
+          <RegistryCredentialsSettings />
+        </TabsContent>
+
+        <TabsContent value="backups" className="mt-4">
+          <BackupTargetsSettings />
+        </TabsContent>
+
+        <TabsContent value="notifications" className="mt-4">
+          <NotificationChannelsSettings />
         </TabsContent>
       </Tabs>
     </div>

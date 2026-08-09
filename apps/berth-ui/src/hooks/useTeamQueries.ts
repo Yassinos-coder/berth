@@ -18,7 +18,7 @@ export function useInviteMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: InviteMemberPayload) => teamService.invite(payload),
-    onSuccess: (member) => {
+    onSuccess: ({ member }) => {
       qc.invalidateQueries({ queryKey: queryKeys.team });
       notify.success(`Invited ${member.email}`);
     },

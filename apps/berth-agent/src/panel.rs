@@ -10,9 +10,11 @@ use tokio_tungstenite::{
     WebSocketStream,
 };
 
+use crate::backup;
 use crate::config::AgentConfig;
 use crate::docker::{AgentResult, DockerReconciler};
 use crate::enroll;
+use crate::exec::ExecManager;
 use crate::host::collect_server_specs;
 use crate::protocol::{AgentToPanel, PanelToAgent, ServiceState};
 use crate::telemetry::Telemetry;
@@ -103,9 +105,10 @@ async fn connect_and_serve(
     send_json(&mut sink, &enrolled).await?;
 
     let (tx, mut rx) = mpsc::channel::<AgentToPanel>(1024);
-    let telemetry = Telemetry::new(config.docker_bin.clone(), tx);
+    let telemetry = Telemetry::new(config.docker_bin.clone(), tx.clone());
     telemetry.start_metrics();
     telemetry.start_host_usage();
+    let exec_manager = ExecManager::new(config.docker_bin.clone(), tx);
 
     loop {
         tokio::select! {
@@ -133,7 +136,7 @@ async fn connect_and_serve(
                     }
                 };
                 if let Err(error) =
-                    handle_message(inbound, reconciler, &mut sink, &telemetry).await
+                    handle_message(inbound, reconciler, &mut sink, &telemetry, &exec_manager).await
                 {
                     eprintln!("[berth-agent] handler error (continuing): {error}");
                 }
@@ -155,6 +158,7 @@ async fn handle_message(
     reconciler: &DockerReconciler,
     sink: &mut WsSink,
     telemetry: &Telemetry,
+    exec_manager: &ExecManager,
 ) -> AgentResult<()> {
     match inbound {
         PanelToAgent::Reconcile {
@@ -208,6 +212,77 @@ async fn handle_message(
         }
         PanelToAgent::SelfUpdate => {
             launch_self_update();
+        }
+        PanelToAgent::RunBackup {
+            backup_id,
+            container_name,
+            dump_command,
+            target,
+            object_key,
+            ..
+        } => {
+            let result =
+                backup::run_backup(reconciler.docker_bin(), &container_name, &dump_command, &target, &object_key)
+                    .await;
+            let event = match result {
+                Ok(size_bytes) => AgentToPanel::BackupResult {
+                    backup_id,
+                    success: true,
+                    size_bytes: Some(size_bytes),
+                    error: None,
+                },
+                Err(error) => AgentToPanel::BackupResult {
+                    backup_id,
+                    success: false,
+                    size_bytes: None,
+                    error: Some(error.to_string()),
+                },
+            };
+            send_json(sink, &event).await?;
+        }
+        PanelToAgent::RunRestore {
+            service_id,
+            container_name,
+            restore_command,
+            target,
+            object_key,
+        } => {
+            let result = backup::run_restore(
+                reconciler.docker_bin(),
+                &container_name,
+                &restore_command,
+                &target,
+                &object_key,
+            )
+            .await;
+            let event = match result {
+                Ok(()) => AgentToPanel::RestoreResult {
+                    service_id,
+                    success: true,
+                    error: None,
+                },
+                Err(error) => AgentToPanel::RestoreResult {
+                    service_id,
+                    success: false,
+                    error: Some(error.to_string()),
+                },
+            };
+            send_json(sink, &event).await?;
+        }
+        PanelToAgent::ExecStart {
+            session_id,
+            container_name,
+        } => {
+            exec_manager.start(session_id, container_name).await;
+        }
+        PanelToAgent::ExecInput { session_id, data } => {
+            exec_manager.input(&session_id, &data).await;
+        }
+        PanelToAgent::ExecStop { session_id } => {
+            exec_manager.stop(&session_id).await;
+        }
+        PanelToAgent::RunCommand { run_id, container_name, command } => {
+            exec_manager.run_command(run_id, container_name, command);
         }
     }
 

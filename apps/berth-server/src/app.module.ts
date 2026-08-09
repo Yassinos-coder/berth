@@ -20,6 +20,17 @@ import { SystemModule } from './system/system.module';
 import { TeamModule } from './team/team.module';
 import { GithubAppModule } from './github-app/github-app.module';
 import { ProxyHostsModule } from './proxy-hosts/proxy-hosts.module';
+import { ApiTokensModule } from './api-tokens/api-tokens.module';
+import { RegistryCredentialsModule } from './registry-credentials/registry-credentials.module';
+import { BackupsModule } from './backups/backups.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { JobsModule } from './jobs/jobs.module';
+import { ComposeModule } from './compose/compose.module';
+import { EnvironmentsModule } from './environments/environments.module';
+import { OpenApiModule } from './openapi/openapi.module';
+import { SourceIntegrationsModule } from './source-integrations/source-integrations.module';
+import { AuditModule } from './audit/audit.module';
+import { StatusPagesModule } from './status-pages/status-pages.module';
 
 @Module({
   imports: [
@@ -54,6 +65,17 @@ import { ProxyHostsModule } from './proxy-hosts/proxy-hosts.module';
     TeamModule,
     GithubAppModule,
     ProxyHostsModule,
+    ApiTokensModule,
+    RegistryCredentialsModule,
+    BackupsModule,
+    NotificationsModule,
+    JobsModule,
+    ComposeModule,
+    EnvironmentsModule,
+    OpenApiModule,
+    SourceIntegrationsModule,
+    AuditModule,
+    StatusPagesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: CsrfGuard },

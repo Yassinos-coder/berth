@@ -1,10 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::process::Stdio;
 
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 use crate::protocol::{
-    FailedApply, PanelRoute, ProxyRoute, RestartPolicy, ServiceSource, ServiceSpec, ServiceState,
+    FailedApply, PanelRoute, ProxyRoute, RegistryAuth, RestartPolicy, ServiceSource, ServiceSpec,
+    ServiceState,
 };
 
 pub const LABEL_MANAGED: &str = "berth.managed";
@@ -52,6 +54,10 @@ impl DockerReconciler {
         Self {
             docker_bin: docker_bin.into(),
         }
+    }
+
+    pub fn docker_bin(&self) -> &str {
+        &self.docker_bin
     }
 
     pub async fn reconcile(
@@ -108,6 +114,9 @@ impl DockerReconciler {
                             self.remove_container(&container.name).await?;
                         }
 
+                        if let Some(auth) = &spec.registry_auth {
+                            self.docker_login(auth).await?;
+                        }
                         self.pull_image(image, tag).await?;
                         let container_id = self.run_service(spec, &spec_hash, None).await?;
 
@@ -150,6 +159,9 @@ impl DockerReconciler {
                     }
                     if let Some(container) = existing {
                         self.remove_container(&container.name).await?;
+                    }
+                    if let Some(auth) = &spec.registry_auth {
+                        self.docker_login(auth).await?;
                     }
                     match self.build_git_source(spec, &spec_hash).await {
                         Ok(image) => {
@@ -459,6 +471,40 @@ impl DockerReconciler {
             .await
     }
 
+    async fn docker_login(&self, auth: &RegistryAuth) -> AgentResult<()> {
+        let mut args = vec![
+            "login".to_string(),
+            "-u".to_string(),
+            auth.username.clone(),
+            "--password-stdin".to_string(),
+        ];
+        if !auth.server.is_empty() {
+            args.push(auth.server.clone());
+        }
+        let owned_args: Vec<&str> = args.iter().map(String::as_str).collect();
+
+        let mut child = Command::new(&self.docker_bin)
+            .args(&owned_args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(auth.password.as_bytes()).await?;
+        }
+
+        let output = child.wait_with_output().await?;
+        if output.status.success() {
+            return Ok(());
+        }
+        Err(format!(
+            "docker login failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into())
+    }
+
     async fn update_resources(&self, container: &str, spec: &ServiceSpec) -> AgentResult<()> {
         let mut args = vec![
             "update".to_string(),
@@ -521,6 +567,9 @@ impl DockerReconciler {
             "--network-alias".to_string(),
             spec.name.clone(),
         ];
+        if let Some(platform) = &spec.target_platform {
+            args.splice(1..1, ["--platform".to_string(), platform.clone()]);
+        }
 
         if let Some(cpu_shares) = spec.resources.cpu_shares {
             args.push("--cpu-shares".to_string());
@@ -611,6 +660,9 @@ impl DockerReconciler {
         let status = if use_docker {
             let mut command = Command::new(&self.docker_bin);
             command.args(["build", "-t", &image, "-f", dockerfile]);
+            if let Some(platform) = &spec.target_platform {
+                command.args(["--platform", platform]);
+            }
             if let Some(args) = &build.build_args {
                 for (key, value) in args {
                     command.args(["--build-arg", &format!("{key}={value}")]);

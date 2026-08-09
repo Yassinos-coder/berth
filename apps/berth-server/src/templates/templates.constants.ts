@@ -10,6 +10,11 @@ export interface TemplateDto {
 }
 
 export const TEMPLATES: TemplateDto[] = [
+  { id: 'tpl_mariadb', name: 'MariaDB', description: 'Community MySQL-compatible relational database.', category: 'database', icon: 'Database', accent: '#B38B70', official: true, kind: 'mariadb' },
+  { id: 'tpl_timescaledb', name: 'TimescaleDB', description: 'PostgreSQL optimized for time-series workloads.', category: 'database', icon: 'Database', accent: '#FDB515', official: true, kind: 'timescaledb' },
+  { id: 'tpl_couchdb', name: 'CouchDB', description: 'Replicating JSON document database with an HTTP API.', category: 'database', icon: 'Database', accent: '#E42528', official: true, kind: 'couchdb' },
+  { id: 'tpl_valkey', name: 'Valkey', description: 'Open-source in-memory cache and data store.', category: 'cache', icon: 'Zap', accent: '#8A2BE2', official: true, kind: 'valkey' },
+  { id: 'tpl_keydb', name: 'KeyDB', description: 'Multithreaded Redis-compatible database.', category: 'cache', icon: 'Zap', accent: '#5B6CFF', official: true, kind: 'keydb' },
   {
     id: 'tpl_postgres',
     name: 'PostgreSQL',

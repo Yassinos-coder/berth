@@ -13,6 +13,22 @@ export interface ServiceSpec {
   restartPolicy: RestartPolicy;
   replicas: number;
   templateKind?: string;
+  registryAuth?: RegistryAuth;
+  targetPlatform?: 'linux/amd64' | 'linux/arm64';
+}
+
+export interface RegistryAuth {
+  server: string;
+  username: string;
+  password: string;
+}
+
+export interface BackupTarget {
+  endpoint: string;
+  bucket: string;
+  region?: string;
+  accessKeyId: string;
+  secretAccessKey: string;
 }
 
 export type ServiceSource =
@@ -106,7 +122,28 @@ export type PanelToAgent =
   | { type: 'RemoveService'; serviceId: string }
   | { type: 'StreamLogs'; serviceId: string; follow: boolean }
   | { type: 'GetMetrics'; serviceId?: string }
-  | { type: 'SelfUpdate' };
+  | { type: 'SelfUpdate' }
+  | {
+      type: 'RunBackup';
+      serviceId: string;
+      backupId: string;
+      containerName: string;
+      dumpCommand: string;
+      target: BackupTarget;
+      objectKey: string;
+    }
+  | {
+      type: 'RunRestore';
+      serviceId: string;
+      containerName: string;
+      restoreCommand: string;
+      target: BackupTarget;
+      objectKey: string;
+    }
+  | { type: 'ExecStart'; sessionId: string; containerName: string }
+  | { type: 'ExecInput'; sessionId: string; data: string }
+  | { type: 'ExecStop'; sessionId: string }
+  | { type: 'RunCommand'; runId: string; containerName: string; command: string[] };
 
 export type AgentToPanel =
   | { type: 'Enrolled'; agentId: string; serverSpecs: ServerSpecs }
@@ -122,4 +159,15 @@ export type AgentToPanel =
       netTxMb: number;
     }
   | { type: 'HostUsage'; diskUsedGb: number; diskTotalGb: number }
-  | { type: 'ReconcileResult'; applied: string[]; failed: FailedApply[] };
+  | { type: 'ReconcileResult'; applied: string[]; failed: FailedApply[] }
+  | {
+      type: 'BackupResult';
+      backupId: string;
+      success: boolean;
+      sizeBytes?: number;
+      error?: string;
+    }
+  | { type: 'RestoreResult'; serviceId: string; success: boolean; error?: string }
+  | { type: 'ExecOutput'; sessionId: string; data: string }
+  | { type: 'ExecExit'; sessionId: string; exitCode: number | null }
+  | { type: 'CommandResult'; runId: string; output: string; exitCode: number | null };
