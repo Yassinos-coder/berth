@@ -3,7 +3,7 @@
   "version": "0.10.3",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.20.0",
   "engines": {
     "node": ">=20"
   },
@@ -22,7 +22,7 @@
     "type-check": "turbo run type-check"
   },
   "devDependencies": {
-    "turbo": "^2.5.0",
+    "turbo": "^2.10.9",
     "typescript": "^5.6.0"
   }
 }
