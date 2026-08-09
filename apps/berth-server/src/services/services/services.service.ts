@@ -295,7 +295,10 @@ export class ServicesService {
       orgId: user.orgId,
       serverId: dto.serverId,
       name: dto.name,
-      kind: ServiceKind.database,
+      kind:
+        generated.targetKind === 'bucket'
+          ? ServiceKind.bucket
+          : ServiceKind.database,
       sourceKind: SourceKind.image,
       image: generated.image,
       tag: generated.tag,
@@ -307,6 +310,7 @@ export class ServicesService {
       publicNetworking: dto.publicNetworking ?? false,
       volumeName: generated.volumeName,
       volumePath: generated.volumePath,
+      command: generated.command,
       env: this.encryptEnv(generated.env),
     };
   }

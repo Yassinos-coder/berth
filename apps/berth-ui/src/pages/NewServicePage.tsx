@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check, Database, Globe, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -23,14 +23,18 @@ import {
 import { useServers } from '@/hooks/useServersQueries';
 import { useCreateService } from '@/hooks/useServicesMutations';
 import { useGithubBranches, useGithubRepos, useGithubStatus } from '@/hooks/useGithubQueries';
+import { useTemplates } from '@/hooks/useTemplatesQueries';
 import { notify } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import type { RegistryImage, ResourceLimits } from '@/interfaces';
 
 export function NewServicePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const servers = useServers();
+  const templates = useTemplates();
   const createService = useCreateService();
+  const appliedPreset = useRef(false);
 
   const [choice, setChoice] = useState<SourceChoice | null>(null);
   const [name, setName] = useState('');
@@ -48,7 +52,8 @@ export function NewServicePage() {
 
   const option = SOURCE_OPTIONS.find((o) => o.id === choice);
   const isGit = choice === 'git';
-  const isImageChoice = choice === 'image' || choice === 'database';
+  const isImageChoice =
+    choice === 'image' || choice === 'database' || choice === 'empty';
   const managedDb = Boolean(templateKind) && asDatabase;
   const github = useGithubStatus();
   const repos = useGithubRepos(isGit && Boolean(github.data?.connected));
@@ -62,6 +67,18 @@ export function NewServicePage() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (appliedPreset.current) return;
+    const presetId = searchParams.get('template');
+    if (!presetId || !templates.data) return;
+    const tpl = templates.data.find((item) => item.id === presetId);
+    if (!tpl) return;
+    appliedPreset.current = true;
+    setChoice('template');
+    setTemplateKind(tpl.kind);
+    setAsDatabase(true);
+  }, [searchParams, templates.data]);
 
   const submit = () => {
     if (!option) return;
@@ -99,6 +116,7 @@ export function NewServicePage() {
       return;
     }
 
+    if (choice === 'template') return notify.warn('Pick a template');
     if (!reference.trim()) return notify.warn('Search for or enter an image');
     const [image, tag = 'latest'] = reference.split(':');
     createService.mutate(
@@ -137,7 +155,7 @@ export function NewServicePage() {
             onClick={() => {
               setChoice(opt.id);
               setReference('');
-              setTemplateKind(undefined);
+              setTemplateKind(opt.id === 'bucket' ? 'minio' : undefined);
               setAsDatabase(true);
             }}
             className={cn(
@@ -190,6 +208,36 @@ export function NewServicePage() {
               </div>
             ) : null}
 
+            {choice === 'template' ? (
+              <div className="space-y-2">
+                <Label>Template</Label>
+                <Select
+                  value={templateKind ?? ''}
+                  onValueChange={(value) => {
+                    setTemplateKind(value);
+                    setAsDatabase(true);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue
+                      placeholder={
+                        templates.isLoading
+                          ? 'Loading templates…'
+                          : 'Select a template'
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(templates.data ?? []).map((tpl) => (
+                      <SelectItem key={tpl.id} value={tpl.kind}>
+                        {tpl.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
             {isGit ? (
               <>
                 {!github.data?.connected ? (
@@ -226,7 +274,12 @@ export function NewServicePage() {
                       </p>
                     </div>
                   </div>
-                  <Switch checked={asDatabase} onCheckedChange={setAsDatabase} />
+                  {choice === 'database' ? (
+                    <Switch
+                      checked={asDatabase}
+                      onCheckedChange={setAsDatabase}
+                    />
+                  ) : null}
                 </div>
                 {managedDb ? (
                   <div className="flex items-center justify-between gap-4 border-t border-primary/20 pt-3">

@@ -71,6 +71,7 @@ export class ServiceRepository {
     volumeName?: string;
     volumePath?: string;
     internalDomains?: string[];
+    command?: string[];
     env?: { key: string; value: string; isSecret: boolean }[];
   }): Promise<ServiceWithServer> {
     const { env, ...fields } = data;

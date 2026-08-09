@@ -1,6 +1,6 @@
 {
   "name": "@berth/ui",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "private": true,
   "type": "module",
   "description": "Berth dashboard — React + TypeScript (Vite, shadcn/ui, Tailwind CSS v4).",

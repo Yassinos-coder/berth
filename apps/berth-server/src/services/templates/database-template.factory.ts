@@ -19,6 +19,8 @@ export interface GeneratedDatabase {
   volumeName: string;
   volumePath: string;
   env: GeneratedEnvVar[];
+  command: string[];
+  targetKind: 'database' | 'bucket';
 }
 
 export class DatabaseTemplateFactory {
@@ -61,6 +63,8 @@ export class DatabaseTemplateFactory {
       volumeName: `${dbName}-data`,
       volumePath: template.volumePath,
       env,
+      command: template.command ?? [],
+      targetKind: template.targetKind ?? 'database',
     };
   }
 

@@ -166,6 +166,7 @@ export interface Template {
   icon: string;
   accent: string;
   official: boolean;
+  kind: string;
 }
 
 export type MemberStatus = 'active' | 'invited' | 'suspended';

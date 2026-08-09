@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2026-08-09
+
+### Fixed
+- The **Bucket** and **Template** options in New Service had no way to pick what to deploy — selecting either always failed on submit ("Search for or enter an image") because no config UI was wired up for them. Bucket now provisions a managed MinIO container immediately on selection; Template now shows a picker (Postgres, Redis, MySQL, MinIO, Mongo, RabbitMQ) backed by the existing templates catalog. The Templates gallery page's cards now deep-link into the wizard with the chosen template preselected. Empty Service had the same underlying gap (no image field) and is fixed alongside it.
+
 ## [0.10.1] - 2026-08-08
 
 ### Fixed

@@ -18,7 +18,7 @@ function TemplateIcon({ name }: { name: string }) {
 
 function TemplateCard({ template }: { template: Template }) {
   return (
-    <Link to="/services/new" className="group block">
+    <Link to={`/services/new?template=${template.id}`} className="group block">
       <Card className="hover:border-primary/40 h-full transition-colors">
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between">

@@ -10,6 +10,8 @@ export interface DatabaseTemplate {
   databaseEnv?: string;
   rootPasswordEnv?: string;
   usesCommandPassword?: boolean;
+  command?: string[];
+  targetKind?: 'database' | 'bucket';
 }
 
 export const DATABASE_TEMPLATES: Record<string, DatabaseTemplate> = {
@@ -69,6 +71,28 @@ export const DATABASE_TEMPLATES: Record<string, DatabaseTemplate> = {
     passwordEnv: 'REDIS_PASSWORD',
     usesCommandPassword: true,
   },
+  minio: {
+    kind: 'minio',
+    image: 'minio/minio',
+    defaultTag: 'latest',
+    port: 9000,
+    scheme: 'http',
+    volumePath: '/data',
+    usernameEnv: 'MINIO_ROOT_USER',
+    passwordEnv: 'MINIO_ROOT_PASSWORD',
+    command: ['server', '/data', '--console-address', ':9001'],
+    targetKind: 'bucket',
+  },
+  rabbitmq: {
+    kind: 'rabbitmq',
+    image: 'rabbitmq',
+    defaultTag: '3-management-alpine',
+    port: 5672,
+    scheme: 'amqp',
+    volumePath: '/var/lib/rabbitmq',
+    usernameEnv: 'RABBITMQ_DEFAULT_USER',
+    passwordEnv: 'RABBITMQ_DEFAULT_PASS',
+  },
 };
 
 const IMAGE_ALIASES: Record<string, string> = {
@@ -79,6 +103,8 @@ const IMAGE_ALIASES: Record<string, string> = {
   mongo: 'mongo',
   mongodb: 'mongo',
   redis: 'redis',
+  minio: 'minio',
+  rabbitmq: 'rabbitmq',
 };
 
 export function matchDatabaseTemplate(

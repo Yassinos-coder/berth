@@ -6,6 +6,7 @@ export interface TemplateDto {
   icon: string;
   accent: string;
   official: boolean;
+  kind: string;
 }
 
 export const TEMPLATES: TemplateDto[] = [
@@ -18,6 +19,7 @@ export const TEMPLATES: TemplateDto[] = [
     icon: 'Database',
     accent: '#3E6FB0',
     official: true,
+    kind: 'postgres',
   },
   {
     id: 'tpl_redis',
@@ -27,6 +29,7 @@ export const TEMPLATES: TemplateDto[] = [
     icon: 'Zap',
     accent: '#D64B3C',
     official: true,
+    kind: 'redis',
   },
   {
     id: 'tpl_mysql',
@@ -36,6 +39,7 @@ export const TEMPLATES: TemplateDto[] = [
     icon: 'Database',
     accent: '#C9922B',
     official: true,
+    kind: 'mysql',
   },
   {
     id: 'tpl_minio',
@@ -45,6 +49,7 @@ export const TEMPLATES: TemplateDto[] = [
     icon: 'Box',
     accent: '#C4372B',
     official: true,
+    kind: 'minio',
   },
   {
     id: 'tpl_mongo',
@@ -54,6 +59,7 @@ export const TEMPLATES: TemplateDto[] = [
     icon: 'Leaf',
     accent: '#3FA037',
     official: true,
+    kind: 'mongo',
   },
   {
     id: 'tpl_rabbitmq',
@@ -63,5 +69,6 @@ export const TEMPLATES: TemplateDto[] = [
     icon: 'Rabbit',
     accent: '#E4761B',
     official: true,
+    kind: 'rabbitmq',
   },
 ];
