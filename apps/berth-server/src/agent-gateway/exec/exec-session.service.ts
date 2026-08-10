@@ -25,6 +25,11 @@ export class ExecSessionService {
     if (session) this.agents.send(session.serverId, { type: 'ExecInput', sessionId, data });
   }
 
+  resize(sessionId: string, cols: number, rows: number): void {
+    const session = this.sessions.get(sessionId);
+    if (session) this.agents.send(session.serverId, { type: 'ExecResize', sessionId, cols, rows });
+  }
+
   stop(sessionId: string): void {
     const session = this.sessions.get(sessionId);
     if (!session) return;

@@ -4,7 +4,7 @@ import { Public } from '../common/decorators/public.decorator';
 const id = { name: 'id', in: 'path', required: true, schema: { type: 'string' } };
 const spec = {
   openapi: '3.1.0',
-  info: { title: 'Berth API', version: '0.10.3', description: 'Manage services, deployments, variables, jobs, backups, and infrastructure. Authenticate with a berth_* personal API token.' },
+  info: { title: 'Berth API', version: '0.11.1', description: 'Manage services, deployments, variables, jobs, backups, and infrastructure. Authenticate with a berth_* personal API token.' },
   servers: [{ url: '/api' }],
   components: { securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer' } } },
   security: [{ bearerAuth: [] }],

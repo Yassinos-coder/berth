@@ -292,7 +292,7 @@ export function ServiceDetailPage() {
                   onRetry={() => logs.refetch()}
                   loadingFallback={<Skeleton className="h-[460px]" />}
                 >
-                  <LogViewer lines={logs.data ?? []} />
+                  <LogViewer lines={logs.data ?? []} serviceName={svc?.name} />
                 </QueryBoundary>
               </TabsContent>
 

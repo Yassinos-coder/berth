@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2026-08-10
+
+### Added
+- The service **Terminal** tab is now a real terminal: the agent allocates its own pseudo-terminal (via `pty-process`) and attaches `docker exec -it` to it instead of piping plain stdio, and the UI renders it with `xterm.js`. This brings proper ANSI colors, cursor movement, full-screen programs (`vim`, `htop`, `less`), native clipboard paste, and correct Ctrl+C/Ctrl+D signal delivery — none of which worked over the old plain-pipe exec. Resizing the browser window now resizes the container's PTY end-to-end via a new `ExecResize` panel↔agent message.
+- The **Logs** tab gained a search filter, a level filter, a wrap/no-wrap toggle, a follow-mode that pauses auto-scroll while you're scrolled up (with a "Jump to latest" button), and a download-as-`.log` button.
+
+### Fixed
+- **Redeploy** now always force-recreates the container with freshly read state (env vars, image tag, git HEAD) instead of silently no-op'ing when the agent's idempotent reconcile hash happened to already match what was running — previously, clicking Redeploy after saving new environment variables could appear to do nothing if nothing else in the service spec had changed.
+
 ## [0.11.0] - 2026-08-09
 
 ### Added

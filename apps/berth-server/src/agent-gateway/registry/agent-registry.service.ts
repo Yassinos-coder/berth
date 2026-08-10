@@ -39,7 +39,10 @@ export class AgentRegistry {
     return true;
   }
 
-  async reconcileServer(serverId: string): Promise<void> {
+  async reconcileServer(
+    serverId: string,
+    forceServiceIds: string[] = [],
+  ): Promise<void> {
     if (!this.isOnline(serverId)) {
       this.logger.debug(`server ${serverId} offline — desired state deferred`);
       return;
@@ -49,7 +52,13 @@ export class AgentRegistry {
       this.planner.proxyRoutesForServer(serverId),
       this.planner.panelRouteForServer(serverId),
     ]);
-    this.send(serverId, { type: 'Reconcile', services, proxies, panel });
+    this.send(serverId, {
+      type: 'Reconcile',
+      services,
+      proxies,
+      panel,
+      forceServiceIds,
+    });
   }
 
   async reconcileForService(serviceId: string): Promise<void> {

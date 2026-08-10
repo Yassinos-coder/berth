@@ -172,6 +172,8 @@ pub enum PanelToAgent {
         proxies: Vec<ProxyRoute>,
         #[serde(default)]
         panel: Option<PanelRoute>,
+        #[serde(rename = "forceServiceIds", default)]
+        force_service_ids: Vec<String>,
     },
     RemoveService {
         #[serde(rename = "serviceId")]
@@ -225,6 +227,12 @@ pub enum PanelToAgent {
     ExecStop {
         #[serde(rename = "sessionId")]
         session_id: String,
+    },
+    ExecResize {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        cols: u16,
+        rows: u16,
     },
     RunCommand {
         #[serde(rename = "runId")]

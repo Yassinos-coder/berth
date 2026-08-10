@@ -289,6 +289,8 @@ export class ServicesService {
 
     if (action === 'stop') {
       this.registry.removeService(service.serverId, id);
+    } else if (action === 'redeploy') {
+      await this.registry.reconcileServer(service.serverId, [id]);
     } else {
       await this.registry.reconcileServer(service.serverId);
     }

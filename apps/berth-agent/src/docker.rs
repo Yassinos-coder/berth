@@ -65,6 +65,7 @@ impl DockerReconciler {
         desired: &[ServiceSpec],
         proxies: &[ProxyRoute],
         panel: Option<&PanelRoute>,
+        force_service_ids: &[String],
     ) -> AgentResult<ReconcileOutcome> {
         let mut current = self.list_managed_containers().await?;
         let mut current_by_service = HashMap::new();
@@ -107,7 +108,8 @@ impl DockerReconciler {
                             container.spec_hash.as_deref() != Some(spec_hash.as_str())
                                 || !matches!(container.state, ServiceState::Running)
                         })
-                        .unwrap_or(true);
+                        .unwrap_or(true)
+                        || force_service_ids.iter().any(|id| id == &spec.id);
 
                     if should_replace {
                         if let Some(container) = existing.as_ref() {
@@ -146,7 +148,8 @@ impl DockerReconciler {
                             container.spec_hash.as_deref() != Some(spec_hash.as_str())
                                 || !matches!(container.state, ServiceState::Running)
                         })
-                        .unwrap_or(true);
+                        .unwrap_or(true)
+                        || force_service_ids.iter().any(|id| id == &spec.id);
                     if !should_replace {
                         let container = existing.expect("existing container");
                         applied.push(spec.id.clone());

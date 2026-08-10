@@ -1,6 +1,6 @@
 [package]
 name = "berth-agent"
-version = "0.10.3"
+version = "0.11.1"
 edition = "2021"
 description = "Berth agent - native per-server daemon. Manages Docker, cgroups, and the reverse proxy; dials the panel over WebSocket/mTLS."
 
@@ -18,6 +18,9 @@ futures-util = "0.3"
 rand = "0.8"
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
 base64 = "0.23.1"
+
+[target.'cfg(unix)'.dependencies]
+pty-process = { version = "0.5", features = ["async"] }
 
 [profile.release]
 strip = true

@@ -118,6 +118,7 @@ export type PanelToAgent =
       services: ServiceSpec[];
       proxies: ProxyRoute[];
       panel?: PanelRoute;
+      forceServiceIds?: string[];
     }
   | { type: 'RemoveService'; serviceId: string }
   | { type: 'StreamLogs'; serviceId: string; follow: boolean }
@@ -143,6 +144,7 @@ export type PanelToAgent =
   | { type: 'ExecStart'; sessionId: string; containerName: string }
   | { type: 'ExecInput'; sessionId: string; data: string }
   | { type: 'ExecStop'; sessionId: string }
+  | { type: 'ExecResize'; sessionId: string; cols: number; rows: number }
   | { type: 'RunCommand'; runId: string; containerName: string; command: string[] };
 
 export type AgentToPanel =

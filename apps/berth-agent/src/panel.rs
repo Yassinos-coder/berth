@@ -165,9 +165,10 @@ async fn handle_message(
             services,
             proxies,
             panel,
+            force_service_ids,
         } => {
             let outcome = reconciler
-                .reconcile(&services, &proxies, panel.as_ref())
+                .reconcile(&services, &proxies, panel.as_ref(), &force_service_ids)
                 .await?;
 
             let running: Vec<String> = outcome
@@ -280,6 +281,9 @@ async fn handle_message(
         }
         PanelToAgent::ExecStop { session_id } => {
             exec_manager.stop(&session_id).await;
+        }
+        PanelToAgent::ExecResize { session_id, cols, rows } => {
+            exec_manager.resize(&session_id, cols, rows).await;
         }
         PanelToAgent::RunCommand { run_id, container_name, command } => {
             exec_manager.run_command(run_id, container_name, command);

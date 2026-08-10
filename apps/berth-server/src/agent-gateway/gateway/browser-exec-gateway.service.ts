@@ -55,9 +55,17 @@ export class BrowserExecGateway implements OnApplicationBootstrap, OnApplication
 
   private onMessage(sessionId: string, raw: RawData): void {
     try {
-      const message = JSON.parse(raw.toString()) as { type?: string; data?: string };
+      const message = JSON.parse(raw.toString()) as { type?: string; data?: string; cols?: number; rows?: number };
       if (message.type === 'input' && typeof message.data === 'string' && message.data.length <= 65536) {
         this.exec.input(sessionId, message.data);
+      } else if (
+        message.type === 'resize'
+        && Number.isInteger(message.cols)
+        && Number.isInteger(message.rows)
+        && message.cols! > 0 && message.cols! <= 1000
+        && message.rows! > 0 && message.rows! <= 1000
+      ) {
+        this.exec.resize(sessionId, message.cols!, message.rows!);
       }
     } catch { /* Invalid browser frames are ignored. */ }
   }
