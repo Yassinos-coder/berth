@@ -6,6 +6,7 @@ export function useServices() {
   return useQuery({
     queryKey: queryKeys.services,
     queryFn: () => servicesService.list(),
+    refetchInterval: 5000,
   });
 }
 
@@ -14,6 +15,7 @@ export function useService(id: string) {
     queryKey: queryKeys.service(id),
     queryFn: () => servicesService.getById(id),
     enabled: Boolean(id),
+    refetchInterval: 5000,
   });
 }
 

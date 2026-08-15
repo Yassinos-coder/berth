@@ -153,24 +153,48 @@ export function ServiceDetailPage() {
             />
 
             <Tabs defaultValue="overview">
-              <TabsList className="w-full max-w-2xl">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                {svc.templateKind ? (
-                  <TabsTrigger value="connect">Connect</TabsTrigger>
-                ) : null}
-                <TabsTrigger value="deployments">Deployments</TabsTrigger>
-                <TabsTrigger value="logs">Logs</TabsTrigger>
-                <TabsTrigger value="terminal">Terminal</TabsTrigger>
-                <TabsTrigger value="jobs">Jobs</TabsTrigger>
-                <TabsTrigger value="metrics">Metrics</TabsTrigger>
-                <TabsTrigger value="env">Variables</TabsTrigger>
-                <TabsTrigger value="domains">Domains</TabsTrigger>
-                {svc.templateKind &&
-                BACKUP_SUPPORTED_TEMPLATE_KINDS.has(svc.templateKind) ? (
-                  <TabsTrigger value="backups">Backups</TabsTrigger>
-                ) : null}
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-              </TabsList>
+              <div className="w-full overflow-x-auto">
+                <TabsList className="w-fit min-w-full justify-start sm:min-w-0">
+                  <TabsTrigger className="flex-none" value="overview">
+                    Overview
+                  </TabsTrigger>
+                  {svc.templateKind ? (
+                    <TabsTrigger className="flex-none" value="connect">
+                      Connect
+                    </TabsTrigger>
+                  ) : null}
+                  <TabsTrigger className="flex-none" value="deployments">
+                    Deployments
+                  </TabsTrigger>
+                  <TabsTrigger className="flex-none" value="logs">
+                    Logs
+                  </TabsTrigger>
+                  <TabsTrigger className="flex-none" value="terminal">
+                    Terminal
+                  </TabsTrigger>
+                  <TabsTrigger className="flex-none" value="jobs">
+                    Jobs
+                  </TabsTrigger>
+                  <TabsTrigger className="flex-none" value="metrics">
+                    Metrics
+                  </TabsTrigger>
+                  <TabsTrigger className="flex-none" value="env">
+                    Variables
+                  </TabsTrigger>
+                  <TabsTrigger className="flex-none" value="domains">
+                    Domains
+                  </TabsTrigger>
+                  {svc.templateKind &&
+                  BACKUP_SUPPORTED_TEMPLATE_KINDS.has(svc.templateKind) ? (
+                    <TabsTrigger className="flex-none" value="backups">
+                      Backups
+                    </TabsTrigger>
+                  ) : null}
+                  <TabsTrigger className="flex-none" value="settings">
+                    Settings
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               {svc.templateKind ? (
                 <TabsContent value="connect" className="mt-4">

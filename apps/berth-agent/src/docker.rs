@@ -67,6 +67,8 @@ impl DockerReconciler {
         panel: Option<&PanelRoute>,
         force_service_ids: &[String],
     ) -> AgentResult<ReconcileOutcome> {
+        self.heal_orphaned_next_containers().await?;
+
         let mut current = self.list_managed_containers().await?;
         let mut current_by_service = HashMap::new();
 
@@ -112,22 +114,37 @@ impl DockerReconciler {
                         || force_service_ids.iter().any(|id| id == &spec.id);
 
                     if should_replace {
-                        if let Some(container) = existing.as_ref() {
-                            self.remove_container(&container.name).await?;
-                        }
-
                         if let Some(auth) = &spec.registry_auth {
                             self.docker_login(auth).await?;
                         }
                         self.pull_image(image, tag).await?;
-                        let container_id = self.run_service(spec, &spec_hash, None).await?;
+                        let image_ref = format!("{image}:{tag}");
+                        let existing_before = existing.clone();
 
-                        applied.push(spec.id.clone());
-                        statuses.push(ServiceStatusEvent {
-                            service_id: spec.id.clone(),
-                            state: ServiceState::Running,
-                            container_id: Some(container_id),
-                        });
+                        match self.cutover(spec, &spec_hash, &image_ref, existing).await {
+                            Ok((state, container_id)) => {
+                                applied.push(spec.id.clone());
+                                statuses.push(ServiceStatusEvent {
+                                    service_id: spec.id.clone(),
+                                    state,
+                                    container_id,
+                                });
+                            }
+                            Err(error) => {
+                                failed.push(FailedApply {
+                                    service_id: spec.id.clone(),
+                                    reason: redact_credentials(&error.to_string()),
+                                });
+                                statuses.push(ServiceStatusEvent {
+                                    service_id: spec.id.clone(),
+                                    state: existing_before
+                                        .as_ref()
+                                        .map(|container| container.state.clone())
+                                        .unwrap_or(ServiceState::Crashed),
+                                    container_id: existing_before.map(|container| container.id),
+                                });
+                            }
+                        }
                     } else if let Some(container) = existing {
                         applied.push(spec.id.clone());
                         statuses.push(ServiceStatusEvent {
@@ -160,23 +177,35 @@ impl DockerReconciler {
                         });
                         continue;
                     }
-                    if let Some(container) = existing {
-                        self.remove_container(&container.name).await?;
-                    }
                     if let Some(auth) = &spec.registry_auth {
                         self.docker_login(auth).await?;
                     }
+                    // Build before touching the old container: the old one keeps serving
+                    // traffic for the entire (potentially multi-minute) build, and a failed
+                    // build never takes the service down.
                     match self.build_git_source(spec, &spec_hash).await {
-                        Ok(image) => {
-                            let container_id =
-                                self.run_service(spec, &spec_hash, Some(&image)).await?;
-                            applied.push(spec.id.clone());
-                            statuses.push(ServiceStatusEvent {
-                                service_id: spec.id.clone(),
-                                state: ServiceState::Running,
-                                container_id: Some(container_id),
-                            });
-                        }
+                        Ok(image) => match self.cutover(spec, &spec_hash, &image, existing).await
+                        {
+                            Ok((state, container_id)) => {
+                                applied.push(spec.id.clone());
+                                statuses.push(ServiceStatusEvent {
+                                    service_id: spec.id.clone(),
+                                    state,
+                                    container_id,
+                                });
+                            }
+                            Err(error) => {
+                                failed.push(FailedApply {
+                                    service_id: spec.id.clone(),
+                                    reason: redact_credentials(&error.to_string()),
+                                });
+                                statuses.push(ServiceStatusEvent {
+                                    service_id: spec.id.clone(),
+                                    state: ServiceState::Crashed,
+                                    container_id: None,
+                                });
+                            }
+                        },
                         Err(error) => {
                             failed.push(FailedApply {
                                 service_id: spec.id.clone(),
@@ -184,8 +213,11 @@ impl DockerReconciler {
                             });
                             statuses.push(ServiceStatusEvent {
                                 service_id: spec.id.clone(),
-                                state: ServiceState::Crashed,
-                                container_id: None,
+                                state: existing
+                                    .as_ref()
+                                    .map(|container| container.state.clone())
+                                    .unwrap_or(ServiceState::Crashed),
+                                container_id: existing.map(|container| container.id),
                             });
                         }
                     }
@@ -412,6 +444,31 @@ impl DockerReconciler {
         Ok(())
     }
 
+    /// If the agent crashed mid-cutover, a `berth-{id}-next` container may be
+    /// left running instead of (or alongside) the canonical `berth-{id}`
+    /// one. The rest of reconcile assumes the canonical name is what's
+    /// serving traffic, so fix that up first: drop the leftover `-next`
+    /// duplicate if the canonical container is already there, otherwise
+    /// promote it by renaming it into place.
+    async fn heal_orphaned_next_containers(&self) -> AgentResult<()> {
+        let containers = self.list_managed_containers().await?;
+
+        for container in &containers {
+            if !container.name.ends_with("-next") {
+                continue;
+            }
+
+            let canonical = container_name(&container.service_id);
+            if containers.iter().any(|other| other.name == canonical) {
+                self.remove_container(&container.name).await?;
+            } else {
+                let _ = self.docker(&["rename", &container.name, &canonical]).await;
+            }
+        }
+
+        Ok(())
+    }
+
     async fn container_running(&self, name: &str) -> bool {
         self.docker(&["inspect", "-f", "{{.State.Running}}", name])
             .await
@@ -535,6 +592,7 @@ impl DockerReconciler {
         spec: &ServiceSpec,
         spec_hash: &str,
         built_image: Option<&str>,
+        name: &str,
     ) -> AgentResult<String> {
         let image_ref = match (&spec.source, built_image) {
             (_, Some(image)) => image.to_string(),
@@ -552,7 +610,7 @@ impl DockerReconciler {
             "run".to_string(),
             "-d".to_string(),
             "--name".to_string(),
-            container_name(&spec.id),
+            name.to_string(),
             "--label".to_string(),
             format!("{LABEL_MANAGED}=true"),
             "--label".to_string(),
@@ -615,6 +673,142 @@ impl DockerReconciler {
         let output = self.docker(&owned_args).await?;
 
         Ok(output.lines().next().unwrap_or_default().trim().to_string())
+    }
+
+    /// Starts `image` as the new version of `spec` and swaps it in for `existing`
+    /// (if any) with no observable downtime: the new container is started
+    /// alongside the old one under a temporary name, health-checked, and only
+    /// then does the old container get removed and the new one renamed into
+    /// its place. Falls back to stop-then-start when the service publishes a
+    /// host port directly (not behind Caddy), since Docker can't bind two
+    /// containers to the same host port at once.
+    async fn cutover(
+        &self,
+        spec: &ServiceSpec,
+        spec_hash: &str,
+        image: &str,
+        existing: Option<ManagedContainer>,
+    ) -> AgentResult<(ServiceState, Option<String>)> {
+        let publishes_host_port = spec
+            .ports
+            .iter()
+            .any(|port| port.public && port.domain.is_none());
+
+        if publishes_host_port {
+            if let Some(old) = existing {
+                self.remove_container(&old.name).await?;
+            }
+            let container_id = self
+                .run_service(spec, spec_hash, Some(image), &container_name(&spec.id))
+                .await?;
+            return Ok((ServiceState::Running, Some(container_id)));
+        }
+
+        let Some(old) = existing else {
+            let container_id = self
+                .run_service(spec, spec_hash, Some(image), &container_name(&spec.id))
+                .await?;
+            return Ok((ServiceState::Running, Some(container_id)));
+        };
+
+        let next_name = container_name_next(&spec.id);
+        let _ = self.remove_container(&next_name).await;
+        let container_id = self
+            .run_service(spec, spec_hash, Some(image), &next_name)
+            .await?;
+
+        match self.wait_until_healthy(&next_name, spec).await {
+            Ok(()) => {
+                self.remove_container(&old.name).await?;
+                self.docker(&["rename", &next_name, &container_name(&spec.id)])
+                    .await?;
+                Ok((ServiceState::Running, Some(container_id)))
+            }
+            Err(error) => {
+                self.remove_container(&next_name).await?;
+                Err(error)
+            }
+        }
+    }
+
+    /// Polls a freshly started container until it counts as healthy: an HTTP
+    /// probe against `spec.health_check` if one is configured, or simply
+    /// staying `running` past a short grace period otherwise. Bails out early
+    /// if the container exits.
+    async fn wait_until_healthy(&self, name: &str, spec: &ServiceSpec) -> AgentResult<()> {
+        let (interval, timeout, attempts, path, port) = match &spec.health_check {
+            Some(check) => (
+                std::time::Duration::from_secs(check.interval_seconds.max(1)),
+                std::time::Duration::from_secs(check.timeout_seconds.max(1)),
+                check.retries.max(1),
+                check.path.clone(),
+                check.port,
+            ),
+            None => (
+                std::time::Duration::from_secs(2),
+                std::time::Duration::from_secs(2),
+                5,
+                None,
+                None,
+            ),
+        };
+
+        for attempt in 0..attempts {
+            if attempt > 0 {
+                tokio::time::sleep(interval).await;
+            }
+
+            let status = self
+                .docker(&["inspect", "-f", "{{.State.Status}}", name])
+                .await
+                .unwrap_or_default();
+            let status = status.trim();
+            if status == "exited" || status == "dead" {
+                return Err(format!("container {name} exited during startup").into());
+            }
+            if status != "running" {
+                continue;
+            }
+
+            let Some(check_path) = path.as_deref() else {
+                return Ok(());
+            };
+
+            let Ok(ip) = self.container_ip(name).await else {
+                continue;
+            };
+            if ip.is_empty() {
+                continue;
+            }
+
+            let check_port = port
+                .or_else(|| spec.ports.first().map(|mapping| mapping.container_port))
+                .unwrap_or(80);
+            let url = format!("http://{ip}:{check_port}{check_path}");
+
+            let Ok(client) = reqwest::Client::builder().timeout(timeout).build() else {
+                continue;
+            };
+            if let Ok(response) = client.get(&url).send().await {
+                if response.status().is_success() {
+                    return Ok(());
+                }
+            }
+        }
+
+        Err(format!("service did not become healthy after {attempts} attempts").into())
+    }
+
+    async fn container_ip(&self, name: &str) -> AgentResult<String> {
+        let output = self
+            .docker(&[
+                "inspect",
+                "-f",
+                &format!("{{{{(index .NetworkSettings.Networks \"{BERTH_NETWORK}\").IPAddress}}}}"),
+                name,
+            ])
+            .await?;
+        Ok(output.trim().to_string())
     }
 
     async fn build_git_source(&self, spec: &ServiceSpec, spec_hash: &str) -> AgentResult<String> {
@@ -763,6 +957,10 @@ impl DockerReconciler {
 
 fn container_name(service_id: &str) -> String {
     format!("berth-{service_id}")
+}
+
+fn container_name_next(service_id: &str) -> String {
+    format!("berth-{service_id}-next")
 }
 
 fn env_value(spec: &ServiceSpec, key: &str) -> Option<String> {

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.2] - 2026-08-15
+
+### Added
+- Git-sourced and image-sourced deploys are now zero-downtime: the agent builds/pulls the new version and starts it under a temporary name alongside the still-running old container, health-checks it (via `healthCheck.path` if configured, otherwise a running-state grace period), and only then removes the old container and swaps the new one into its canonical name — matching the old container-stays-up-until-cutover behavior of Railway-style platforms. Falls back to the previous stop-then-start behavior for services that publish a host port directly (not behind Caddy), since Docker can't bind two containers to the same host port at once. A failed build or failed health check now leaves the previously running container untouched instead of taking the service down.
+
+### Fixed
+- The All Services page and service detail page now poll for status instead of only fetching once, so a service's state (running/building/crashed/etc.) updates live without a manual page reload.
+- The service detail page's tab bar (Overview/Deployments/Logs/Variables/Settings/etc.) no longer squeezes into a fixed-width container when many tabs are visible; it now scrolls horizontally and each tab sizes to its label instead of being compressed.
+
 ## [0.11.1] - 2026-08-10
 
 ### Added
