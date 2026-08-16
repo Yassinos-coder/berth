@@ -856,7 +856,17 @@ impl DockerReconciler {
                 && root.join(dockerfile).exists());
         let status = if use_docker {
             let mut command = Command::new(&self.docker_bin);
-            command.args(["build", "-t", &image, "-f", dockerfile]);
+            // Git deploys must reflect the freshly cloned branch HEAD. Avoid
+            // stale application/base-image layers masking a pushed change.
+            command.args([
+                "build",
+                "--no-cache",
+                "--pull",
+                "-t",
+                &image,
+                "-f",
+                dockerfile,
+            ]);
             if let Some(platform) = &spec.target_platform {
                 command.args(["--platform", platform]);
             }
@@ -868,7 +878,7 @@ impl DockerReconciler {
             command.arg(".").current_dir(&root).status().await?
         } else {
             let mut command = Command::new("nixpacks");
-            command.args(["build", ".", "--name", &image]);
+            command.args(["build", ".", "--name", &image, "--no-cache"]);
             if let Some(cmd) = build.build_command.as_deref() {
                 command.args(["--build-cmd", cmd]);
             }

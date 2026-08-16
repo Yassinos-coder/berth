@@ -33,7 +33,7 @@ export class GithubWebhookController {
     await Promise.all(services.map(async (service) => {
       await this.prisma.service.update({ where: { id: service.id }, data: { specHash: body.after, state: 'building' } });
       await this.prisma.deployment.create({ data: { orgId: installation.orgId, serviceId: service.id, status: DeploymentStatus.queued, trigger: DeploymentTrigger.push, branch, commitSha: body.after, commitMessage: body.head_commit?.message, author: body.sender?.login } });
-      await this.agents.reconcileForService(service.id);
+      await this.agents.reconcileForService(service.id, true);
     }));
     return { ok: true, deployments: services.length };
   }

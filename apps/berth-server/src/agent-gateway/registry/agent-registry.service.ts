@@ -61,9 +61,14 @@ export class AgentRegistry {
     });
   }
 
-  async reconcileForService(serviceId: string): Promise<void> {
+  async reconcileForService(
+    serviceId: string,
+    forceRecreate = false,
+  ): Promise<void> {
     const serverId = await this.repository.serverIdForService(serviceId);
-    if (serverId) await this.reconcileServer(serverId);
+    if (serverId) {
+      await this.reconcileServer(serverId, forceRecreate ? [serviceId] : []);
+    }
   }
 
   removeService(serverId: string, serviceId: string): void {

@@ -1,5 +1,7 @@
 # Changelog
 
+- GitHub push deployments now force the affected service to rebuild, even when its saved service configuration is unchanged. Git redeploys also bypass Docker/Nixpacks build caches (and Dockerfile builds refresh base images), preventing stale build output from hiding newly pushed code. Persistent volumes and databases remain untouched.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
