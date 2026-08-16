@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { BadgeCheck, Database, Loader2, Search, Star } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -49,17 +49,17 @@ export function ImageSearch({ dbOnly = false, onSelect }: ImageSearchProps) {
   return (
     <div className="space-y-3">
       <div className="relative">
-        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" aria-hidden="true" />
         <Input
           placeholder={
-            dbOnly ? 'Search databases — redis, postgres…' : 'Search Docker Hub…'
+            dbOnly ? 'Search databases â€” redis, postgresâ€¦' : 'Search Docker Hubâ€¦'
           }
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="pl-9"
         />
         {search.isFetching ? (
-          <Loader2 className="text-muted-foreground absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin" />
+          <Loader2 className="text-muted-foreground absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin" aria-hidden="true" />
         ) : null}
       </div>
 
@@ -77,9 +77,9 @@ export function ImageSearch({ dbOnly = false, onSelect }: ImageSearchProps) {
             >
               <span className="bg-primary/10 text-primary mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md">
                 {image.templateKind ? (
-                  <Database className="size-4" />
+                  <Database className="size-4" aria-hidden="true" />
                 ) : (
-                  <Search className="size-4" />
+                  <Search className="size-4" aria-hidden="true" />
                 )}
               </span>
               <div className="min-w-0 flex-1">
@@ -88,7 +88,7 @@ export function ImageSearch({ dbOnly = false, onSelect }: ImageSearchProps) {
                     {image.name}
                   </span>
                   {image.official ? (
-                    <BadgeCheck className="text-primary size-4 shrink-0" />
+                    <BadgeCheck className="text-primary size-4 shrink-0" aria-hidden="true" />
                   ) : null}
                   {image.templateKind ? (
                     <Badge variant="secondary" className="text-[10px]">
@@ -101,7 +101,7 @@ export function ImageSearch({ dbOnly = false, onSelect }: ImageSearchProps) {
                 </p>
               </div>
               <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
-                <Star className="size-3" />
+                <Star className="size-3" aria-hidden="true" />
                 {image.stars.toLocaleString()}
               </span>
             </button>

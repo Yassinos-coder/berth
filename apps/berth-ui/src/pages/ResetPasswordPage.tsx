@@ -1,4 +1,4 @@
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
+﻿import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -54,7 +54,7 @@ export function ResetPasswordPage() {
       subtitle={
         preview.data
           ? `Choose a new password for ${preview.data.email}`
-          : 'Loading…'
+          : 'Loadingâ€¦'
       }
     >
       <form
@@ -86,7 +86,7 @@ export function ResetPasswordPage() {
           disabled={!preview.data || resetPassword.isPending}
         >
           {resetPassword.isPending ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
           ) : null}
           Reset password
         </Button>

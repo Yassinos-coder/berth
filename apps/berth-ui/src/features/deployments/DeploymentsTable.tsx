@@ -1,4 +1,4 @@
-import { Github, GitCommitHorizontal, RotateCcw } from 'lucide-react';
+﻿import { Github, GitCommitHorizontal, RotateCcw } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -51,14 +51,14 @@ export function DeploymentsTable({
           <TableRow key={dep.id}>
             <TableCell>
               <div className="flex items-center gap-2">
-                <GitCommitHorizontal className="text-muted-foreground size-4" />
+                <GitCommitHorizontal className="text-muted-foreground size-4" aria-hidden="true" />
                 <div className="min-w-0">
                   <p className="max-w-[240px] truncate text-sm font-medium">
                     {dep.commitMessage ?? 'Manual deploy'}
                   </p>
                   <p className="text-muted-foreground font-mono text-xs">
-                    {dep.commitSha ? Format.commit(dep.commitSha) : '—'}
-                    {dep.branch ? ` · ${dep.branch}` : ''}
+                    {dep.commitSha ? Format.commit(dep.commitSha) : 'â€”'}
+                    {dep.branch ? ` Â· ${dep.branch}` : ''}
                   </p>
                 </div>
               </div>
@@ -71,12 +71,12 @@ export function DeploymentsTable({
             </TableCell>
             <TableCell>
               <Badge variant="outline" className="gap-1">
-                {dep.trigger === 'push' ? <Github className="size-3" /> : null}
+                {dep.trigger === 'push' ? <Github className="size-3" aria-hidden="true" /> : null}
                 {TRIGGER_LABEL[dep.trigger] ?? dep.trigger}
               </Badge>
             </TableCell>
             <TableCell className="text-muted-foreground text-sm tabular-nums">
-              {dep.durationSeconds ? Format.duration(dep.durationSeconds) : '—'}
+              {dep.durationSeconds ? Format.duration(dep.durationSeconds) : 'â€”'}
             </TableCell>
             <TableCell className="text-muted-foreground text-sm">
               {Format.relativeTime(dep.createdAt)}
@@ -89,7 +89,7 @@ export function DeploymentsTable({
                   disabled={dep.status !== 'live' || rollbackPendingId === dep.id}
                   onClick={() => onRollback(dep.id)}
                 >
-                  <RotateCcw className="size-3.5" />
+                  <RotateCcw className="size-3.5" aria-hidden="true" />
                   Rollback
                 </Button>
               </TableCell>

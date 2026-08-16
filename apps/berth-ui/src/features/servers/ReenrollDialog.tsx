@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { KeyRound, Loader2, RefreshCw } from 'lucide-react';
 import {
   Dialog,
@@ -48,14 +48,14 @@ export function ReenrollDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          <RefreshCw className="size-4" /> Regenerate token
+          <RefreshCw className="size-4" aria-hidden="true" /> Regenerate token
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Regenerate bootstrap token</DialogTitle>
           <DialogDescription>
-            Issues a fresh single-use token so the agent can re-enroll — for
+            Issues a fresh single-use token so the agent can re-enroll â€” for
             example after the panel was reinstalled with a new certificate
             authority.
           </DialogDescription>
@@ -65,9 +65,9 @@ export function ReenrollDialog({
           <DialogFooter>
             <Button onClick={generate} disabled={reenroll.isPending}>
               {reenroll.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               ) : (
-                <KeyRound className="size-4" />
+                <KeyRound className="size-4" aria-hidden="true" />
               )}
               Generate token
             </Button>
@@ -88,7 +88,7 @@ export function ReenrollDialog({
               </div>
             </div>
             <div className="border-warning/40 bg-warning/10 text-warning rounded-lg border px-3 py-2 text-xs">
-              Single-use token — expires {Format.relativeTime(enrollment.expiresAt)}.
+              Single-use token â€” expires {Format.relativeTime(enrollment.expiresAt)}.
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => close(false)}>

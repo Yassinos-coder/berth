@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 import { Boxes, Cpu, Globe } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { AgentStatusBadge } from '@/components/shared/StatusBadge';
@@ -22,7 +22,7 @@ export function ServerCard({ server }: { server: Server }) {
                 {server.name}
               </p>
               <p className="text-muted-foreground flex items-center gap-1 truncate text-xs">
-                <Globe className="size-3" />
+                <Globe className="size-3" aria-hidden="true" />
                 {server.region}
               </p>
             </div>
@@ -31,7 +31,7 @@ export function ServerCard({ server }: { server: Server }) {
 
           {enrolling ? (
             <p className="text-muted-foreground text-sm">
-              Waiting for the agent to dial back…
+              Waiting for the agent to dial backâ€¦
             </p>
           ) : (
             <>
@@ -39,11 +39,11 @@ export function ServerCard({ server }: { server: Server }) {
               <UsageBar label="Memory" value={memPct} />
               <div className="border-border/60 text-muted-foreground flex items-center gap-4 border-t pt-3 text-xs">
                 <span className="inline-flex items-center gap-1">
-                  <Cpu className="size-3.5" />
+                  <Cpu className="size-3.5" aria-hidden="true" />
                   {server.cpuCores} vCPU
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <Boxes className="size-3.5" />
+                  <Boxes className="size-3.5" aria-hidden="true" />
                   {server.serviceCount} services
                 </span>
                 <span className="ml-auto">

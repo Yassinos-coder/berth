@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Gauge, Github, Globe2, Moon, Sun } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -62,7 +62,7 @@ export function SettingsPage() {
     const result = params.get('github');
     if (!result) return;
     if (result === 'created') {
-      notify.success('GitHub App created — now install it on your repositories');
+      notify.success('GitHub App created â€” now install it on your repositories');
     } else if (result === 'connected') {
       notify.success('GitHub connected');
     }
@@ -161,7 +161,7 @@ export function SettingsPage() {
                   Running version
                 </span>
                 <Badge variant="secondary">
-                  v{version.data?.version ?? '—'}
+                  v{version.data?.version ?? 'â€”'}
                 </Badge>
                 {version.data?.commit ? (
                   <code className="text-muted-foreground text-xs">
@@ -171,7 +171,7 @@ export function SettingsPage() {
               </div>
               {version.data?.updateAvailable ? (
                 <p className="text-warning text-sm">
-                  An update is available — run{' '}
+                  An update is available â€” run{' '}
                   <code className="font-mono">sudo berth-update</code> on the
                   server.
                 </p>
@@ -204,7 +204,7 @@ export function SettingsPage() {
             <CardContent className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="bg-foreground text-background flex size-10 items-center justify-center rounded-lg">
-                  <Github className="size-5" />
+                  <Github className="size-5" aria-hidden="true" />
                 </span>
                 <div>
                   <p className="text-sm font-medium">GitHub App</p>
@@ -212,7 +212,7 @@ export function SettingsPage() {
                     {github.data?.connected
                       ? `Connected as ${github.data.accountLogin}`
                       : github.data?.configured
-                        ? 'App ready — install it on your repositories.'
+                        ? 'App ready â€” install it on your repositories.'
                         : 'Create a GitHub App in one click to deploy from your repositories.'}
                   </p>
                 </div>
@@ -247,9 +247,9 @@ export function SettingsPage() {
                   )}
                 >
                   {t === 'light' ? (
-                    <Sun className="size-5" />
+                    <Sun className="size-5" aria-hidden="true" />
                   ) : (
-                    <Moon className="size-5" />
+                    <Moon className="size-5" aria-hidden="true" />
                   )}
                   <span className="text-sm font-medium capitalize">{t}</span>
                 </button>
@@ -262,7 +262,7 @@ export function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Gauge className="size-4" />
+                <Gauge className="size-4" aria-hidden="true" />
                 Smart resources
               </CardTitle>
             </CardHeader>
@@ -303,7 +303,7 @@ export function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Globe2 className="size-4" />
+                <Globe2 className="size-4" aria-hidden="true" />
                 Panel domain
               </CardTitle>
             </CardHeader>
@@ -330,7 +330,7 @@ export function SettingsPage() {
                   disabled={!canManageResources || updatePanelDomain.isPending}
                   onClick={() => updatePanelDomain.mutate(domain)}
                 >
-                  {updatePanelDomain.isPending ? 'Saving…' : 'Save domain'}
+                  {updatePanelDomain.isPending ? 'Savingâ€¦' : 'Save domain'}
                 </Button>
                 {panelDomain.data?.domain ? (
                   <Button

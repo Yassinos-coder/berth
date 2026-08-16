@@ -1,4 +1,4 @@
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
+﻿import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -54,7 +54,7 @@ export function AcceptInvitePage() {
       subtitle={
         preview.data
           ? `Set a password for ${preview.data.email}`
-          : 'Loading your invite…'
+          : 'Loading your inviteâ€¦'
       }
     >
       <form
@@ -86,7 +86,7 @@ export function AcceptInvitePage() {
           disabled={!preview.data || acceptInvite.isPending}
         >
           {acceptInvite.isPending ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
           ) : null}
           Join organization
         </Button>

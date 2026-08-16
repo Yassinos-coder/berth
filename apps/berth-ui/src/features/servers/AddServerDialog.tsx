@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, TerminalSquare } from 'lucide-react';
 import {
@@ -48,7 +48,7 @@ export function AddServerDialog() {
     <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="size-4" /> Add server
+          <Plus className="size-4" aria-hidden="true" /> Add server
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
@@ -75,9 +75,9 @@ export function AddServerDialog() {
             <DialogFooter>
               <Button onClick={generate} disabled={enroll.isPending || !name.trim()}>
                 {enroll.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                 ) : (
-                  <TerminalSquare className="size-4" />
+                  <TerminalSquare className="size-4" aria-hidden="true" />
                 )}
                 Generate install command
               </Button>

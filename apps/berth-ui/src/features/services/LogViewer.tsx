@@ -1,9 +1,17 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { ArrowDown, Download, WrapText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LogLine } from '@/interfaces';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -32,22 +40,23 @@ const LEVEL_OPTIONS: { value: LogLevel | 'all'; label: string }[] = [
 // Docker can return either real escape bytes or U+FFFD when an upstream
 // decoder has already replaced ESC. Remove both forms of ANSI SGR sequences.
 const ANSI_SGR = /(?:\u001b|\ufffd)\[[0-9;]*m/g;
+const CARRIAGE_RETURN = /\r/g;
+const ERROR_PATTERN = /\b(?:error|fatal|exception|failed)\b/i;
+const WARN_PATTERN = /\bwarn(?:ing)?\b/i;
+const DEBUG_PATTERN = /\b(?:debug|verbose|trace)\b/i;
 
 // How close to the bottom (px) the user has to be for new lines to keep
 // auto-scrolling. Scrolling up past this disables "follow" until they return.
 const FOLLOW_THRESHOLD_PX = 48;
 
 function clean(message: string) {
-  return message.replace(ANSI_SGR, '').replace(/\r/g, '');
+  return message.replace(ANSI_SGR, '').replace(CARRIAGE_RETURN, '');
 }
 
 function levelOf(line: LogLine, message: string): LogLevel {
-  if (
-    line.stream === 'stderr'
-    || /\b(?:error|fatal|exception|failed)\b/i.test(message)
-  ) return 'error';
-  if (/\bwarn(?:ing)?\b/i.test(message)) return 'warn';
-  if (/\b(?:debug|verbose|trace)\b/i.test(message)) return 'debug';
+  if (line.stream === 'stderr' || ERROR_PATTERN.test(message)) return 'error';
+  if (WARN_PATTERN.test(message)) return 'warn';
+  if (DEBUG_PATTERN.test(message)) return 'debug';
   return 'info';
 }
 
@@ -55,9 +64,19 @@ function ts(n: number) {
   return new Date(n).toLocaleTimeString(undefined, { hour12: false });
 }
 
-function downloadLog(lines: { ts: number; level: LogLevel; message: string }[], serviceName: string) {
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function downloadLog(
+  lines: { ts: number; level: LogLevel; message: string }[],
+  serviceName: string,
+) {
   const body = lines
-    .map((line) => `${new Date(line.ts).toISOString()} [${line.level}] ${line.message}`)
+    .map(
+      (line) =>
+        `${new Date(line.ts).toISOString()} [${line.level}] ${line.message}`,
+    )
     .join('\n');
   const blob = new Blob([body], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -68,41 +87,56 @@ function downloadLog(lines: { ts: number; level: LogLevel; message: string }[], 
   URL.revokeObjectURL(url);
 }
 
-export function LogViewer({ lines, serviceName = 'service' }: { lines: LogLine[]; serviceName?: string }) {
+export function LogViewer({
+  lines,
+  serviceName = 'service',
+}: {
+  lines: LogLine[];
+  serviceName?: string;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
   const [level, setLevel] = useState<LogLevel | 'all'>('all');
   const [wrap, setWrap] = useState(true);
   const [following, setFollowing] = useState(true);
 
+  const deferredQuery = useDeferredValue(query);
+  const deferredLevel = useDeferredValue(level);
+
   const rows = useMemo(
-    () => lines.map((line) => {
-      const message = clean(line.line);
-      return { ...line, message, level: levelOf(line, message) };
-    }),
+    () =>
+      lines.map((line) => {
+        const message = clean(line.line);
+        return { ...line, message, level: levelOf(line, message) };
+      }),
     [lines],
   );
 
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
+    const needle = deferredQuery.trim().toLowerCase();
+    if (!needle && deferredLevel === 'all') return rows;
     return rows.filter((row) => {
-      if (level !== 'all' && row.level !== level) return false;
+      if (deferredLevel !== 'all' && row.level !== deferredLevel) return false;
       if (needle && !row.message.toLowerCase().includes(needle)) return false;
       return true;
     });
-  }, [rows, level, query]);
+  }, [rows, deferredLevel, deferredQuery]);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX;
+    const atBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX;
     setFollowing(atBottom);
   }, []);
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+  const scrollToBottom = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    });
     setFollowing(true);
   }, []);
 
@@ -114,14 +148,28 @@ export function LogViewer({ lines, serviceName = 'service' }: { lines: LogLine[]
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
+        <Label htmlFor="log-filter" className="sr-only">
+          Filter log output
+        </Label>
         <Input
+          id="log-filter"
+          type="search"
+          name="log-filter"
+          autoComplete="off"
+          spellCheck={false}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Filter logs…"
+          placeholder="Filter logsâ€¦"
           className="h-8 w-56"
         />
-        <Select value={level} onValueChange={(value) => setLevel(value as LogLevel | 'all')}>
-          <SelectTrigger size="sm" className="w-32">
+        <Label htmlFor="log-level" className="sr-only">
+          Filter by log level
+        </Label>
+        <Select
+          value={level}
+          onValueChange={(value) => setLevel(value as LogLevel | 'all')}
+        >
+          <SelectTrigger id="log-level" size="sm" className="w-32">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -132,34 +180,38 @@ export function LogViewer({ lines, serviceName = 'service' }: { lines: LogLine[]
             ))}
           </SelectContent>
         </Select>
-        <span className="text-xs text-muted-foreground">
+        <span
+          className="text-muted-foreground text-xs tabular-nums"
+          aria-live="polite"
+        >
           {filtered.length === rows.length
             ? `${rows.length} lines`
             : `${filtered.length} / ${rows.length} lines`}
         </span>
         <div className="ml-auto flex items-center gap-2">
           {!following && (
-            <Button variant="secondary" size="sm" onClick={() => scrollToBottom()}>
-              <ArrowDown className="size-3.5" />
-              Jump to latest
+            <Button variant="secondary" size="sm" onClick={scrollToBottom}>
+              <ArrowDown className="size-3.5" aria-hidden="true" />
+              Jump to Latest
             </Button>
           )}
           <Button
             variant={wrap ? 'secondary' : 'outline'}
             size="sm"
             onClick={() => setWrap((prev) => !prev)}
-            title={wrap ? 'Disable line wrap' : 'Enable line wrap'}
+            aria-pressed={wrap}
+            aria-label={wrap ? 'Disable line wrap' : 'Enable line wrap'}
           >
-            <WrapText className="size-3.5" />
+            <WrapText className="size-3.5" aria-hidden="true" />
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => downloadLog(filtered, serviceName)}
             disabled={filtered.length === 0}
-            title="Download visible logs"
+            aria-label="Download visible logs"
           >
-            <Download className="size-3.5" />
+            <Download className="size-3.5" aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -167,27 +219,33 @@ export function LogViewer({ lines, serviceName = 'service' }: { lines: LogLine[]
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="h-[460px] overflow-auto rounded-lg border border-white/10 bg-[oklch(0.115_0.012_250)] font-mono text-[13px] leading-5 shadow-inner"
+        role="log"
+        aria-label="Container log output"
+        tabIndex={0}
+        className="focus-visible:ring-ring/40 h-[460px] overflow-auto overscroll-contain rounded-lg border border-white/10 bg-[oklch(0.115_0.012_250)] font-mono text-[13px] leading-5 shadow-inner outline-none focus-visible:ring-[3px]"
       >
         {rows.length === 0 ? (
-          <p className="p-4 text-muted-foreground">Waiting for log output&hellip;</p>
+          <p className="text-muted-foreground p-4">Waiting for log outputâ€¦</p>
         ) : filtered.length === 0 ? (
-          <p className="p-4 text-muted-foreground">No log lines match your filter.</p>
+          <p className="text-muted-foreground p-4">
+            No log lines match your filter. Clear the search box or choose â€œAll
+            levelsâ€.
+          </p>
         ) : (
           filtered.map((line) => (
             <div
               key={line.id}
               className={cn(
-                'group grid min-w-max grid-cols-[5.5rem_3.5rem_1fr] items-start gap-3 border-b border-white/[0.035] px-4 py-1.5 hover:bg-white/[0.035]',
+                'group grid min-w-max grid-cols-[5.5rem_3.5rem_1fr] items-start gap-3 border-b border-white/[0.035] px-4 py-1.5 [content-visibility:auto] [contain-intrinsic-size:auto_28px] hover:bg-white/[0.035]',
                 !wrap && 'w-max',
               )}
             >
-              <span className="select-none tabular-nums text-slate-500">
+              <span className="tabular-nums text-slate-500 select-none">
                 {ts(line.ts)}
               </span>
               <span
                 className={cn(
-                  'w-fit select-none rounded border px-1.5 text-[10px] font-semibold uppercase leading-[18px] tracking-wider',
+                  'w-fit rounded border px-1.5 text-[10px] leading-[18px] font-semibold tracking-wider uppercase select-none',
                   LEVEL_STYLE[line.level],
                 )}
               >
@@ -196,8 +254,9 @@ export function LogViewer({ lines, serviceName = 'service' }: { lines: LogLine[]
               <code
                 className={cn(
                   'pr-4 text-slate-200',
-                  wrap ? 'whitespace-pre-wrap wrap-anywhere' : 'whitespace-pre',
+                  wrap ? 'wrap-anywhere whitespace-pre-wrap' : 'whitespace-pre',
                 )}
+                translate="no"
               >
                 {line.message}
               </code>

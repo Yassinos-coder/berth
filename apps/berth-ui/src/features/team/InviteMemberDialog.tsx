@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Loader2, UserPlus } from 'lucide-react';
 import {
   Dialog,
@@ -61,14 +61,14 @@ export function InviteMemberDialog() {
     <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
         <Button>
-          <UserPlus className="size-4" /> Invite member
+          <UserPlus className="size-4" aria-hidden="true" /> Invite member
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Invite a member</DialogTitle>
           <DialogDescription>
-            Berth has no email provider configured — share the invite link
+            Berth has no email provider configured â€” share the invite link
             with them yourself (Slack, email, whatever works).
           </DialogDescription>
         </DialogHeader>
@@ -95,7 +95,7 @@ export function InviteMemberDialog() {
                   <SelectContent>
                     {ASSIGNABLE_ROLES.map((r) => (
                       <SelectItem key={r} value={r}>
-                        {ROLE_META[r].label} — {ROLE_META[r].description}
+                        {ROLE_META[r].label} â€” {ROLE_META[r].description}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -108,7 +108,7 @@ export function InviteMemberDialog() {
               </Button>
               <Button onClick={submit} disabled={invite.isPending}>
                 {invite.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                 ) : null}
                 Create invite
               </Button>

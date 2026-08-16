@@ -1,4 +1,4 @@
-import { ExternalLink, Loader2, Lock, Network, Plus, Trash2 } from 'lucide-react';
+﻿import { ExternalLink, Loader2, Lock, Network, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CopyButton } from '@/components/shared/CopyButton';
@@ -50,12 +50,12 @@ export function ServiceDomains({ service }: { service: Service }) {
                   className="text-primary inline-flex items-center gap-1.5 text-sm font-medium"
                 >
                   {host.domain}
-                  <ExternalLink className="size-3.5" />
+                  <ExternalLink className="size-3.5" aria-hidden="true" />
                 </a>
                 <div className="flex items-center gap-2">
                   {host.ssl ? (
                     <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-                      <Lock className="size-3" /> HTTPS
+                      <Lock className="size-3" aria-hidden="true" /> HTTPS
                     </span>
                   ) : null}
                   <Button
@@ -64,7 +64,7 @@ export function ServiceDomains({ service }: { service: Service }) {
                     className="text-muted-foreground hover:text-destructive"
                     onClick={() => removeHost.mutate(host.id)}
                   >
-                    <Trash2 className="size-4" />
+                    <Trash2 className="size-4" aria-hidden="true" />
                   </Button>
                 </div>
               </div>
@@ -80,7 +80,7 @@ export function ServiceDomains({ service }: { service: Service }) {
               <p className="font-medium">Internal domains</p>
               <p className="text-muted-foreground text-sm">
                 Private hostnames on the <span className="font-mono">berth</span>{' '}
-                network — reach this service from another container at{' '}
+                network â€” reach this service from another container at{' '}
                 <span className="font-mono">http://&lt;domain&gt;:{port}</span>,
                 no public exposure.
               </p>
@@ -92,9 +92,9 @@ export function ServiceDomains({ service }: { service: Service }) {
               onClick={() => addInternal.mutate()}
             >
               {addInternal.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               ) : (
-                <Plus className="size-4" />
+                <Plus className="size-4" aria-hidden="true" />
               )}
               Generate
             </Button>
@@ -111,7 +111,7 @@ export function ServiceDomains({ service }: { service: Service }) {
                 className="flex items-center justify-between rounded-lg border p-3"
               >
                 <span className="inline-flex items-center gap-1.5 font-mono text-sm">
-                  <Network className="text-muted-foreground size-3.5" />
+                  <Network className="text-muted-foreground size-3.5" aria-hidden="true" />
                   {domain}
                 </span>
                 <div className="flex items-center gap-1">
@@ -123,7 +123,7 @@ export function ServiceDomains({ service }: { service: Service }) {
                     disabled={removeInternal.isPending}
                     onClick={() => removeInternal.mutate(domain)}
                   >
-                    <Trash2 className="size-4" />
+                    <Trash2 className="size-4" aria-hidden="true" />
                   </Button>
                 </div>
               </div>

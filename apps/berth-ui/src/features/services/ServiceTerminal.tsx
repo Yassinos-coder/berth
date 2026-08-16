@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -110,18 +110,18 @@ export function ServiceTerminal({ serviceId }: { serviceId: string }) {
     <Card className="overflow-hidden py-0">
       <div className="bg-muted/60 flex items-center justify-between border-b px-4 py-2">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <TerminalIcon className="size-4" /> Container shell
+          <TerminalIcon className="size-4" aria-hidden="true" /> Container shell
           <span className="text-muted-foreground font-normal">
             {status === 'closed' && exitCode !== undefined ? 'session ended' : status}
           </span>
         </div>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={() => termRef.current?.clear()} title="Clear the view (does not affect the shell)">
-            <Eraser className="size-4" />
+            <Eraser className="size-4" aria-hidden="true" />
             Clear
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setGeneration((value) => value + 1)}>
-            {isBusy ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            {isBusy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <RefreshCw className="size-4" aria-hidden="true" />}
             Reconnect
           </Button>
         </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Eye, EyeOff, FolderKey, Globe, Lock, Network } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +22,7 @@ function UrlRow({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <Icon className="text-muted-foreground size-4" />
+        <Icon className="text-muted-foreground size-4" aria-hidden="true" />
         {label}
       </div>
       {url ? (
@@ -50,7 +50,7 @@ function Field({
 }) {
   const [revealed, setRevealed] = useState(false);
   if (!value) return null;
-  const shown = secret && !revealed ? '•'.repeat(Math.min(value.length, 16)) : value;
+  const shown = secret && !revealed ? 'â€¢'.repeat(Math.min(value.length, 16)) : value;
   return (
     <div className="flex-1 space-y-1">
       {label ? <p className="text-muted-foreground text-xs">{label}</p> : null}
@@ -66,9 +66,9 @@ function Field({
             aria-label={revealed ? 'Hide' : 'Reveal'}
           >
             {revealed ? (
-              <EyeOff className="size-3.5" />
+              <EyeOff className="size-3.5" aria-hidden="true" />
             ) : (
-              <Eye className="size-3.5" />
+              <Eye className="size-3.5" aria-hidden="true" />
             )}
           </button>
         ) : null}
@@ -99,7 +99,7 @@ function ConnectionView({ connection }: { connection: Connection }) {
             hint={
               connection.publicNetworking
                 ? 'The server has no public IP recorded yet.'
-                : 'Public networking is off — enable it to expose this database.'
+                : 'Public networking is off â€” enable it to expose this database.'
             }
           />
           {connection.publicUrl ? (
@@ -124,11 +124,11 @@ function ConnectionView({ connection }: { connection: Connection }) {
           <CardTitle className="text-base">Credentials</CardTitle>
           {connection.publicNetworking ? (
             <Badge variant="warning" className="gap-1">
-              <Globe className="size-3" /> public
+              <Globe className="size-3" aria-hidden="true" /> public
             </Badge>
           ) : (
             <Badge variant="secondary" className="gap-1">
-              <Lock className="size-3" /> private
+              <Lock className="size-3" aria-hidden="true" /> private
             </Badge>
           )}
         </CardHeader>

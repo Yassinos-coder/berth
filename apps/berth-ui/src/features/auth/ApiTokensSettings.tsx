@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,7 +72,7 @@ function CreateTokenDialog({ onCreated }: { onCreated: (token: CreatedApiToken) 
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="size-4" /> Create token
+          <Plus className="size-4" aria-hidden="true" /> Create token
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">
@@ -114,7 +114,7 @@ function CreateTokenDialog({ onCreated }: { onCreated: (token: CreatedApiToken) 
         <DialogFooter>
           <Button onClick={submit} disabled={create.isPending || !name.trim()}>
             {create.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : null}
             Create
           </Button>
@@ -191,7 +191,7 @@ export function ApiTokensSettings() {
                   <TableCell className="font-medium">{t.name}</TableCell>
                   <TableCell>
                     <code className="text-muted-foreground text-xs">
-                      {t.tokenPrefix}…
+                      {t.tokenPrefix}â€¦
                     </code>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
@@ -207,7 +207,7 @@ export function ApiTokensSettings() {
                       disabled={revoke.isPending}
                       onClick={() => revoke.mutate(t.id)}
                     >
-                      <Trash2 className="text-destructive size-4" />
+                      <Trash2 className="text-destructive size-4" aria-hidden="true" />
                     </Button>
                   </TableCell>
                 </TableRow>

@@ -75,7 +75,7 @@ function BulkPaste({ onImport }: { onImport: (vars: EnvVar[]) => void }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          <FileText className="size-4" /> Paste .env
+          <FileText className="size-4" aria-hidden="true" /> Paste .env
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl">
@@ -87,20 +87,29 @@ function BulkPaste({ onImport }: { onImport: (vars: EnvVar[]) => void }) {
             automatically.
           </DialogDescription>
         </DialogHeader>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={10}
-          spellCheck={false}
-          placeholder={'DATABASE_URL=postgres://…\nSUPABASE_ANON_KEY=…'}
-          className="border-input bg-background focus-visible:ring-ring w-full rounded-md border p-3 font-mono text-xs focus-visible:ring-2 focus-visible:outline-none"
-        />
+        <div className="space-y-1.5">
+          <Label htmlFor="dotenv-paste">Variables</Label>
+          <textarea
+            id="dotenv-paste"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={10}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            autoComplete="off"
+            data-1p-ignore
+            data-lpignore="true"
+            placeholder={'DATABASE_URL=postgres://…\nSUPABASE_ANON_KEY=…'}
+            className="border-input bg-background focus-visible:ring-ring/40 w-full rounded-md border p-3 font-mono text-xs outline-none focus-visible:ring-[3px]"
+          />
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button onClick={apply} disabled={!text.trim()}>
-            Import variables
+            Import Variables
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -108,24 +117,47 @@ function BulkPaste({ onImport }: { onImport: (vars: EnvVar[]) => void }) {
   );
 }
 
+interface EnvRow extends EnvVar {
+  rowId: string;
+}
+
+function toRows(vars: EnvVar[]): EnvRow[] {
+  return vars.map((v) => ({ ...v, rowId: crypto.randomUUID() }));
+}
+
+function blankRow(): EnvRow {
+  return { key: '', value: '', isSecret: false, rowId: crypto.randomUUID() };
+}
+
 function Editor({ serviceId, initial }: { serviceId: string; initial: EnvVar[] }) {
-  const [rows, setRows] = useState<EnvVar[]>(
-    initial.length > 0 ? initial : [{ key: '', value: '', isSecret: false }],
+  const [rows, setRows] = useState<EnvRow[]>(() =>
+    initial.length > 0 ? toRows(initial) : [blankRow()],
   );
-  const [revealed, setRevealed] = useState<Record<number, boolean>>({});
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const setEnv = useSetServiceEnv(serviceId);
 
-  const update = (i: number, patch: Partial<EnvVar>) =>
-    setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
-  const remove = (i: number) => setRows((r) => r.filter((_, idx) => idx !== i));
-  const add = () =>
-    setRows((r) => [...r, { key: '', value: '', isSecret: false }]);
+  const update = (rowId: string, patch: Partial<EnvVar>) =>
+    setRows((r) =>
+      r.map((row) => (row.rowId === rowId ? { ...row, ...patch } : row)),
+    );
+  const remove = (rowId: string) => {
+    setRows((r) => r.filter((row) => row.rowId !== rowId));
+    setRevealed((current) => {
+      const next = { ...current };
+      delete next[rowId];
+      return next;
+    });
+  };
+  const add = () => setRows((r) => [...r, blankRow()]);
 
   const importVars = (vars: EnvVar[]) =>
     setRows((current) => {
-      const byKey = new Map<string, EnvVar>();
+      const byKey = new Map<string, EnvRow>();
       for (const row of current) if (row.key.trim()) byKey.set(row.key, row);
-      for (const v of vars) byKey.set(v.key, v);
+      for (const v of vars) {
+        const existing = byKey.get(v.key);
+        byKey.set(v.key, { ...v, rowId: existing?.rowId ?? crypto.randomUUID() });
+      }
       return Array.from(byKey.values());
     });
 
@@ -149,79 +181,114 @@ function Editor({ serviceId, initial }: { serviceId: string; initial: EnvVar[] }
         </div>
 
         <div className="space-y-3">
-          {rows.map((row, i) => (
-            <div key={i} className="flex items-end gap-2">
-              <div className="flex-1 space-y-1.5">
-                {i === 0 ? (
-                  <Label className="text-muted-foreground text-xs">Key</Label>
-                ) : null}
-                <Input
-                  placeholder="DATABASE_URL"
-                  value={row.key}
-                  onChange={(e) => update(i, { key: e.target.value })}
-                  className="font-mono"
-                />
-              </div>
-              <div className="flex-1 space-y-1.5">
-                {i === 0 ? (
-                  <Label className="text-muted-foreground text-xs">Value</Label>
-                ) : null}
-                <div className="relative">
-                  <Input
-                    type={row.isSecret && !revealed[i] ? 'password' : 'text'}
-                    placeholder="value"
-                    value={row.value}
-                    onChange={(e) => update(i, { value: e.target.value })}
-                    className="pr-9 font-mono"
-                  />
-                  {row.isSecret ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setRevealed((r) => ({ ...r, [i]: !r[i] }))
-                      }
-                      className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
-                    >
-                      {revealed[i] ? (
-                        <EyeOff className="size-4" />
-                      ) : (
-                        <Eye className="size-4" />
-                      )}
-                    </button>
+          {rows.map((row, i) => {
+            const label = row.key.trim() || `variable ${i + 1}`;
+            return (
+              <div key={row.rowId} className="flex items-end gap-2">
+                <div className="flex-1 space-y-1.5">
+                  {i === 0 ? (
+                    <span className="text-muted-foreground text-xs font-medium">
+                      Key
+                    </span>
                   ) : null}
+                  <Input
+                    aria-label={`Key for ${label}`}
+                    placeholder="DATABASE_URL"
+                    value={row.key}
+                    onChange={(e) => update(row.rowId, { key: e.target.value })}
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    className="font-mono"
+                  />
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  {i === 0 ? (
+                    <span className="text-muted-foreground text-xs font-medium">
+                      Value
+                    </span>
+                  ) : null}
+                  <div className="relative">
+                    <Input
+                      type={
+                        row.isSecret && !revealed[row.rowId] ? 'password' : 'text'
+                      }
+                      aria-label={`Value for ${label}`}
+                      placeholder="value"
+                      value={row.value}
+                      onChange={(e) =>
+                        update(row.rowId, { value: e.target.value })
+                      }
+                      autoComplete="off"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      data-1p-ignore
+                      data-lpignore="true"
+                      className="pr-9 font-mono"
+                    />
+                    {row.isSecret ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRevealed((r) => ({
+                            ...r,
+                            [row.rowId]: !r[row.rowId],
+                          }))
+                        }
+                        aria-label={
+                          revealed[row.rowId]
+                            ? `Hide value for ${label}`
+                            : `Reveal value for ${label}`
+                        }
+                        aria-pressed={Boolean(revealed[row.rowId])}
+                        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/40 absolute top-1/2 right-2 -translate-y-1/2 rounded-sm outline-none focus-visible:ring-[3px]"
+                      >
+                        {revealed[row.rowId] ? (
+                          <EyeOff className="size-4" aria-hidden="true" />
+                        ) : (
+                          <Eye className="size-4" aria-hidden="true" />
+                        )}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pb-2">
+                  <Switch
+                    checked={row.isSecret}
+                    onCheckedChange={(v) => update(row.rowId, { isSecret: v })}
+                    aria-label={`Mark ${label} as secret`}
+                  />
+                  <span className="text-muted-foreground w-12 text-xs">
+                    Secret
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => remove(row.rowId)}
+                    aria-label={`Delete ${label}`}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="size-4" aria-hidden="true" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2 pb-2">
-                <Switch
-                  checked={row.isSecret}
-                  onCheckedChange={(v) => update(i, { isSecret: v })}
-                  aria-label="Secret"
-                />
-                <span className="text-muted-foreground w-12 text-xs">Secret</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => remove(i)}
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="flex items-center justify-between">
           <Button variant="outline" size="sm" onClick={add}>
-            <Plus className="size-4" /> Add variable
+            <Plus className="size-4" aria-hidden="true" /> Add Variable
           </Button>
           <Button size="sm" onClick={save} disabled={setEnv.isPending}>
             {setEnv.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Save className="size-4" />
+              <Save className="size-4" aria-hidden="true" />
             )}
-            Save variables
+            {setEnv.isPending ? 'Saving…' : 'Save Variables'}
           </Button>
         </div>
       </CardContent>

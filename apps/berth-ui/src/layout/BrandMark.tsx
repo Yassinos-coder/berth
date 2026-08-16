@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+﻿import { cn } from '@/lib/utils';
 
 function CleatMark({ className }: { className?: string }) {
   return (
@@ -29,7 +29,7 @@ export function BrandMark({
   return (
     <div className={cn('flex items-center gap-2.5', className)}>
       <div className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm">
-        <CleatMark className="size-5" />
+        <CleatMark className="size-5" aria-hidden="true" />
       </div>
       {!collapsed ? (
         <div className="leading-none">

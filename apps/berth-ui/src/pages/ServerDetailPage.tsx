@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+﻿import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Cpu,
@@ -62,7 +62,7 @@ export function ServerDetailPage() {
     <div className="space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-2">
         <Link to="/servers">
-          <ArrowLeft className="size-4" /> Servers
+          <ArrowLeft className="size-4" aria-hidden="true" /> Servers
         </Link>
       </Button>
 
@@ -77,7 +77,7 @@ export function ServerDetailPage() {
           <>
             <PageHeader
               title={srv.name}
-              description={`${srv.region} · ${srv.ip}`}
+              description={`${srv.region} Â· ${srv.ip}`}
               actions={
                 <div className="flex items-center gap-2">
                   <AgentStatusBadge status={srv.status} />
@@ -90,14 +90,14 @@ export function ServerDetailPage() {
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm">
-                        <Trash2 className="size-4" /> Remove
+                        <Trash2 className="size-4" aria-hidden="true" /> Remove
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Remove {srv.name}?</DialogTitle>
                         <DialogDescription>
-                          Revokes the agent’s client certificate. Running
+                          Revokes the agentâ€™s client certificate. Running
                           containers keep running until you reconnect or clean
                           up manually.
                         </DialogDescription>
@@ -116,7 +116,7 @@ export function ServerDetailPage() {
                           }
                         >
                           {removeServer.isPending ? (
-                            <Loader2 className="size-4 animate-spin" />
+                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                           ) : null}
                           Remove server
                         </Button>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -163,12 +163,12 @@ export function NewServicePage() {
       <div>
         <Button asChild variant="ghost" size="sm" className="-ml-2 mb-2">
           <Link to="/services">
-            <ArrowLeft className="size-4" /> Services
+            <ArrowLeft className="size-4" aria-hidden="true" /> Services
           </Link>
         </Button>
         <PageHeader
           title="New service"
-          description="Pick a source — search Docker Hub, or point at a repo."
+          description="Pick a source â€” search Docker Hub, or point at a repo."
         />
       </div>
 
@@ -193,11 +193,11 @@ export function NewServicePage() {
           >
             {choice === opt.id ? (
               <span className="bg-primary text-primary-foreground absolute top-3 right-3 flex size-5 items-center justify-center rounded-full">
-                <Check className="size-3" />
+                <Check className="size-3" aria-hidden="true" />
               </span>
             ) : null}
             <span className="bg-muted text-foreground flex size-9 items-center justify-center rounded-lg">
-              <opt.icon className="size-4.5" />
+              <opt.icon className="size-4.5" aria-hidden="true" />
             </span>
             <span className="font-medium">{opt.title}</span>
             <span className="text-muted-foreground text-xs leading-snug">
@@ -228,7 +228,7 @@ export function NewServicePage() {
                   onSelect={onSelectImage}
                 />
                 <Input
-                  placeholder="or a full reference — ghcr.io/org/app:tag"
+                  placeholder="or a full reference â€” ghcr.io/org/app:tag"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
                   className="font-mono"
@@ -250,7 +250,7 @@ export function NewServicePage() {
                     <SelectValue
                       placeholder={
                         templates.isLoading
-                          ? 'Loading templates…'
+                          ? 'Loading templatesâ€¦'
                           : 'Select a template'
                       }
                     />
@@ -274,8 +274,8 @@ export function NewServicePage() {
                 <div className="space-y-2">
                   <Label htmlFor="ref">Repository (owner/repo)</Label>
                   <Select value={reference} onValueChange={(value) => { setReference(value); const repo = repos.data?.find((item) => item.fullName === value); if (repo) setBranch(repo.defaultBranch); }}>
-                    <SelectTrigger id="ref" className="w-full"><SelectValue placeholder={repos.isLoading ? 'Loading repositories…' : 'Select a repository'} /></SelectTrigger>
-                    <SelectContent>{(repos.data ?? []).map((repo) => <SelectItem key={repo.fullName} value={repo.fullName}>{repo.fullName}{repo.private ? ' · private' : ''}</SelectItem>)}</SelectContent>
+                    <SelectTrigger id="ref" className="w-full"><SelectValue placeholder={repos.isLoading ? 'Loading repositoriesâ€¦' : 'Select a repository'} /></SelectTrigger>
+                    <SelectContent>{(repos.data ?? []).map((repo) => <SelectItem key={repo.fullName} value={repo.fullName}>{repo.fullName}{repo.private ? ' Â· private' : ''}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
@@ -292,7 +292,7 @@ export function NewServicePage() {
               <div className="border-primary/30 bg-primary/5 space-y-3 rounded-lg border p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-start gap-2">
-                    <Database className="text-primary mt-0.5 size-4" />
+                    <Database className="text-primary mt-0.5 size-4" aria-hidden="true" />
                     <div>
                       <p className="text-sm font-medium">
                         Provision as a managed {templateKind}
@@ -312,7 +312,7 @@ export function NewServicePage() {
                 {managedDb ? (
                   <div className="flex items-center justify-between gap-4 border-t border-primary/20 pt-3">
                     <div className="flex items-start gap-2">
-                      <Globe className="text-muted-foreground mt-0.5 size-4" />
+                      <Globe className="text-muted-foreground mt-0.5 size-4" aria-hidden="true" />
                       <div>
                         <p className="text-sm font-medium">Expose publicly</p>
                         <p className="text-muted-foreground text-xs">
@@ -330,7 +330,7 @@ export function NewServicePage() {
                   <div className="border-t border-primary/20 pt-3">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-start gap-2">
-                        <KeyRound className="text-muted-foreground mt-0.5 size-4" />
+                        <KeyRound className="text-muted-foreground mt-0.5 size-4" aria-hidden="true" />
                         <div>
                           <p className="text-sm font-medium">
                             Custom username & password
@@ -390,7 +390,7 @@ export function NewServicePage() {
                 <SelectTrigger className="w-full">
                   <SelectValue
                     placeholder={
-                      servers.isLoading ? 'Loading servers…' : 'Select a server'
+                      servers.isLoading ? 'Loading serversâ€¦' : 'Select a server'
                     }
                   />
                 </SelectTrigger>
@@ -399,7 +399,7 @@ export function NewServicePage() {
                     .filter((s) => s.status !== 'enrolling')
                     .map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.name} · {s.region}
+                        {s.name} Â· {s.region}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -451,7 +451,7 @@ export function NewServicePage() {
               </Button>
               <Button onClick={submit} disabled={createService.isPending}>
                 {createService.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                 ) : null}
                 Create service
               </Button>

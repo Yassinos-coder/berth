@@ -1,4 +1,5 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+﻿import { Suspense, lazy } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   ExternalLink,
@@ -24,7 +25,6 @@ import { RegistryCredentialPicker } from '@/features/services/RegistryCredential
 import { BackupsPanel } from '@/features/services/BackupsPanel';
 import { EditableServiceName } from '@/features/services/EditableServiceName';
 import { ServiceDomains } from '@/features/services/ServiceDomains';
-import { ServiceTerminal } from '@/features/services/ServiceTerminal';
 import { JobsPanel } from '@/features/services/JobsPanel';
 import { PlatformPicker } from '@/features/services/PlatformPicker';
 import {
@@ -66,11 +66,22 @@ const BACKUP_SUPPORTED_TEMPLATE_KINDS = new Set([
   'mongo',
 ]);
 
+const ServiceTerminal = lazy(() =>
+  import('@/features/services/ServiceTerminal').then((m) => ({
+    default: m.ServiceTerminal,
+  })),
+);
+
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4 py-2.5">
-      <span className="text-muted-foreground text-sm">{label}</span>
-      <span className="truncate text-sm font-medium">{value}</span>
+      <span className="text-muted-foreground shrink-0 text-sm">{label}</span>
+      <span
+        className="truncate text-sm font-medium tabular-nums"
+        translate="no"
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -78,6 +89,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export function ServiceDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') ?? 'overview';
   const service = useService(id);
   const logs = useServiceLogs(id);
   const metrics = useServiceMetrics(id);
@@ -94,7 +107,7 @@ export function ServiceDetailPage() {
     <div className="space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-2">
         <Link to="/services">
-          <ArrowLeft className="size-4" /> Services
+          <ArrowLeft className="size-4" aria-hidden="true" /> Services
         </Link>
       </Button>
 
@@ -119,7 +132,7 @@ export function ServiceDetailPage() {
                     disabled={action.isPending}
                     onClick={() => action.mutate('redeploy')}
                   >
-                    <Rocket className="size-4" /> Redeploy
+                    <Rocket className="size-4" aria-hidden="true" /> Redeploy
                   </Button>
                   <Button
                     variant="outline"
@@ -127,7 +140,7 @@ export function ServiceDetailPage() {
                     disabled={action.isPending}
                     onClick={() => action.mutate('restart')}
                   >
-                    <RotateCw className="size-4" /> Restart
+                    <RotateCw className="size-4" aria-hidden="true" /> Restart
                   </Button>
                   {isRunning ? (
                     <Button
@@ -136,7 +149,7 @@ export function ServiceDetailPage() {
                       disabled={action.isPending}
                       onClick={() => action.mutate('stop')}
                     >
-                      <Square className="size-4" /> Stop
+                      <Square className="size-4" aria-hidden="true" /> Stop
                     </Button>
                   ) : (
                     <Button
@@ -145,14 +158,27 @@ export function ServiceDetailPage() {
                       disabled={action.isPending}
                       onClick={() => action.mutate('start')}
                     >
-                      <Play className="size-4" /> Start
+                      <Play className="size-4" aria-hidden="true" /> Start
                     </Button>
                   )}
                 </div>
               }
             />
 
-            <Tabs defaultValue="overview">
+            <Tabs
+              value={activeTab}
+              onValueChange={(tab) =>
+                setSearchParams(
+                  (current) => {
+                    const next = new URLSearchParams(current);
+                    if (tab === 'overview') next.delete('tab');
+                    else next.set('tab', tab);
+                    return next;
+                  },
+                  { replace: true },
+                )
+              }
+            >
               <div className="w-full overflow-x-auto">
                 <TabsList className="w-fit min-w-full justify-start sm:min-w-0">
                   <TabsTrigger className="flex-none" value="overview">
@@ -269,7 +295,7 @@ export function ServiceDetailPage() {
                     rel="noreferrer"
                     className="text-primary mt-4 inline-flex items-center gap-1.5 text-sm"
                   >
-                    <ExternalLink className="size-4" />
+                    <ExternalLink className="size-4" aria-hidden="true" />
                     https://{svc.domain}
                   </a>
                 ) : null}
@@ -321,7 +347,9 @@ export function ServiceDetailPage() {
               </TabsContent>
 
               <TabsContent value="terminal" className="mt-4">
-                <ServiceTerminal serviceId={svc.id} />
+                <Suspense fallback={<Skeleton className="h-[520px]" />}>
+                  <ServiceTerminal serviceId={svc.id} />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="jobs" className="mt-4">
@@ -368,7 +396,7 @@ export function ServiceDetailPage() {
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button variant="destructive">
-                          <Trash2 className="size-4" /> Delete service
+                          <Trash2 className="size-4" aria-hidden="true" /> Delete service
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
@@ -394,7 +422,7 @@ export function ServiceDetailPage() {
                             }
                           >
                             {removeService.isPending ? (
-                              <Loader2 className="size-4 animate-spin" />
+                              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                             ) : null}
                             Delete
                           </Button>
@@ -405,7 +433,7 @@ export function ServiceDetailPage() {
                 </Card>
                 <Button asChild variant="ghost" className="mt-4">
                   <Link to={`/servers/${svc.serverId}`}>
-                    <Server className="size-4" /> View host server
+                    <Server className="size-4" aria-hidden="true" /> View host server
                   </Link>
                 </Button>
               </TabsContent>

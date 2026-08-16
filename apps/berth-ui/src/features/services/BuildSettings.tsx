@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -97,7 +97,7 @@ export function BuildSettings({
 
         <Field
           label="Root directory"
-          hint="Build context. Leave blank for the repo root — a monorepo Dockerfile that copies workspace packages must build from the root."
+          hint="Build context. Leave blank for the repo root â€” a monorepo Dockerfile that copies workspace packages must build from the root."
           placeholder="(repo root)"
           value={rootDirectory}
           onChange={setRootDirectory}
@@ -135,7 +135,7 @@ export function BuildSettings({
         <div className="flex items-center gap-3">
           <Button size="sm" onClick={save} disabled={update.isPending}>
             {update.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : null}
             Save build settings
           </Button>

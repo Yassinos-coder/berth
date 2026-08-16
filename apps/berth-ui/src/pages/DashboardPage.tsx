@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 import {
   Activity,
   Boxes,
@@ -32,7 +32,7 @@ export function DashboardPage() {
         actions={
           <Button asChild>
             <Link to="/services/new">
-              <Rocket className="size-4" />
+              <Rocket className="size-4" aria-hidden="true" />
               Deploy
             </Link>
           </Button>
@@ -89,7 +89,7 @@ export function DashboardPage() {
             <CardTitle className="text-base">Services</CardTitle>
             <Button asChild variant="ghost" size="sm">
               <Link to="/services">
-                View all <ArrowRight className="size-4" />
+                View all <ArrowRight className="size-4" aria-hidden="true" />
               </Link>
             </Button>
           </CardHeader>
@@ -114,7 +114,7 @@ export function DashboardPage() {
                       to={`/services/${svc.id}`}
                       className="hover:bg-muted/40 flex items-center gap-3 px-6 py-3 transition-colors"
                     >
-                      <Activity className="text-muted-foreground size-4" />
+                      <Activity className="text-muted-foreground size-4" aria-hidden="true" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
                           {svc.name}

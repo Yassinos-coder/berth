@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Loader2, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ function StatusBadge({ status }: { status: BackupStatus }) {
 }
 
 function formatBytes(bytes?: number): string {
-  if (!bytes) return '—';
+  if (!bytes) return 'â€”';
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -71,7 +71,7 @@ export function BackupsPanel({ serviceId }: { serviceId: string }) {
             onClick={() => create.mutate(selectedTarget)}
           >
             {create.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : null}
             Back up now
           </Button>
@@ -80,7 +80,7 @@ export function BackupsPanel({ serviceId }: { serviceId: string }) {
       <CardContent className="space-y-4">
         {!targets.data || targets.data.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No backup targets configured yet. Add one in Settings → Backups.
+            No backup targets configured yet. Add one in Settings â†’ Backups.
           </p>
         ) : null}
         {backups.data && backups.data.length > 0 ? (
@@ -122,7 +122,7 @@ export function BackupsPanel({ serviceId }: { serviceId: string }) {
                         disabled={restore.isPending}
                         onClick={() => restore.mutate(b.id)}
                       >
-                        <RotateCcw className="size-4" /> Restore
+                        <RotateCcw className="size-4" aria-hidden="true" /> Restore
                       </Button>
                     ) : null}
                   </TableCell>

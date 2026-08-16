@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+﻿import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useSession, useSetupState } from '@/hooks/useAuth';
@@ -6,7 +6,7 @@ import { useSession, useSetupState } from '@/hooks/useAuth';
 function FullScreenLoader() {
   return (
     <div className="bg-background text-muted-foreground flex min-h-screen items-center justify-center">
-      <Loader2 className="size-6 animate-spin" />
+      <Loader2 className="size-6 animate-spin" aria-hidden="true" />
     </div>
   );
 }

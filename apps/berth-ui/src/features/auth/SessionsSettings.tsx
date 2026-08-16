@@ -1,4 +1,4 @@
-import { Laptop } from 'lucide-react';
+﻿import { Laptop } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,7 +51,7 @@ export function SessionsSettings() {
                 <TableRow key={s.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Laptop className="text-muted-foreground size-4" />
+                      <Laptop className="text-muted-foreground size-4" aria-hidden="true" />
                       <span className="max-w-xs truncate text-sm">
                         {s.userAgent || 'Unknown device'}
                       </span>
@@ -61,7 +61,7 @@ export function SessionsSettings() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {s.ip || '—'}
+                    {s.ip || 'â€”'}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {Format.relativeTime(s.lastSeenAt)}

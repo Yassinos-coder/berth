@@ -1,4 +1,4 @@
-import {
+﻿import {
   CircleCheck,
   CircleX,
   Info,
@@ -79,7 +79,7 @@ export function AlertToast({
           className="text-muted-foreground hover:text-foreground -mr-1 rounded-sm p-1 transition-colors"
           aria-label="Dismiss"
         >
-          <X className="size-4" />
+          <X className="size-4" aria-hidden="true" />
         </button>
       ) : null}
     </div>

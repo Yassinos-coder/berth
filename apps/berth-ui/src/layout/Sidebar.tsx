@@ -29,7 +29,10 @@ export function Sidebar() {
         <BrandMark collapsed={sidebarCollapsed} />
       </div>
 
-      <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
+      <nav
+        aria-label="Main navigation"
+        className="flex-1 space-y-6 overflow-y-auto overscroll-contain px-3 py-5"
+      >
         {NAV_SECTIONS.map((section, i) => (
           <div key={i} className="space-y-1">
             {section.title && !sidebarCollapsed ? (
@@ -46,6 +49,7 @@ export function Sidebar() {
                   className={({ isActive }) =>
                     cn(
                       'group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                      'focus-visible:ring-ring/40 outline-none focus-visible:ring-[3px]',
                       'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                       isActive &&
                         'bg-sidebar-accent text-sidebar-accent-foreground',
@@ -53,7 +57,7 @@ export function Sidebar() {
                     )
                   }
                 >
-                  <item.icon className="size-4.5 shrink-0" />
+                  <item.icon className="size-4.5 shrink-0" aria-hidden="true" />
                   {!sidebarCollapsed ? <span>{item.label}</span> : null}
                 </NavLink>
               );
@@ -76,16 +80,18 @@ export function Sidebar() {
         <button
           type="button"
           onClick={toggleSidebar}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!sidebarCollapsed}
           className={cn(
-            'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+            'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/40 flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-[3px]',
             sidebarCollapsed && 'justify-center px-0',
           )}
         >
           {sidebarCollapsed ? (
-            <PanelLeft className="size-4.5" />
+            <PanelLeft className="size-4.5" aria-hidden="true" />
           ) : (
             <>
-              <PanelLeftClose className="size-4.5" />
+              <PanelLeftClose className="size-4.5" aria-hidden="true" />
               <span>Collapse</span>
             </>
           )}

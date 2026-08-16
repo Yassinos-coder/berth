@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -102,7 +102,7 @@ function AddChannelDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="size-4" /> Add channel
+          <Plus className="size-4" aria-hidden="true" /> Add channel
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">
@@ -194,7 +194,7 @@ function AddChannelDialog() {
         </div>
         <DialogFooter>
           <Button onClick={submit} disabled={create.isPending || !canSubmit}>
-            {create.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+            {create.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
             Add
           </Button>
         </DialogFooter>
@@ -250,7 +250,7 @@ export function NotificationChannelsSettings() {
                       disabled={remove.isPending}
                       onClick={() => remove.mutate(c.id)}
                     >
-                      <Trash2 className="text-destructive size-4" />
+                      <Trash2 className="text-destructive size-4" aria-hidden="true" />
                     </Button>
                   </TableCell>
                 </TableRow>

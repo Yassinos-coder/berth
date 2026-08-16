@@ -1,11 +1,15 @@
+const NBSP = ' ';
+
 export class Format {
   static bytes(mb: number): string {
-    if (mb < 1024) return `${Math.round(mb)} MB`;
-    return `${(mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 1)} GB`;
+    if (mb < 1024) return `${Math.round(mb)}${NBSP}MB`;
+    return `${(mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 1)}${NBSP}GB`;
   }
 
   static cpu(cores: number): string {
-    return cores < 1 ? `${Math.round(cores * 1000)}m` : `${cores} vCPU`;
+    return cores < 1
+      ? `${Math.round(cores * 1000)}m`
+      : `${cores}${NBSP}vCPU`;
   }
 
   static percent(value: number): string {
@@ -24,7 +28,7 @@ export class Format {
       ['minute', 60000],
       ['second', 1000],
     ];
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
     for (const [unit, ms] of units) {
       if (abs >= ms || unit === 'second') {
         return rtf.format(Math.round(diffMs / ms), unit);
@@ -44,9 +48,9 @@ export class Format {
     if (seconds < 60) return `${seconds}s`;
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    if (m < 60) return s ? `${m}m ${s}s` : `${m}m`;
+    if (m < 60) return s ? `${m}m${NBSP}${s}s` : `${m}m`;
     const h = Math.floor(m / 60);
-    return `${h}h ${m % 60}m`;
+    return `${h}h${NBSP}${m % 60}m`;
   }
 
   static shortId(id: string): string {

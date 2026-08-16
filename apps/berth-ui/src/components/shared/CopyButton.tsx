@@ -48,14 +48,18 @@ export function CopyButton({
       variant="outline"
       size={label ? 'sm' : 'icon'}
       onClick={copy}
+      aria-label={label ?? 'Copy to clipboard'}
       className={cn(className)}
     >
       {copied ? (
-        <Check className="text-success size-4" />
+        <Check className="text-success size-4" aria-hidden="true" />
       ) : (
-        <Copy className="size-4" />
+        <Copy className="size-4" aria-hidden="true" />
       )}
       {label ? <span>{copied ? 'Copied' : label}</span> : null}
+      <span className="sr-only" aria-live="polite">
+        {copied ? 'Copied to clipboard' : ''}
+      </span>
     </Button>
   );
 }

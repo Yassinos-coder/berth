@@ -1,4 +1,4 @@
-import { Link, Navigate } from 'react-router-dom';
+﻿import { Link, Navigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -94,7 +94,7 @@ export function OnboardingPage() {
           disabled={registerAdmin.isPending}
         >
           {registerAdmin.isPending ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
           ) : null}
           Create account
         </Button>

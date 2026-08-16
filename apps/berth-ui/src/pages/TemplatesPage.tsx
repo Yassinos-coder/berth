@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import { LayoutTemplate, type LucideIcon } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -13,7 +13,7 @@ import type { Template } from '@/interfaces';
 function TemplateIcon({ name }: { name: string }) {
   const Icon = (Icons[name as keyof typeof Icons] ??
     Icons.Package) as LucideIcon;
-  return <Icon className="size-5" />;
+  return <Icon className="size-5" aria-hidden="true" />;
 }
 
 function TemplateCard({ template }: { template: Template }) {
@@ -59,7 +59,7 @@ export function TemplatesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Templates"
-        description="Pre-filled ServiceSpecs — deploy popular software in one click."
+        description="Pre-filled ServiceSpecs â€” deploy popular software in one click."
       />
 
       <QueryBoundary

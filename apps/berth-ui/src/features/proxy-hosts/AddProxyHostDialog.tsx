@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Loader2, Plus } from 'lucide-react';
 import {
   Dialog,
@@ -79,7 +79,7 @@ export function AddProxyHostDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="size-4" /> Add proxy host
+          <Plus className="size-4" aria-hidden="true" /> Add proxy host
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
@@ -108,7 +108,7 @@ export function AddProxyHostDialog({
               <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={
-                    services.isLoading ? 'Loading…' : 'Select a service'
+                    services.isLoading ? 'Loadingâ€¦' : 'Select a service'
                   }
                 />
               </SelectTrigger>
@@ -116,7 +116,7 @@ export function AddProxyHostDialog({
                 {(services.data ?? []).map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
-                    <span className="text-muted-foreground"> · {s.serverName}</span>
+                    <span className="text-muted-foreground"> Â· {s.serverName}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -148,7 +148,7 @@ export function AddProxyHostDialog({
             <div>
               <p className="text-sm font-medium">Force HTTPS</p>
               <p className="text-muted-foreground text-xs">
-                Redirect HTTP → HTTPS
+                Redirect HTTP â†’ HTTPS
               </p>
             </div>
             <Switch
@@ -175,7 +175,7 @@ export function AddProxyHostDialog({
             disabled={create.isPending || !domain.trim() || !serviceId}
           >
             {create.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : null}
             Add host
           </Button>

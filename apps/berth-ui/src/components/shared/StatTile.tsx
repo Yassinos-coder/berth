@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react';
+﻿import type { LucideIcon } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -36,7 +36,7 @@ export function StatTile({
             ACCENT[accent],
           )}
         >
-          <Icon className="size-4" />
+          <Icon className="size-4" aria-hidden="true" />
         </span>
       </div>
       <div className="mt-3 flex items-baseline gap-2">

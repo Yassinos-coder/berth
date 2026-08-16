@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 import { Cpu, Gauge, Globe, MemoryStick, Server } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { ServiceStateBadge } from '@/components/shared/StatusBadge';
@@ -28,7 +28,7 @@ export function ServiceCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
-              <Icon className="size-4.5" />
+              <Icon className="size-4.5" aria-hidden="true" />
             </span>
             <div className="min-w-0">
               <p className="group-hover:text-primary truncate font-medium transition-colors">
@@ -51,7 +51,7 @@ export function ServiceCard({
                 key={domain}
                 className="text-primary inline-flex items-center gap-1 truncate text-xs"
               >
-                <Globe className="size-3 shrink-0" />
+                <Globe className="size-3 shrink-0" aria-hidden="true" />
                 {domain}
               </span>
             ))}
@@ -67,7 +67,7 @@ export function ServiceCard({
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="border-warning/30 bg-warning/10 text-warning inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium">
-                <Gauge className="size-3" />
+                <Gauge className="size-3" aria-hidden="true" />
                 Auto-scaled
               </span>
             </TooltipTrigger>
@@ -80,15 +80,15 @@ export function ServiceCard({
 
         <div className="border-border/60 text-muted-foreground flex items-center gap-4 border-t pt-3 text-xs">
           <span className="inline-flex items-center gap-1">
-            <Server className="size-3.5" />
+            <Server className="size-3.5" aria-hidden="true" />
             {service.serverName}
           </span>
           <span className="inline-flex items-center gap-1">
-            <Cpu className="size-3.5" />
+            <Cpu className="size-3.5" aria-hidden="true" />
             {Format.percent(service.usage.cpuPct)}
           </span>
           <span className="inline-flex items-center gap-1">
-            <MemoryStick className="size-3.5" />
+            <MemoryStick className="size-3.5" aria-hidden="true" />
             {Format.bytes(service.usage.memMb)}
           </span>
         </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -64,14 +64,14 @@ function AddBackupTargetDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="size-4" /> Add target
+          <Plus className="size-4" aria-hidden="true" /> Add target
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Add backup target</DialogTitle>
           <DialogDescription>
-            Any S3-compatible destination — AWS S3, Backblaze B2, Wasabi, or a
+            Any S3-compatible destination â€” AWS S3, Backblaze B2, Wasabi, or a
             self-hosted MinIO bucket.
           </DialogDescription>
         </DialogHeader>
@@ -121,7 +121,7 @@ function AddBackupTargetDialog() {
               !secretAccessKey
             }
           >
-            {create.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+            {create.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
             Add
           </Button>
         </DialogFooter>
@@ -172,7 +172,7 @@ export function BackupTargetsSettings() {
                       disabled={remove.isPending}
                       onClick={() => remove.mutate(t.id)}
                     >
-                      <Trash2 className="text-destructive size-4" />
+                      <Trash2 className="text-destructive size-4" aria-hidden="true" />
                     </Button>
                   </TableCell>
                 </TableRow>

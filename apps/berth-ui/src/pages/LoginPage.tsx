@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -89,7 +89,7 @@ export function LoginPage() {
             disabled={verifyMfa.isPending}
           >
             {verifyMfa.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : null}
             Verify
           </Button>
@@ -151,7 +151,7 @@ export function LoginPage() {
           <Input
             id="password"
             type="password"
-            placeholder="••••••••"
+            placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
             autoComplete="current-password"
             aria-invalid={Boolean(errors.password)}
             {...register('password')}
@@ -164,7 +164,7 @@ export function LoginPage() {
         </div>
         <Button type="submit" className="w-full" disabled={login.isPending}>
           {login.isPending ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
           ) : null}
           Sign in
         </Button>

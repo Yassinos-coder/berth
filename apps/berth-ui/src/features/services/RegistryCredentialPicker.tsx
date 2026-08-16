@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,13 +55,13 @@ export function RegistryCredentialPicker({
           <p className="text-muted-foreground text-xs">
             The agent authenticates with this registry before pulling or
             building this service&rsquo;s image. Manage credentials in
-            Settings → Security.
+            Settings â†’ Security.
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Button size="sm" onClick={save} disabled={update.isPending}>
             {update.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : null}
             Save
           </Button>

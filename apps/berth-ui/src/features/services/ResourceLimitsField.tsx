@@ -1,4 +1,4 @@
-import { Cpu, HardDrive, MemoryStick } from 'lucide-react';
+﻿import { Cpu, HardDrive, MemoryStick } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -30,7 +30,7 @@ export function ResourceLimitsField({
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <div className="space-y-2">
         <Label className="text-muted-foreground">
-          <Cpu className="size-4" /> CPU limit
+          <Cpu className="size-4" aria-hidden="true" /> CPU limit
         </Label>
         <Select
           value={String(value.cpuCores)}
@@ -51,7 +51,7 @@ export function ResourceLimitsField({
 
       <div className="space-y-2">
         <Label className="text-muted-foreground">
-          <MemoryStick className="size-4" /> Memory limit
+          <MemoryStick className="size-4" aria-hidden="true" /> Memory limit
         </Label>
         <Select
           value={String(value.memoryMb)}
@@ -72,7 +72,7 @@ export function ResourceLimitsField({
 
       <div className="space-y-2">
         <Label className="text-muted-foreground">
-          <HardDrive className="size-4" /> Disk allocation
+          <HardDrive className="size-4" aria-hidden="true" /> Disk allocation
         </Label>
         <Select
           value={String(diskGb)}
@@ -90,7 +90,7 @@ export function ResourceLimitsField({
           </SelectContent>
         </Select>
         <p className="text-muted-foreground text-[11px] leading-snug">
-          Planning only — Docker doesn't enforce per-container disk quotas on
+          Planning only â€” Docker doesn't enforce per-container disk quotas on
           most filesystems.
           {diskHint ? ` ${diskHint}` : ''}
         </p>

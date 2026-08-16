@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { BaseApiClient } from '@/services/baseApiClient';
@@ -18,7 +18,7 @@ export function EnvironmentsSettings() {
   const create = useMutation({ mutationFn: () => api.create(name, preview), onSuccess: () => { setName(''); setPreview(false); qc.invalidateQueries({ queryKey: key }); } });
   const remove = useMutation({ mutationFn: (id: string) => api.remove(id), onSuccess: () => qc.invalidateQueries({ queryKey: key }) });
   return <Card><CardHeader><CardTitle className="text-base">Environments</CardTitle></CardHeader><CardContent className="space-y-4">
-    <div className="flex flex-wrap items-center gap-2"><Input className="max-w-xs" value={name} onChange={(event) => setName(event.target.value)} placeholder="Staging" /><label className="flex items-center gap-2 text-sm"><Switch checked={preview} onCheckedChange={setPreview} /> PR preview</label><Button disabled={!name.trim()} onClick={() => create.mutate()}><Plus className="size-4" /> Add</Button></div>
-    <div className="divide-y rounded-md border">{query.data?.map((environment) => <div key={environment.id} className="flex items-center justify-between p-3"><div><span className="font-medium">{environment.name}</span> <span className="text-muted-foreground text-sm">/{environment.slug}</span><div className="mt-1 flex gap-1">{environment.isProduction ? <Badge>Production</Badge> : null}{environment.preview ? <Badge variant="secondary">Preview</Badge> : null}<Badge variant="outline">{environment._count.services} services</Badge></div></div><Button variant="ghost" size="icon" disabled={environment._count.services > 0} onClick={() => remove.mutate(environment.id)}><Trash2 className="text-destructive size-4" /></Button></div>)}</div>
+    <div className="flex flex-wrap items-center gap-2"><Input className="max-w-xs" value={name} onChange={(event) => setName(event.target.value)} placeholder="Staging" /><label className="flex items-center gap-2 text-sm"><Switch checked={preview} onCheckedChange={setPreview} /> PR preview</label><Button disabled={!name.trim()} onClick={() => create.mutate()}><Plus className="size-4" aria-hidden="true" /> Add</Button></div>
+    <div className="divide-y rounded-md border">{query.data?.map((environment) => <div key={environment.id} className="flex items-center justify-between p-3"><div><span className="font-medium">{environment.name}</span> <span className="text-muted-foreground text-sm">/{environment.slug}</span><div className="mt-1 flex gap-1">{environment.isProduction ? <Badge>Production</Badge> : null}{environment.preview ? <Badge variant="secondary">Preview</Badge> : null}<Badge variant="outline">{environment._count.services} services</Badge></div></div><Button variant="ghost" size="icon" disabled={environment._count.services > 0} onClick={() => remove.mutate(environment.id)}><Trash2 className="text-destructive size-4" aria-hidden="true" /></Button></div>)}</div>
   </CardContent></Card>;
 }

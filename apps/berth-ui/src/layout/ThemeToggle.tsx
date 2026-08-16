@@ -9,12 +9,12 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={toggleTheme}
-      aria-label="Toggle theme"
+      aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
     >
       {theme === 'dark' ? (
-        <Sun className="size-4.5" />
+        <Sun className="size-4.5" aria-hidden="true" />
       ) : (
-        <Moon className="size-4.5" />
+        <Moon className="size-4.5" aria-hidden="true" />
       )}
     </Button>
   );

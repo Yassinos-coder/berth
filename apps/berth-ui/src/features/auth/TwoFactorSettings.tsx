@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Loader2, ShieldCheck, ShieldOff } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,7 +42,7 @@ function RecoveryCodesReveal({
       <CardContent className="space-y-4">
         <p className="text-muted-foreground text-sm">
           Each code works once to sign in if you lose access to your
-          authenticator app. Store them somewhere safe — they will not be
+          authenticator app. Store them somewhere safe â€” they will not be
           shown again.
         </p>
         <div className="bg-muted grid grid-cols-2 gap-2 rounded-lg border p-4 font-mono text-sm">
@@ -105,7 +105,7 @@ function DisableTotpDialog({
             disabled={disable.isPending || !password}
           >
             {disable.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : null}
             Disable
           </Button>
@@ -163,7 +163,7 @@ function RegenerateCodesDialog({
             disabled={regenerate.isPending || !password}
           >
             {regenerate.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : null}
             Regenerate
           </Button>
@@ -252,7 +252,7 @@ export function TwoFactorSettings() {
               }
             >
               {confirm.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               ) : null}
               Enable
             </Button>
@@ -274,9 +274,9 @@ export function TwoFactorSettings() {
         <div className="flex items-center justify-between gap-6">
           <div className="flex items-start gap-3">
             {status.data?.enabled ? (
-              <ShieldCheck className="text-success mt-0.5 size-5" />
+              <ShieldCheck className="text-success mt-0.5 size-5" aria-hidden="true" />
             ) : (
-              <ShieldOff className="text-muted-foreground mt-0.5 size-5" />
+              <ShieldOff className="text-muted-foreground mt-0.5 size-5" aria-hidden="true" />
             )}
             <div className="space-y-1">
               <p className="text-sm font-medium">
@@ -308,7 +308,7 @@ export function TwoFactorSettings() {
               disabled={setup.isPending || status.isLoading}
             >
               {setup.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               ) : null}
               Enable two-factor authentication
             </Button>

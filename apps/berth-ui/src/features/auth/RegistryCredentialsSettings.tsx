@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,7 +59,7 @@ function AddCredentialDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="size-4" /> Add credential
+          <Plus className="size-4" aria-hidden="true" /> Add credential
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">
@@ -117,7 +117,7 @@ function AddCredentialDialog() {
             }
           >
             {create.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : null}
             Add
           </Button>
@@ -170,7 +170,7 @@ export function RegistryCredentialsSettings() {
                       disabled={remove.isPending}
                       onClick={() => remove.mutate(c.id)}
                     >
-                      <Trash2 className="text-destructive size-4" />
+                      <Trash2 className="text-destructive size-4" aria-hidden="true" />
                     </Button>
                   </TableCell>
                 </TableRow>

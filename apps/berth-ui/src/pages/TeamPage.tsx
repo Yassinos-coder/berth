@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { MoreHorizontal, Users } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { QueryBoundary } from '@/components/shared/QueryBoundary';
@@ -22,6 +23,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -40,8 +50,9 @@ import { Format } from '@/lib/format';
 import type { Member, Role } from '@/interfaces';
 
 function initials(name: string) {
-  return name
-    .split(' ')
+  const parts = name.split(' ').filter(Boolean);
+  if (parts.length === 0) return '?';
+  return parts
     .map((p) => p[0])
     .slice(0, 2)
     .join('')
@@ -51,6 +62,7 @@ function initials(name: string) {
 function MemberRow({ member }: { member: Member }) {
   const updateRole = useUpdateMemberRole();
   const removeMember = useRemoveMember();
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const isOwner = member.role === 'owner';
 
   return (
@@ -59,15 +71,25 @@ function MemberRow({ member }: { member: Member }) {
         <div className="flex items-center gap-3">
           <Avatar>
             {member.avatarUrl ? (
-              <AvatarImage src={member.avatarUrl} alt={member.name} />
+              <AvatarImage
+                src={member.avatarUrl}
+                alt=""
+                width={40}
+                height={40}
+                loading="lazy"
+              />
             ) : null}
             <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
               {initials(member.name)}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <p className="text-sm font-medium">{member.name}</p>
-            <p className="text-muted-foreground text-xs">{member.email}</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium" translate="no">
+              {member.name}
+            </p>
+            <p className="text-muted-foreground truncate text-xs" translate="no">
+              {member.email}
+            </p>
           </div>
         </div>
       </TableCell>
@@ -91,12 +113,16 @@ function MemberRow({ member }: { member: Member }) {
         {isOwner ? null : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Actions for ${member.name}`}
+              >
+                <MoreHorizontal className="size-4" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Change role</DropdownMenuLabel>
+              <DropdownMenuLabel>Change Role</DropdownMenuLabel>
               <DropdownMenuRadioGroup
                 value={member.role}
                 onValueChange={(role) =>
@@ -112,13 +138,42 @@ function MemberRow({ member }: { member: Member }) {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"
-                onClick={() => removeMember.mutate(member.id)}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setConfirmRemove(true);
+                }}
               >
-                Remove from org
+                Remove from Org
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        <Dialog open={confirmRemove} onOpenChange={setConfirmRemove}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Remove {member.name}?</DialogTitle>
+              <DialogDescription>
+                They lose access to every server and service in this
+                organization immediately. You can invite them again later.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button
+                variant="destructive"
+                disabled={removeMember.isPending}
+                onClick={() => {
+                  removeMember.mutate(member.id);
+                  setConfirmRemove(false);
+                }}
+              >
+                Remove Member
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </TableCell>
     </TableRow>
   );
