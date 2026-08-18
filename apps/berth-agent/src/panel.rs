@@ -184,6 +184,7 @@ async fn handle_message(
                     service_id: status.service_id,
                     state: status.state,
                     container_id: status.container_id,
+                    deployed: status.deployed,
                 };
                 send_json(sink, &event).await?;
             }
@@ -201,6 +202,7 @@ async fn handle_message(
                     service_id,
                     state: ServiceState::Stopped,
                     container_id: None,
+                    deployed: false,
                 };
                 send_json(sink, &event).await?;
             }

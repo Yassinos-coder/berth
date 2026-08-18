@@ -37,7 +37,7 @@ export class AgentMessageHandler {
         await this.onEnrolled(serverId, message.serverSpecs);
         return;
       case 'ServiceStatus':
-        await this.onServiceStatus(serverId, message.serviceId, message.state);
+        await this.onServiceStatus(serverId, message.serviceId, message.state, message.deployed);
         return;
       case 'LogChunk':
         this.telemetry.appendLog(message.serviceId, {
@@ -188,6 +188,7 @@ export class AgentMessageHandler {
     serverId: string,
     serviceId: string,
     state: string,
+    deployed: boolean,
   ): Promise<void> {
     await this.prisma.service.updateMany({
       where: { id: serviceId, serverId },
@@ -207,23 +208,27 @@ export class AgentMessageHandler {
         },
         orderBy: { createdAt: 'desc' },
       });
-      const isLive = state === ServiceState.running;
+      const isRunning = state === ServiceState.running;
 
       if (deployment) {
+        // `deployed` is only true when THIS reconcile actually cut traffic
+        // over to a newly built/pulled image. A skip (already up to date)
+        // or a failed build also reports the old container as `running`,
+        // which must not be read as "this queued deployment went live".
         const durationSeconds = Math.max(0, Math.round((Date.now() - deployment.createdAt.getTime()) / 1000));
         await this.prisma.deployment.update({
           where: { id: deployment.id },
-          data: { status: isLive ? DeploymentStatus.live : DeploymentStatus.failed, durationSeconds },
+          data: { status: deployed ? DeploymentStatus.live : DeploymentStatus.failed, durationSeconds },
         });
         await this.notifications.notify(service.orgId, {
-          type: isLive ? 'deployment.succeeded' : 'deployment.failed',
-          title: isLive ? `Deployed ${service.name}` : `Deploy failed for ${service.name}`,
-          detail: isLive
+          type: deployed ? 'deployment.succeeded' : 'deployment.failed',
+          title: deployed ? `Deployed ${service.name}` : `Deploy failed for ${service.name}`,
+          detail: deployed
             ? `Live after ${durationSeconds}s`
-            : `${service.name} did not become healthy after deploying.`,
-          severity: isLive ? 'info' : 'error',
+            : `${service.name} did not deploy; the previous version is still serving.`,
+          severity: deployed ? 'info' : 'error',
         });
-      } else if (!isLive) {
+      } else if (!isRunning) {
         await this.notifications.notify(service.orgId, {
           type: 'service.crashed',
           title: `${service.name} crashed`,

@@ -269,6 +269,7 @@ pub enum AgentToPanel {
         state: ServiceState,
         #[serde(rename = "containerId")]
         container_id: Option<String>,
+        deployed: bool,
     },
     BuildProgress {
         #[serde(rename = "serviceId")]

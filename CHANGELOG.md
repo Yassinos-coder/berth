@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.3] - 2026-08-18
+
+### Fixed
+- **A failed or skipped git/image deploy could report itself as "Live"** — every reconcile outcome (a real cutover, a no-op because nothing changed, a failed build, a failed cutover) sent the panel the same signal: the container's current running state. Since a failed build correctly leaves the previous container running rather than taking the service down, the panel had no way to distinguish "I deployed your push" from "I didn't touch anything, the old version is still up," and resolved the queued deployment as `live` in both cases — with a multi-minute build's duration erroneously showing as a few seconds. `ServiceStatus` now carries an explicit `deployed` flag, true only when a reconcile actually cut traffic to a new image; the panel uses it instead of raw running-state to resolve pending deployments, so a build that silently no-ops or fails now correctly shows `failed` with the previous version still serving underneath it.
+
 ## [0.11.2] - 2026-08-15
 
 ### Added

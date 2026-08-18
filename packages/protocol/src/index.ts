@@ -149,7 +149,7 @@ export type PanelToAgent =
 
 export type AgentToPanel =
   | { type: 'Enrolled'; agentId: string; serverSpecs: ServerSpecs }
-  | { type: 'ServiceStatus'; serviceId: string; state: ServiceState; containerId?: string }
+  | { type: 'ServiceStatus'; serviceId: string; state: ServiceState; containerId?: string; deployed: boolean }
   | { type: 'BuildProgress'; serviceId: string; stage: string; logChunk: string }
   | { type: 'LogChunk'; serviceId: string; line: string; ts: number }
   | {

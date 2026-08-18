@@ -38,6 +38,12 @@ pub struct ServiceStatusEvent {
     pub service_id: String,
     pub state: ServiceState,
     pub container_id: Option<String>,
+    /// True only when this reconcile actually cut traffic over to a newly
+    /// built/pulled image. False for a no-op (already up to date), a build
+    /// failure, or a cutover failure — in all of those the old container is
+    /// still `Running`, but the panel must not read that as "this deployment
+    /// succeeded".
+    pub deployed: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -91,6 +97,7 @@ impl DockerReconciler {
                     service_id: spec.id.clone(),
                     state: ServiceState::Crashed,
                     container_id: None,
+                    deployed: false,
                 });
                 current_by_service.remove(&spec.id);
                 continue;
@@ -128,6 +135,7 @@ impl DockerReconciler {
                                     service_id: spec.id.clone(),
                                     state,
                                     container_id,
+                                    deployed: true,
                                 });
                             }
                             Err(error) => {
@@ -142,6 +150,7 @@ impl DockerReconciler {
                                         .map(|container| container.state.clone())
                                         .unwrap_or(ServiceState::Crashed),
                                     container_id: existing_before.map(|container| container.id),
+                                    deployed: false,
                                 });
                             }
                         }
@@ -151,6 +160,7 @@ impl DockerReconciler {
                             service_id: spec.id.clone(),
                             state: container.state,
                             container_id: Some(container.id),
+                            deployed: false,
                         });
                     }
                 }
@@ -174,6 +184,7 @@ impl DockerReconciler {
                             service_id: spec.id.clone(),
                             state: container.state,
                             container_id: Some(container.id),
+                            deployed: false,
                         });
                         continue;
                     }
@@ -192,6 +203,7 @@ impl DockerReconciler {
                                     service_id: spec.id.clone(),
                                     state,
                                     container_id,
+                                    deployed: true,
                                 });
                             }
                             Err(error) => {
@@ -203,6 +215,7 @@ impl DockerReconciler {
                                     service_id: spec.id.clone(),
                                     state: ServiceState::Crashed,
                                     container_id: None,
+                                    deployed: false,
                                 });
                             }
                         },
@@ -218,6 +231,7 @@ impl DockerReconciler {
                                     .map(|container| container.state.clone())
                                     .unwrap_or(ServiceState::Crashed),
                                 container_id: existing.map(|container| container.id),
+                                deployed: false,
                             });
                         }
                     }
@@ -235,6 +249,7 @@ impl DockerReconciler {
                 service_id,
                 state: ServiceState::Stopped,
                 container_id: None,
+                deployed: false,
             });
         }
 
