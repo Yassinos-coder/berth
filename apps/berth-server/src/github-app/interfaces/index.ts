@@ -18,3 +18,9 @@ export interface GithubManifestDto {
   url: string;
   manifest: Record<string, unknown>;
 }
+
+export interface GithubTreeDto {
+  directories: string[];
+  dockerfiles: string[];
+  monorepoMarkers: string[];
+}

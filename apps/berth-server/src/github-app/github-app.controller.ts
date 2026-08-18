@@ -61,4 +61,13 @@ export class GithubAppController {
   ) {
     return this.github.listBranches(user.orgId, repo);
   }
+
+  @Get('tree')
+  tree(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('repo') repo: string,
+    @Query('branch') branch: string,
+  ) {
+    return this.github.getTree(user.orgId, repo, branch);
+  }
 }

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -30,11 +30,23 @@ import {
 } from '@/features/services/newServiceOptions';
 import { useServers } from '@/hooks/useServersQueries';
 import { useCreateService } from '@/hooks/useServicesMutations';
-import { useGithubBranches, useGithubRepos, useGithubStatus } from '@/hooks/useGithubQueries';
+import {
+  useGithubBranches,
+  useGithubRepos,
+  useGithubStatus,
+  useGithubTree,
+} from '@/hooks/useGithubQueries';
 import { useTemplates } from '@/hooks/useTemplatesQueries';
 import { notify } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { detectMonorepoApps } from '@/features/services/repoTree';
+import { MonorepoSplitDialog } from '@/features/services/MonorepoSplitDialog';
 import type { RegistryImage, ResourceLimits } from '@/interfaces';
+
+function relativeToRoot(path: string, root: string): string {
+  if (!root) return path;
+  return path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;
+}
 
 export function NewServicePage() {
   const navigate = useNavigate();
@@ -62,6 +74,10 @@ export function NewServicePage() {
   });
   const [diskGb, setDiskGb] = useState(5);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [rootDirectory, setRootDirectory] = useState('');
+  const [dockerfilePath, setDockerfilePath] = useState('');
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false);
+  const promptedForRef = useRef('');
 
   const option = SOURCE_OPTIONS.find((o) => o.id === choice);
   const isGit = choice === 'git';
@@ -75,6 +91,23 @@ export function NewServicePage() {
   const github = useGithubStatus();
   const repos = useGithubRepos(isGit && Boolean(github.data?.connected));
   const branches = useGithubBranches(reference);
+  const tree = useGithubTree(isGit ? reference : '', branch);
+  const detectedApps = useMemo(
+    () => (tree.data ? detectMonorepoApps(tree.data, reference.split('/').pop() ?? '') : []),
+    [tree.data, reference],
+  );
+  const directoryOptions = tree.data?.directories ?? [];
+  const dockerfileOptions = (tree.data?.dockerfiles ?? []).filter(
+    (path) => !rootDirectory || path.startsWith(`${rootDirectory}/`) || path === rootDirectory,
+  );
+
+  useEffect(() => {
+    if (!isGit || !reference) return;
+    if (detectedApps.length < 2) return;
+    if (promptedForRef.current === reference) return;
+    promptedForRef.current = reference;
+    setSplitDialogOpen(true);
+  }, [isGit, reference, detectedApps.length]);
 
   const onSelectImage = useCallback(
     (image: RegistryImage | null, tag: string) => {
@@ -130,7 +163,16 @@ export function NewServicePage() {
           name: name.trim(),
           kind: 'git',
           serverId,
-          source: { kind: 'git', repo: reference, branch, build: { builder: 'auto' } },
+          source: {
+            kind: 'git',
+            repo: reference,
+            branch,
+            build: {
+              builder: dockerfilePath ? 'dockerfile' : 'auto',
+              rootDirectory: rootDirectory || undefined,
+              dockerfilePath: dockerfilePath || undefined,
+            },
+          },
           resources,
           domain: domain.trim() || undefined,
           diskGb,
@@ -168,7 +210,7 @@ export function NewServicePage() {
         </Button>
         <PageHeader
           title="New service"
-          description="Pick a source â€” search Docker Hub, or point at a repo."
+          description="Pick a source — search Docker Hub, or point at a repo."
         />
       </div>
 
@@ -228,7 +270,7 @@ export function NewServicePage() {
                   onSelect={onSelectImage}
                 />
                 <Input
-                  placeholder="or a full reference â€” ghcr.io/org/app:tag"
+                  placeholder="or a full reference — ghcr.io/org/app:tag"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
                   className="font-mono"
@@ -250,7 +292,7 @@ export function NewServicePage() {
                     <SelectValue
                       placeholder={
                         templates.isLoading
-                          ? 'Loading templatesâ€¦'
+                          ? 'Loading templates…'
                           : 'Select a template'
                       }
                     />
@@ -273,9 +315,9 @@ export function NewServicePage() {
                 ) : null}
                 <div className="space-y-2">
                   <Label htmlFor="ref">Repository (owner/repo)</Label>
-                  <Select value={reference} onValueChange={(value) => { setReference(value); const repo = repos.data?.find((item) => item.fullName === value); if (repo) setBranch(repo.defaultBranch); }}>
-                    <SelectTrigger id="ref" className="w-full"><SelectValue placeholder={repos.isLoading ? 'Loading repositoriesâ€¦' : 'Select a repository'} /></SelectTrigger>
-                    <SelectContent>{(repos.data ?? []).map((repo) => <SelectItem key={repo.fullName} value={repo.fullName}>{repo.fullName}{repo.private ? ' Â· private' : ''}</SelectItem>)}</SelectContent>
+                  <Select value={reference} onValueChange={(value) => { setReference(value); setRootDirectory(''); setDockerfilePath(''); const repo = repos.data?.find((item) => item.fullName === value); if (repo) setBranch(repo.defaultBranch); }}>
+                    <SelectTrigger id="ref" className="w-full"><SelectValue placeholder={repos.isLoading ? 'Loading repositories…' : 'Select a repository'} /></SelectTrigger>
+                    <SelectContent>{(repos.data ?? []).map((repo) => <SelectItem key={repo.fullName} value={repo.fullName}>{repo.fullName}{repo.private ? ' · private' : ''}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
@@ -285,6 +327,49 @@ export function NewServicePage() {
                     <SelectContent>{(branches.data ?? []).map((item) => <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
+                {reference ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="root-dir">Root directory</Label>
+                      <Select
+                        value={rootDirectory || '__root__'}
+                        onValueChange={(value) => {
+                          setRootDirectory(value === '__root__' ? '' : value);
+                          setDockerfilePath('');
+                        }}
+                      >
+                        <SelectTrigger id="root-dir" className="w-full">
+                          <SelectValue placeholder={tree.isLoading ? 'Reading repo…' : '(repo root)'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__root__">(repo root)</SelectItem>
+                          {directoryOptions.map((dir) => (
+                            <SelectItem key={dir} value={dir}>{dir}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="dockerfile-path">Dockerfile</Label>
+                      <Select
+                        value={dockerfilePath || '__auto__'}
+                        onValueChange={(value) =>
+                          setDockerfilePath(value === '__auto__' ? '' : relativeToRoot(value, rootDirectory))
+                        }
+                      >
+                        <SelectTrigger id="dockerfile-path" className="w-full">
+                          <SelectValue placeholder="Auto-detect" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__auto__">Auto-detect</SelectItem>
+                          {dockerfileOptions.map((path) => (
+                            <SelectItem key={path} value={path}>{path}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ) : null}
               </>
             ) : null}
 
@@ -390,7 +475,7 @@ export function NewServicePage() {
                 <SelectTrigger className="w-full">
                   <SelectValue
                     placeholder={
-                      servers.isLoading ? 'Loading serversâ€¦' : 'Select a server'
+                      servers.isLoading ? 'Loading servers…' : 'Select a server'
                     }
                   />
                 </SelectTrigger>
@@ -399,7 +484,7 @@ export function NewServicePage() {
                     .filter((s) => s.status !== 'enrolling')
                     .map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.name} Â· {s.region}
+                        {s.name} · {s.region}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -458,6 +543,21 @@ export function NewServicePage() {
             </div>
           </CardContent>
         </Card>
+      ) : null}
+
+      {isGit && detectedApps.length >= 2 ? (
+        <MonorepoSplitDialog
+          open={splitDialogOpen}
+          onOpenChange={setSplitDialogOpen}
+          repo={reference}
+          branch={branch}
+          apps={detectedApps}
+          serverId={serverId}
+          resources={resources}
+          diskGb={diskGb}
+          onUseSingle={() => setSplitDialogOpen(false)}
+          onCreated={() => navigate('/services')}
+        />
       ) : null}
     </div>
   );

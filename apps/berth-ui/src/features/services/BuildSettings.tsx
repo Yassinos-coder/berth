@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useUpdateServiceSettings } from '@/hooks/useServicesMutations';
+import { useGithubTree } from '@/hooks/useGithubQueries';
 import type { BuildConfig } from '@berth/protocol';
 
 type Builder = 'auto' | 'nixpacks' | 'dockerfile';
@@ -43,12 +44,52 @@ function Field({
   );
 }
 
+function PickerField({
+  label,
+  hint,
+  placeholder,
+  value,
+  options,
+  rootOption,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  placeholder: string;
+  value: string;
+  options: string[];
+  rootOption: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Select value={value || '__root__'} onValueChange={(v) => onChange(v === '__root__' ? '' : v)}>
+        <SelectTrigger className="w-full font-mono text-sm">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__root__">{rootOption}</SelectItem>
+          {options.map((opt) => (
+            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-muted-foreground text-xs">{hint}</p>
+    </div>
+  );
+}
+
 export function BuildSettings({
   serviceId,
   build,
+  repo,
+  branch,
 }: {
   serviceId: string;
   build: BuildConfig;
+  repo: string;
+  branch: string;
 }) {
   const [builder, setBuilder] = useState<Builder>(build.builder ?? 'auto');
   const [rootDirectory, setRootDirectory] = useState(build.rootDirectory ?? '');
@@ -58,9 +99,13 @@ export function BuildSettings({
   const [buildCommand, setBuildCommand] = useState(build.buildCommand ?? '');
   const [startCommand, setStartCommand] = useState(build.startCommand ?? '');
   const update = useUpdateServiceSettings(serviceId);
+  const tree = useGithubTree(repo, branch);
 
   const showDockerfile = builder !== 'nixpacks';
   const showNixpacks = builder !== 'dockerfile';
+  const dockerfileOptions = (tree.data?.dockerfiles ?? []).filter(
+    (path) => !rootDirectory || path.startsWith(`${rootDirectory}/`) || path === rootDirectory,
+  );
 
   const save = () =>
     update.mutate({
@@ -95,22 +140,53 @@ export function BuildSettings({
           </p>
         </div>
 
-        <Field
-          label="Root directory"
-          hint="Build context. Leave blank for the repo root â€” a monorepo Dockerfile that copies workspace packages must build from the root."
-          placeholder="(repo root)"
-          value={rootDirectory}
-          onChange={setRootDirectory}
-        />
+        {tree.data ? (
+          <PickerField
+            label="Root directory"
+            hint="Build context. Leave blank for the repo root — a monorepo Dockerfile that copies workspace packages must build from the root."
+            placeholder="(repo root)"
+            value={rootDirectory}
+            options={tree.data.directories}
+            rootOption="(repo root)"
+            onChange={(value) => {
+              setRootDirectory(value);
+              setDockerfilePath('');
+            }}
+          />
+        ) : (
+          <Field
+            label="Root directory"
+            hint="Build context. Leave blank for the repo root — a monorepo Dockerfile that copies workspace packages must build from the root."
+            placeholder="(repo root)"
+            value={rootDirectory}
+            onChange={setRootDirectory}
+          />
+        )}
 
         {showDockerfile ? (
-          <Field
-            label="Dockerfile path"
-            hint="Path to the Dockerfile, relative to the root directory above."
-            placeholder="apps/server/Dockerfile"
-            value={dockerfilePath}
-            onChange={setDockerfilePath}
-          />
+          tree.data ? (
+            <PickerField
+              label="Dockerfile path"
+              hint="Path to the Dockerfile, relative to the root directory above."
+              placeholder="Dockerfile"
+              value={dockerfilePath}
+              options={dockerfileOptions.map((path) =>
+                rootDirectory && path.startsWith(`${rootDirectory}/`)
+                  ? path.slice(rootDirectory.length + 1)
+                  : path,
+              )}
+              rootOption="Dockerfile"
+              onChange={setDockerfilePath}
+            />
+          ) : (
+            <Field
+              label="Dockerfile path"
+              hint="Path to the Dockerfile, relative to the root directory above."
+              placeholder="apps/server/Dockerfile"
+              value={dockerfilePath}
+              onChange={setDockerfilePath}
+            />
+          )
         ) : null}
 
         {showNixpacks ? (

@@ -1,6 +1,6 @@
 [package]
 name = "berth-agent"
-version = "0.11.3"
+version = "0.11.4"
 edition = "2021"
 description = "Berth agent - native per-server daemon. Manages Docker, cgroups, and the reverse proxy; dials the panel over WebSocket/mTLS."
 

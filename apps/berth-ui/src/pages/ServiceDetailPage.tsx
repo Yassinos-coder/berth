@@ -378,7 +378,12 @@ export function ServiceDetailPage() {
 
               <TabsContent value="settings" className="mt-4 space-y-4">
                 {svc.source.kind === 'git' ? (
-                  <BuildSettings serviceId={svc.id} build={svc.source.build} />
+                  <BuildSettings
+                    serviceId={svc.id}
+                    build={svc.source.build}
+                    repo={svc.source.repo}
+                    branch={svc.source.branch}
+                  />
                 ) : null}
                 <RegistryCredentialPicker
                   serviceId={svc.id}

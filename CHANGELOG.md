@@ -7,6 +7,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.4] - 2026-08-18
+
+### Added
+- **Monorepo detection on New Service.** Selecting a repo/branch now reads the repo's file tree via a new GitHub tree endpoint; when it finds two or more Dockerfiles, a dialog offers to deploy each as its own service (pre-filled name + Dockerfile path) instead of one combined service.
+- **Root directory and Dockerfile path are now real pickers**, both on New Service and in a service's Build & deploy settings — populated from the repo's actual folder/file list via GitHub, instead of free-text fields you had to get right blind. Falls back to plain text input if the tree can't be fetched (e.g. GitHub App not connected).
+
+### Fixed
+- **Garbled UI copy.** Roughly two dozen files had em dashes, curly quotes, bullets, and ellipses double-encoded (UTF-8 mis-decoded as Windows-1252 and re-saved), rendering as `â€”` / `Â·`-style mojibake in the browser. Repaired repo-wide.
+
 ## [0.11.3] - 2026-08-18
 
 ### Fixed

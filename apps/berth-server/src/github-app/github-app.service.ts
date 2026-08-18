@@ -16,10 +16,17 @@ import {
   GithubManifestDto,
   GithubRepoDto,
   GithubStatusDto,
+  GithubTreeDto,
 } from './interfaces';
 
 const GITHUB_API = 'https://api.github.com';
 const STATE_TTL_MS = 10 * 60_000;
+const MONOREPO_MARKERS = new Set([
+  'turbo.json',
+  'pnpm-workspace.yaml',
+  'nx.json',
+  'lerna.json',
+]);
 
 interface CachedToken {
   token: string;
@@ -204,6 +211,41 @@ export class GithubAppService {
       `/repos/${fullName}/branches?per_page=100`,
     );
     return data.map((b) => ({ name: b.name }));
+  }
+
+  async getTree(
+    orgId: string,
+    fullName: string,
+    branch: string,
+  ): Promise<GithubTreeDto> {
+    const empty: GithubTreeDto = {
+      directories: [],
+      dockerfiles: [],
+      monorepoMarkers: [],
+    };
+    const token = await this.tokenForOrg(orgId);
+    if (!token) return empty;
+
+    const data = await this.installationRequest<{
+      tree: Array<{ path: string; type: string }>;
+    }>(
+      token,
+      `/repos/${fullName}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
+    );
+
+    const directories: string[] = [];
+    const dockerfiles: string[] = [];
+    const monorepoMarkers: string[] = [];
+    for (const entry of data.tree) {
+      if (entry.type === 'tree') {
+        directories.push(entry.path);
+      } else if (entry.type === 'blob') {
+        if (/(^|\/)Dockerfile$/.test(entry.path)) dockerfiles.push(entry.path);
+        if (MONOREPO_MARKERS.has(entry.path)) monorepoMarkers.push(entry.path);
+      }
+    }
+
+    return { directories, dockerfiles, monorepoMarkers };
   }
 
   async cloneUrl(orgId: string, fullName: string): Promise<string> {
