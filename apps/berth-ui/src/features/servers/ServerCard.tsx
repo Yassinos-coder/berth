@@ -31,7 +31,7 @@ export function ServerCard({ server }: { server: Server }) {
 
           {enrolling ? (
             <p className="text-muted-foreground text-sm">
-              Waiting for the agent to dial backâ€¦
+              Waiting for the agent to dial back…
             </p>
           ) : (
             <>

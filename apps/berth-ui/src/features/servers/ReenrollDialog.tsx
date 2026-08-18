@@ -55,7 +55,7 @@ export function ReenrollDialog({
         <DialogHeader>
           <DialogTitle>Regenerate bootstrap token</DialogTitle>
           <DialogDescription>
-            Issues a fresh single-use token so the agent can re-enroll â€” for
+            Issues a fresh single-use token so the agent can re-enroll — for
             example after the panel was reinstalled with a new certificate
             authority.
           </DialogDescription>
@@ -88,7 +88,7 @@ export function ReenrollDialog({
               </div>
             </div>
             <div className="border-warning/40 bg-warning/10 text-warning rounded-lg border px-3 py-2 text-xs">
-              Single-use token â€” expires {Format.relativeTime(enrollment.expiresAt)}.
+              Single-use token — expires {Format.relativeTime(enrollment.expiresAt)}.
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => close(false)}>

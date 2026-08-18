@@ -42,7 +42,7 @@ function RecoveryCodesReveal({
       <CardContent className="space-y-4">
         <p className="text-muted-foreground text-sm">
           Each code works once to sign in if you lose access to your
-          authenticator app. Store them somewhere safe â€” they will not be
+          authenticator app. Store them somewhere safe — they will not be
           shown again.
         </p>
         <div className="bg-muted grid grid-cols-2 gap-2 rounded-lg border p-4 font-mono text-sm">

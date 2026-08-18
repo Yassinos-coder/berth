@@ -57,8 +57,8 @@ export function DeploymentsTable({
                     {dep.commitMessage ?? 'Manual deploy'}
                   </p>
                   <p className="text-muted-foreground font-mono text-xs">
-                    {dep.commitSha ? Format.commit(dep.commitSha) : 'â€”'}
-                    {dep.branch ? ` Â· ${dep.branch}` : ''}
+                    {dep.commitSha ? Format.commit(dep.commitSha) : '—'}
+                    {dep.branch ? ` · ${dep.branch}` : ''}
                   </p>
                 </div>
               </div>
@@ -76,7 +76,7 @@ export function DeploymentsTable({
               </Badge>
             </TableCell>
             <TableCell className="text-muted-foreground text-sm tabular-nums">
-              {dep.durationSeconds ? Format.duration(dep.durationSeconds) : 'â€”'}
+              {dep.durationSeconds ? Format.duration(dep.durationSeconds) : '—'}
             </TableCell>
             <TableCell className="text-muted-foreground text-sm">
               {Format.relativeTime(dep.createdAt)}

@@ -62,7 +62,7 @@ export function SettingsPage() {
     const result = params.get('github');
     if (!result) return;
     if (result === 'created') {
-      notify.success('GitHub App created â€” now install it on your repositories');
+      notify.success('GitHub App created — now install it on your repositories');
     } else if (result === 'connected') {
       notify.success('GitHub connected');
     }
@@ -161,7 +161,7 @@ export function SettingsPage() {
                   Running version
                 </span>
                 <Badge variant="secondary">
-                  v{version.data?.version ?? 'â€”'}
+                  v{version.data?.version ?? '—'}
                 </Badge>
                 {version.data?.commit ? (
                   <code className="text-muted-foreground text-xs">
@@ -171,7 +171,7 @@ export function SettingsPage() {
               </div>
               {version.data?.updateAvailable ? (
                 <p className="text-warning text-sm">
-                  An update is available â€” run{' '}
+                  An update is available — run{' '}
                   <code className="font-mono">sudo berth-update</code> on the
                   server.
                 </p>
@@ -212,7 +212,7 @@ export function SettingsPage() {
                     {github.data?.connected
                       ? `Connected as ${github.data.accountLogin}`
                       : github.data?.configured
-                        ? 'App ready â€” install it on your repositories.'
+                        ? 'App ready — install it on your repositories.'
                         : 'Create a GitHub App in one click to deploy from your repositories.'}
                   </p>
                 </div>
@@ -330,7 +330,7 @@ export function SettingsPage() {
                   disabled={!canManageResources || updatePanelDomain.isPending}
                   onClick={() => updatePanelDomain.mutate(domain)}
                 >
-                  {updatePanelDomain.isPending ? 'Savingâ€¦' : 'Save domain'}
+                  {updatePanelDomain.isPending ? 'Saving…' : 'Save domain'}
                 </Button>
                 {panelDomain.data?.domain ? (
                   <Button

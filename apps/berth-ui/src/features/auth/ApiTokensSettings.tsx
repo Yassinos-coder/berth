@@ -191,7 +191,7 @@ export function ApiTokensSettings() {
                   <TableCell className="font-medium">{t.name}</TableCell>
                   <TableCell>
                     <code className="text-muted-foreground text-xs">
-                      {t.tokenPrefix}â€¦
+                      {t.tokenPrefix}…
                     </code>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">

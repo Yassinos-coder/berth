@@ -50,7 +50,7 @@ function Field({
 }) {
   const [revealed, setRevealed] = useState(false);
   if (!value) return null;
-  const shown = secret && !revealed ? 'â€¢'.repeat(Math.min(value.length, 16)) : value;
+  const shown = secret && !revealed ? '•'.repeat(Math.min(value.length, 16)) : value;
   return (
     <div className="flex-1 space-y-1">
       {label ? <p className="text-muted-foreground text-xs">{label}</p> : null}
@@ -99,7 +99,7 @@ function ConnectionView({ connection }: { connection: Connection }) {
             hint={
               connection.publicNetworking
                 ? 'The server has no public IP recorded yet.'
-                : 'Public networking is off â€” enable it to expose this database.'
+                : 'Public networking is off — enable it to expose this database.'
             }
           />
           {connection.publicUrl ? (

@@ -108,7 +108,7 @@ export function AddProxyHostDialog({
               <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={
-                    services.isLoading ? 'Loadingâ€¦' : 'Select a service'
+                    services.isLoading ? 'Loading…' : 'Select a service'
                   }
                 />
               </SelectTrigger>
@@ -116,7 +116,7 @@ export function AddProxyHostDialog({
                 {(services.data ?? []).map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
-                    <span className="text-muted-foreground"> Â· {s.serverName}</span>
+                    <span className="text-muted-foreground"> · {s.serverName}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -148,7 +148,7 @@ export function AddProxyHostDialog({
             <div>
               <p className="text-sm font-medium">Force HTTPS</p>
               <p className="text-muted-foreground text-xs">
-                Redirect HTTP â†’ HTTPS
+                Redirect HTTP → HTTPS
               </p>
             </div>
             <Switch

@@ -61,7 +61,7 @@ export function SessionsSettings() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {s.ip || 'â€”'}
+                    {s.ip || '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {Format.relativeTime(s.lastSeenAt)}

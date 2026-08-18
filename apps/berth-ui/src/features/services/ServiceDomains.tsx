@@ -80,7 +80,7 @@ export function ServiceDomains({ service }: { service: Service }) {
               <p className="font-medium">Internal domains</p>
               <p className="text-muted-foreground text-sm">
                 Private hostnames on the <span className="font-mono">berth</span>{' '}
-                network â€” reach this service from another container at{' '}
+                network — reach this service from another container at{' '}
                 <span className="font-mono">http://&lt;domain&gt;:{port}</span>,
                 no public exposure.
               </p>

@@ -59,7 +59,7 @@ export function TemplatesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Templates"
-        description="Pre-filled ServiceSpecs â€” deploy popular software in one click."
+        description="Pre-filled ServiceSpecs — deploy popular software in one click."
       />
 
       <QueryBoundary

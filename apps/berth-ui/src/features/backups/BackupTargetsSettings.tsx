@@ -71,7 +71,7 @@ function AddBackupTargetDialog() {
         <DialogHeader>
           <DialogTitle>Add backup target</DialogTitle>
           <DialogDescription>
-            Any S3-compatible destination â€” AWS S3, Backblaze B2, Wasabi, or a
+            Any S3-compatible destination — AWS S3, Backblaze B2, Wasabi, or a
             self-hosted MinIO bucket.
           </DialogDescription>
         </DialogHeader>

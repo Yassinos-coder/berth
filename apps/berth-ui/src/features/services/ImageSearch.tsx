@@ -52,7 +52,7 @@ export function ImageSearch({ dbOnly = false, onSelect }: ImageSearchProps) {
         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" aria-hidden="true" />
         <Input
           placeholder={
-            dbOnly ? 'Search databases â€” redis, postgresâ€¦' : 'Search Docker Hubâ€¦'
+            dbOnly ? 'Search databases — redis, postgres…' : 'Search Docker Hub…'
           }
           value={query}
           onChange={(e) => setQuery(e.target.value)}

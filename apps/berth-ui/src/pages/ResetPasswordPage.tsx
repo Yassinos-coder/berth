@@ -54,7 +54,7 @@ export function ResetPasswordPage() {
       subtitle={
         preview.data
           ? `Choose a new password for ${preview.data.email}`
-          : 'Loadingâ€¦'
+          : 'Loading…'
       }
     >
       <form

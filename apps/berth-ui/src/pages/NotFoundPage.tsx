@@ -13,7 +13,7 @@ export function NotFoundPage() {
         Off the map
       </h1>
       <p className="text-muted-foreground mt-1.5 max-w-sm text-sm">
-        This berth doesnâ€™t exist. It may have been removed or the link is wrong.
+        This berth doesn’t exist. It may have been removed or the link is wrong.
       </p>
       <Button asChild className="mt-6">
         <Link to="/">Back to overview</Link>

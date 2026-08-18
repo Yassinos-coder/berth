@@ -90,7 +90,7 @@ export function ResourceLimitsField({
           </SelectContent>
         </Select>
         <p className="text-muted-foreground text-[11px] leading-snug">
-          Planning only â€” Docker doesn't enforce per-container disk quotas on
+          Planning only — Docker doesn't enforce per-container disk quotas on
           most filesystems.
           {diskHint ? ` ${diskHint}` : ''}
         </p>

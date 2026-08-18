@@ -77,7 +77,7 @@ export function ServerDetailPage() {
           <>
             <PageHeader
               title={srv.name}
-              description={`${srv.region} Â· ${srv.ip}`}
+              description={`${srv.region} · ${srv.ip}`}
               actions={
                 <div className="flex items-center gap-2">
                   <AgentStatusBadge status={srv.status} />
@@ -97,7 +97,7 @@ export function ServerDetailPage() {
                       <DialogHeader>
                         <DialogTitle>Remove {srv.name}?</DialogTitle>
                         <DialogDescription>
-                          Revokes the agentâ€™s client certificate. Running
+                          Revokes the agent’s client certificate. Running
                           containers keep running until you reconnect or clean
                           up manually.
                         </DialogDescription>

@@ -68,7 +68,7 @@ export function InviteMemberDialog() {
         <DialogHeader>
           <DialogTitle>Invite a member</DialogTitle>
           <DialogDescription>
-            Berth has no email provider configured â€” share the invite link
+            Berth has no email provider configured — share the invite link
             with them yourself (Slack, email, whatever works).
           </DialogDescription>
         </DialogHeader>
@@ -95,7 +95,7 @@ export function InviteMemberDialog() {
                   <SelectContent>
                     {ASSIGNABLE_ROLES.map((r) => (
                       <SelectItem key={r} value={r}>
-                        {ROLE_META[r].label} â€” {ROLE_META[r].description}
+                        {ROLE_META[r].label} — {ROLE_META[r].description}
                       </SelectItem>
                     ))}
                   </SelectContent>

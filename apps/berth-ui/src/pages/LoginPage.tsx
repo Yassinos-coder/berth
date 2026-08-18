@@ -151,7 +151,7 @@ export function LoginPage() {
           <Input
             id="password"
             type="password"
-            placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+            placeholder="••••••••"
             autoComplete="current-password"
             aria-invalid={Boolean(errors.password)}
             {...register('password')}

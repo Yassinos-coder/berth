@@ -55,7 +55,7 @@ export function RegistryCredentialPicker({
           <p className="text-muted-foreground text-xs">
             The agent authenticates with this registry before pulling or
             building this service&rsquo;s image. Manage credentials in
-            Settings â†’ Security.
+            Settings → Security.
           </p>
         </div>
         <div className="flex items-center gap-3">

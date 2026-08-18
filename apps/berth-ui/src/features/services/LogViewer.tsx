@@ -159,7 +159,7 @@ export function LogViewer({
           spellCheck={false}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Filter logsâ€¦"
+          placeholder="Filter logs…"
           className="h-8 w-56"
         />
         <Label htmlFor="log-level" className="sr-only">
@@ -225,11 +225,11 @@ export function LogViewer({
         className="focus-visible:ring-ring/40 h-[460px] overflow-auto overscroll-contain rounded-lg border border-white/10 bg-[oklch(0.115_0.012_250)] font-mono text-[13px] leading-5 shadow-inner outline-none focus-visible:ring-[3px]"
       >
         {rows.length === 0 ? (
-          <p className="text-muted-foreground p-4">Waiting for log outputâ€¦</p>
+          <p className="text-muted-foreground p-4">Waiting for log output…</p>
         ) : filtered.length === 0 ? (
           <p className="text-muted-foreground p-4">
-            No log lines match your filter. Clear the search box or choose â€œAll
-            levelsâ€.
+            No log lines match your filter. Clear the search box or choose “All
+            levels”.
           </p>
         ) : (
           filtered.map((line) => (

@@ -30,7 +30,7 @@ function StatusBadge({ status }: { status: BackupStatus }) {
 }
 
 function formatBytes(bytes?: number): string {
-  if (!bytes) return 'â€”';
+  if (!bytes) return '—';
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -80,7 +80,7 @@ export function BackupsPanel({ serviceId }: { serviceId: string }) {
       <CardContent className="space-y-4">
         {!targets.data || targets.data.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No backup targets configured yet. Add one in Settings â†’ Backups.
+            No backup targets configured yet. Add one in Settings → Backups.
           </p>
         ) : null}
         {backups.data && backups.data.length > 0 ? (

@@ -18,7 +18,7 @@ export function Footer() {
         Berth
         {data ? ` v${data.version}` : ''}
         {data?.commit ? (
-          <span className="text-muted-foreground/70"> Â· {data.commit}</span>
+          <span className="text-muted-foreground/70"> · {data.commit}</span>
         ) : null}
       </span>
 

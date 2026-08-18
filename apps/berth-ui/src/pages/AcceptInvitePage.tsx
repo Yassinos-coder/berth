@@ -54,7 +54,7 @@ export function AcceptInvitePage() {
       subtitle={
         preview.data
           ? `Set a password for ${preview.data.email}`
-          : 'Loading your inviteâ€¦'
+          : 'Loading your invite…'
       }
     >
       <form
