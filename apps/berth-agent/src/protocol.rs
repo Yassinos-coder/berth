@@ -50,7 +50,13 @@ pub enum ServiceSource {
 pub struct BuildConfig {
     pub builder: BuilderKind,
     pub dockerfile_path: Option<String>,
-    pub build_args: Option<std::collections::HashMap<String, String>>,
+    // BTreeMap, not HashMap: this field feeds spec_hash() below, and
+    // HashMap's per-instance randomized iteration order would make the
+    // serialized (and therefore hashed) byte sequence differ across
+    // deserializations of the *same* build args -- making a service with
+    // 2+ VITE_ vars rebuild on every single reconcile forever, spec
+    // unchanged or not.
+    pub build_args: Option<std::collections::BTreeMap<String, String>>,
     pub root_directory: Option<String>,
     pub build_command: Option<String>,
     pub start_command: Option<String>,
