@@ -162,7 +162,9 @@ function Editor({ serviceId, initial }: { serviceId: string; initial: EnvVar[] }
     });
 
   const save = () => {
-    const valid = rows.filter((r) => r.key.trim());
+    const valid = rows
+      .filter((r) => r.key.trim())
+      .map(({ key, value, isSecret }) => ({ key, value, isSecret }));
     setEnv.mutate(valid);
   };
 
