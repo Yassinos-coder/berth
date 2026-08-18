@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.6] - 2026-08-18
+
+### Fixed
+- **Any service with 2+ `VITE_`-prefixed variables rebuilt from scratch on every single reconcile, forever.** `spec_hash()` — the check that decides whether a container actually needs replacing — hashes the whole `ServiceSpec`, including build args. Build args were a `HashMap<String, String>`, and Rust's standard `HashMap` randomizes iteration order per instance; re-deserializing the identical JSON on every reconcile could serialize the same args back out in a different key order, producing a different hash each time even though nothing about the service changed. Every reconcile then saw a spurious mismatch and rebuilt (git builds are `--no-cache`, so this wasn't cheap) — confirmed live on a real deployment, with two services continuously rebuilding every 30-90 seconds nonstop. Switched to `BTreeMap`, which iterates in deterministic sorted-key order.
+
 ## [0.11.5] - 2026-08-18
 
 ### Fixed
