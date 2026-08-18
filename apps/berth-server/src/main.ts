@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { httpLoggerMiddleware } from './common/middleware/http-logger.middleware';
 
 function assertProductionSecrets(): void {
   if (process.env.NODE_ENV !== 'production') return;
@@ -24,6 +25,7 @@ async function bootstrap(): Promise<void> {
 
   app.use(helmet());
   app.use(cookieParser());
+  app.use(httpLoggerMiddleware);
   app.enableCors({ origin: corsOrigin, credentials: true });
   (app.getHttpAdapter().getInstance() as { disable: (k: string) => void }).disable(
     'x-powered-by',
