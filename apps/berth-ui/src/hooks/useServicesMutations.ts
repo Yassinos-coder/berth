@@ -89,7 +89,7 @@ export function useSetServiceEnv(id: string) {
 export function useAddInternalDomain(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => servicesService.addInternalDomain(id),
+    mutationFn: (domain?: string) => servicesService.addInternalDomain(id, domain),
     onSuccess: (service) => {
       qc.setQueryData(queryKeys.service(id), service);
       qc.invalidateQueries({ queryKey: queryKeys.services });

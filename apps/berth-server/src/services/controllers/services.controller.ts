@@ -19,6 +19,7 @@ import { ConnectionService } from '../services/connection.service';
 import { CreateServiceDto } from '../dto/create-service.dto';
 import { UpdateServiceDto } from '../dto/update-service.dto';
 import { SetEnvDto } from '../dto/set-env.dto';
+import { AddInternalDomainDto } from '../dto/add-internal-domain.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces';
@@ -128,8 +129,9 @@ export class ServicesController {
   addInternalDomain(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
+    @Body() dto: AddInternalDomainDto,
   ): Promise<ServiceDto> {
-    return this.servicesService.addInternalDomain(user, id);
+    return this.servicesService.addInternalDomain(user, id, dto.domain);
   }
 
   @Roles(Role.owner, Role.admin, Role.deployer)

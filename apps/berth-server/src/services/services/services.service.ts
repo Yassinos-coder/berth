@@ -234,11 +234,27 @@ export class ServicesService {
   async addInternalDomain(
     user: AuthenticatedUser,
     id: string,
+    customDomain?: string,
   ): Promise<ServiceDto> {
     const service = await this.repository.findById(user.orgId, id);
     if (!service) throw new NotFoundException('Service not found');
 
-    const domain = generateInternalDomain(service.name);
+    const domain = customDomain?.trim() || generateInternalDomain(service.name);
+    if (customDomain) {
+      const siblings = await this.repository.listByOrg(user.orgId);
+      const taken = siblings.some(
+        (other) =>
+          other.id !== id &&
+          other.serverId === service.serverId &&
+          other.internalDomains.includes(domain),
+      );
+      if (taken) {
+        throw new BadRequestException(
+          `"${domain}" is already used by another service on this server`,
+        );
+      }
+    }
+
     const updated = await this.repository.updateInternalDomains(user.orgId, id, [
       ...service.internalDomains,
       domain,

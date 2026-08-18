@@ -1,6 +1,8 @@
-﻿import { ExternalLink, Loader2, Lock, Network, Plus, Trash2 } from 'lucide-react';
+﻿import { useState } from 'react';
+import { ExternalLink, Loader2, Lock, Network, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { AddProxyHostDialog } from '@/features/proxy-hosts/AddProxyHostDialog';
 import { useProxyHosts } from '@/hooks/useProxyHostsQueries';
@@ -16,6 +18,7 @@ export function ServiceDomains({ service }: { service: Service }) {
   const removeHost = useRemoveProxyHost();
   const addInternal = useAddInternalDomain(service.id);
   const removeInternal = useRemoveInternalDomain(service.id);
+  const [customDomain, setCustomDomain] = useState('');
   const port = service.containerPort ?? 80;
   const publicHosts = (proxyHosts.data ?? []).filter(
     (host) => host.serviceId === service.id,
@@ -89,7 +92,7 @@ export function ServiceDomains({ service }: { service: Service }) {
               size="sm"
               variant="outline"
               disabled={addInternal.isPending}
-              onClick={() => addInternal.mutate()}
+              onClick={() => addInternal.mutate(undefined)}
             >
               {addInternal.isPending ? (
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -97,6 +100,27 @@ export function ServiceDomains({ service }: { service: Service }) {
                 <Plus className="size-4" aria-hidden="true" />
               )}
               Generate
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="exact name, e.g. api — for code that expects a specific hostname"
+              value={customDomain}
+              onChange={(e) => setCustomDomain(e.target.value)}
+              className="font-mono text-sm"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={addInternal.isPending || !customDomain.trim()}
+              onClick={() => {
+                addInternal.mutate(customDomain.trim(), {
+                  onSuccess: () => setCustomDomain(''),
+                });
+              }}
+            >
+              Add
             </Button>
           </div>
 

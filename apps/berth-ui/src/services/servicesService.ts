@@ -71,8 +71,8 @@ class ServicesService extends BaseApiClient {
     return this.patch<Service>(`/${id}`, payload);
   }
 
-  addInternalDomain(id: string): Promise<Service> {
-    return this.post<Service>(`/${id}/internal-domains`, {});
+  addInternalDomain(id: string, domain?: string): Promise<Service> {
+    return this.post<Service>(`/${id}/internal-domains`, { domain });
   }
 
   removeInternalDomain(id: string, domain: string): Promise<Service> {
