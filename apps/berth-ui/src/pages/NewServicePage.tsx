@@ -8,6 +8,7 @@ import {
   Globe,
   KeyRound,
   Loader2,
+  Split,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -518,7 +519,29 @@ export function NewServicePage() {
                 />
               </button>
               {advancedOpen ? (
-                <div className="pt-4">
+                <div className="space-y-4 pt-4">
+                  {isGit && detectedApps.length >= 2 ? (
+                    <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {detectedApps.length} Dockerfiles detected in this repo
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          Reopen the split prompt if you dismissed it or it
+                          didn't show up.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSplitDialogOpen(true)}
+                      >
+                        <Split className="size-4" aria-hidden="true" />
+                        Split into services
+                      </Button>
+                    </div>
+                  ) : null}
                   <ResourceLimitsField
                     value={resources}
                     onChange={setResources}
@@ -552,7 +575,9 @@ export function NewServicePage() {
           repo={reference}
           branch={branch}
           apps={detectedApps}
+          servers={servers.data ?? []}
           serverId={serverId}
+          onServerIdChange={setServerId}
           resources={resources}
           diskGb={diskGb}
           onUseSingle={() => setSplitDialogOpen(false)}

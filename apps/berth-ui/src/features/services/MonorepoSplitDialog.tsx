@@ -11,10 +11,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useCreateService } from '@/hooks/useServicesMutations';
 import { notify } from '@/lib/toast';
 import type { DetectedApp } from '@/features/services/repoTree';
-import type { ResourceLimits } from '@/interfaces';
+import type { ResourceLimits, Server } from '@/interfaces';
 
 export function MonorepoSplitDialog({
   open,
@@ -22,7 +29,9 @@ export function MonorepoSplitDialog({
   repo,
   branch,
   apps,
+  servers,
   serverId,
+  onServerIdChange,
   resources,
   diskGb,
   onUseSingle,
@@ -33,7 +42,9 @@ export function MonorepoSplitDialog({
   repo: string;
   branch: string;
   apps: DetectedApp[];
+  servers: Server[];
   serverId: string;
+  onServerIdChange: (id: string) => void;
   resources: ResourceLimits;
   diskGb: number;
   onUseSingle: () => void;
@@ -87,6 +98,24 @@ export function MonorepoSplitDialog({
             — or keep it as a single service.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="space-y-2">
+          <Label>Target server</Label>
+          <Select value={serverId} onValueChange={onServerIdChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a server" />
+            </SelectTrigger>
+            <SelectContent>
+              {servers
+                .filter((s) => s.status !== 'enrolling')
+                .map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name} · {s.region}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="space-y-3">
           {apps.map((app) => (
