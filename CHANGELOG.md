@@ -7,6 +7,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.5] - 2026-08-18
+
+### Fixed
+- **A git build could ship files a non-root container user can't read.** The `berth-agent` systemd unit hardens file creation with `UMask=0077`, so a fresh `git clone` came out owner-only (`600`/`700`, root). Invisible for any Dockerfile that stays root the whole way through, but any image that drops to a non-root `USER` before running (a real security best practice) would crash at boot with a spurious `Cannot find module` / file-not-found, since the process could no longer read what the build context happily read as root. The agent now normalizes the clone's permissions (`chmod -R a+rX`) right after cloning, before the build runs.
+
+### Added
+- **Internal domains can now be an exact name, not just an auto-generated one.** An internal domain becomes the service's Docker network alias directly, but the only way to add one was a random `<slug>-<hex>.berth.local` — no way to give a service the *exact* hostname some other piece of code already expects (e.g. an nginx reverse-proxy `upstream` baked into an image at build time, pointing at a hostname like `api` that was only ever real inside that project's own `docker-compose.yml`). Adding an internal domain now accepts an optional custom value, validated as a DNS-style name and checked for collisions with other services on the same server.
+
 ## [0.11.4] - 2026-08-18
 
 ### Added

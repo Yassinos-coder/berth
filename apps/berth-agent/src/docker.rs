@@ -859,6 +859,23 @@ impl DockerReconciler {
             )
             .into());
         }
+        // The agent's own systemd unit hardens file creation with UMask=0077,
+        // so a fresh clone is owner-only (600/700). That's invisible to a
+        // Dockerfile that stays root the whole way through, but breaks any
+        // COPY'd file once the image drops to a non-root USER -- the process
+        // can no longer read what the build context happily read as root.
+        let chmod = Command::new("chmod")
+            .args(["-R", "a+rX"])
+            .arg(&work)
+            .output()
+            .await?;
+        if !chmod.status.success() {
+            return Err(format!(
+                "chmod on cloned repo failed: {}",
+                String::from_utf8_lossy(&chmod.stderr)
+            )
+            .into());
+        }
         let root = build
             .root_directory
             .as_deref()
