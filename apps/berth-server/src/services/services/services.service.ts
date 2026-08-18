@@ -69,13 +69,20 @@ export class ServicesService {
 
   async list(orgId: string): Promise<ServiceDto[]> {
     const services = await this.repository.listByOrg(orgId);
-    return services.map(ServiceMapper.toDto);
+    return services.map((service) =>
+      ServiceMapper.toDto(service, this.usageFor(service.id)),
+    );
   }
 
   async getById(orgId: string, id: string): Promise<ServiceDto> {
     const service = await this.repository.findById(orgId, id);
     if (!service) throw new NotFoundException('Service not found');
-    return ServiceMapper.toDto(service);
+    return ServiceMapper.toDto(service, this.usageFor(id));
+  }
+
+  private usageFor(id: string): { cpuPct: number; memMb: number } {
+    const latest = this.telemetry.getMetrics(id).at(-1);
+    return latest ? { cpuPct: latest.cpuPct, memMb: latest.memMb } : { cpuPct: 0, memMb: 0 };
   }
 
   async logs(orgId: string, id: string): Promise<LogLine[]> {
@@ -127,7 +134,7 @@ export class ServicesService {
     });
 
     await this.registry.reconcileServer(dto.serverId);
-    return ServiceMapper.toDto(service);
+    return ServiceMapper.toDto(service, this.usageFor(service.id));
   }
 
   async updateSettings(
@@ -189,7 +196,7 @@ export class ServicesService {
         : 'Service settings updated.',
       actor: user.id,
     });
-    return ServiceMapper.toDto(updated);
+    return ServiceMapper.toDto(updated, this.usageFor(updated.id));
   }
 
   async getEnv(
@@ -261,7 +268,7 @@ export class ServicesService {
     ]);
     if (!updated) throw new NotFoundException('Service not found');
     await this.registry.reconcileServer(service.serverId);
-    return ServiceMapper.toDto(updated);
+    return ServiceMapper.toDto(updated, this.usageFor(updated.id));
   }
 
   async removeInternalDomain(
@@ -280,7 +287,7 @@ export class ServicesService {
     );
     if (!updated) throw new NotFoundException('Service not found');
     await this.registry.reconcileServer(service.serverId);
-    return ServiceMapper.toDto(updated);
+    return ServiceMapper.toDto(updated, this.usageFor(updated.id));
   }
 
   async runAction(

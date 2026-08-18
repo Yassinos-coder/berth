@@ -33,4 +33,11 @@ export class DashboardRepository {
 
     return { servers, serversOnline, services, servicesRunning, deploymentsToday };
   }
+
+  runningServices(orgId: string): Promise<{ id: string; memoryMb: number }[]> {
+    return this.prisma.service.findMany({
+      where: { orgId, state: ServiceState.running },
+      select: { id: true, memoryMb: true },
+    });
+  }
 }

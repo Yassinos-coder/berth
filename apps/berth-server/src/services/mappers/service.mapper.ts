@@ -5,7 +5,10 @@ import type { ServiceDto } from '../interfaces';
 type ServiceWithServer = Service & { server: Pick<Server, 'name'> };
 
 export class ServiceMapper {
-  static toDto(service: ServiceWithServer): ServiceDto {
+  static toDto(
+    service: ServiceWithServer,
+    usage: { cpuPct: number; memMb: number } = { cpuPct: 0, memMb: 0 },
+  ): ServiceDto {
     return {
       id: service.id,
       name: service.name,
@@ -27,7 +30,7 @@ export class ServiceMapper {
       registryCredentialId: service.registryCredentialId ?? undefined,
       targetPlatform: service.targetPlatform ?? undefined,
       internalDomains: service.internalDomains,
-      usage: { cpuPct: 0, memMb: 0 },
+      usage,
       lastDeployedAt: service.lastDeployedAt?.toISOString(),
       lastSmartResourceAt: service.lastSmartResourceAt?.toISOString(),
       createdAt: service.createdAt.toISOString(),

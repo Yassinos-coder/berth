@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.7] - 2026-08-18
+
+### Fixed
+- **CPU/memory usage always showed 0%, everywhere** — the services list, individual service pages, and the dashboard's "Avg CPU"/"Avg Memory" tiles. The agent has always reported real per-container metrics into an in-memory `TelemetryBuffer` (the per-service Metrics tab reads from it correctly), but `ServiceMapper.toDto()` and `DashboardService.stats()` never actually read from it — both hardcoded `{ cpuPct: 0, memMb: 0 }` and `avgCpuPct/avgMemPct: 0` unconditionally. Now both pull the latest sampled point per service; the dashboard average is computed across currently-running services, with memory expressed as a percentage of each service's own allocated limit.
+
 ## [0.11.6] - 2026-08-18
 
 ### Fixed

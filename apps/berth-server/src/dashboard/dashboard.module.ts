@@ -3,9 +3,10 @@ import { DashboardController } from './controllers/dashboard.controller';
 import { DashboardService } from './services/dashboard.service';
 import { DashboardRepository } from './repositories/dashboard.repository';
 import { ActivityModule } from '../activity/activity.module';
+import { AgentGatewayModule } from '../agent-gateway/agent-gateway.module';
 
 @Module({
-  imports: [ActivityModule],
+  imports: [ActivityModule, AgentGatewayModule],
   controllers: [DashboardController],
   providers: [DashboardService, DashboardRepository],
 })
