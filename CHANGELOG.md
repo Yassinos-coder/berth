@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.8] - 2026-08-21
+
+### Fixed
+- **A deploy that actually went live could be recorded as failed.** Deployment status was settled from the `deployed` flag on a single `ServiceStatus` event, where `deployed: false` was read as "this deployment failed". But the agent sends `deployed: false` for two unrelated outcomes: a build or cutover that genuinely failed, *and* "nothing to do, this container already matches the spec". Those two diverge the moment the websocket drops. `reconcile()` runs to completion before any status is sent, so a multi-minute git build that finishes just as the connection breaks loses the whole batch of `deployed: true` events at once; the agent then reconnects, reconciles again, correctly finds the freshly built image already serving and reports it as needing no work — which was written down as a failure. Seen on a two-service push where both containers were verifiably running the new image and serving the new version while the panel showed "Failed" for both, and for the three pushes before it. Status now comes from `ReconcileResult`, the only message that actually knows the outcome: it carries `applied` and `failed` per service, so a service the agent could not apply settles as failed and one it brought to the desired state settles as live. `deployed: true` still settles a deployment the moment it arrives, so the common path is unchanged.
+- **A failed deploy now says why.** The agent has always sent a `FailedApply { serviceId, reason }` for every service it could not apply, but the panel folded them into a single log line and showed only the generic "did not deploy; the previous version is still serving". The reason now reaches the notification.
+
 ## [0.11.7] - 2026-08-18
 
 ### Fixed

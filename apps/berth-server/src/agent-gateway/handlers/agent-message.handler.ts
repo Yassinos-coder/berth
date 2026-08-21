@@ -8,7 +8,7 @@ import {
   JobRunStatus,
   ServiceState,
 } from '@prisma/client';
-import type { AgentToPanel, ServerSpecs } from '@berth/protocol';
+import type { AgentToPanel, FailedApply, ServerSpecs } from '@berth/protocol';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TelemetryBuffer } from '../buffers/telemetry-buffer.service';
 import type { AppConfig } from '../../config/configuration';
@@ -75,11 +75,7 @@ export class AgentMessageHandler {
         });
         return;
       case 'ReconcileResult':
-        if (message.failed.length > 0) {
-          this.logger.warn(
-            `reconcile on ${serverId} reported ${message.failed.length} failure(s)`,
-          );
-        }
+        await this.onReconcileResult(serverId, message.applied, message.failed);
         return;
       case 'BackupResult':
         await this.onBackupResult(message);
@@ -102,6 +98,67 @@ export class AgentMessageHandler {
           },
         });
         return;
+    }
+  }
+
+  // A reconcile is the only authoritative word on whether a pending deployment
+  // made it out: `applied` lists every service the agent brought to the desired
+  // state, `failed` every one it could not, with the reason. Settling from here
+  // rather than from a ServiceStatus flag fixes two things. A build that failed
+  // now reports WHY instead of a generic notice, and a deploy whose status
+  // events were lost — the socket dropping mid-build discards the whole batch,
+  // since they are only sent once the entire reconcile finishes — is no longer
+  // recorded as failed when the following reconcile finds the new image already
+  // serving and correctly reports it as needing no work.
+  private async onReconcileResult(
+    serverId: string,
+    applied: string[],
+    failed: FailedApply[],
+  ): Promise<void> {
+    if (failed.length > 0) {
+      this.logger.warn(
+        `reconcile on ${serverId} reported ${failed.length} failure(s): ${failed
+          .map((item) => `${item.serviceId}: ${item.reason}`)
+          .join('; ')}`,
+      );
+    }
+
+    const reasons = new Map(failed.map((item) => [item.serviceId, item.reason]));
+
+    for (const serviceId of new Set([...applied, ...reasons.keys()])) {
+      const service = await this.prisma.service.findFirst({
+        where: { id: serviceId, serverId },
+        select: { orgId: true, name: true },
+      });
+      if (!service) continue;
+
+      const deployment = await this.prisma.deployment.findFirst({
+        where: {
+          serviceId,
+          status: { in: [DeploymentStatus.queued, DeploymentStatus.building, DeploymentStatus.deploying] },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!deployment) continue;
+
+      const reason = reasons.get(serviceId);
+      const durationSeconds = Math.max(0, Math.round((Date.now() - deployment.createdAt.getTime()) / 1000));
+
+      await this.prisma.deployment.update({
+        where: { id: deployment.id },
+        data: {
+          status: reason ? DeploymentStatus.failed : DeploymentStatus.live,
+          durationSeconds,
+        },
+      });
+      await this.notifications.notify(service.orgId, {
+        type: reason ? 'deployment.failed' : 'deployment.succeeded',
+        title: reason ? `Deploy failed for ${service.name}` : `Deployed ${service.name}`,
+        detail: reason
+          ? `${service.name} did not deploy; the previous version is still serving. ${reason}`
+          : `Live after ${durationSeconds}s`,
+        severity: reason ? 'error' : 'info',
+      });
     }
   }
 
@@ -211,22 +268,25 @@ export class AgentMessageHandler {
       const isRunning = state === ServiceState.running;
 
       if (deployment) {
-        // `deployed` is only true when THIS reconcile actually cut traffic
-        // over to a newly built/pulled image. A skip (already up to date)
-        // or a failed build also reports the old container as `running`,
-        // which must not be read as "this queued deployment went live".
+        // `deployed` is only true when THIS reconcile actually cut traffic over
+        // to a newly built/pulled image, so it is enough to settle a deployment
+        // as live. The negative is ambiguous — the agent sends `deployed: false`
+        // both for a failed build AND for "nothing to do, the container already
+        // matches the spec" — so it cannot settle anything on its own. Leave the
+        // deployment pending and let ReconcileResult, which knows which services
+        // actually failed and why, deliver the verdict.
+        if (!deployed) return;
+
         const durationSeconds = Math.max(0, Math.round((Date.now() - deployment.createdAt.getTime()) / 1000));
         await this.prisma.deployment.update({
           where: { id: deployment.id },
-          data: { status: deployed ? DeploymentStatus.live : DeploymentStatus.failed, durationSeconds },
+          data: { status: DeploymentStatus.live, durationSeconds },
         });
         await this.notifications.notify(service.orgId, {
-          type: deployed ? 'deployment.succeeded' : 'deployment.failed',
-          title: deployed ? `Deployed ${service.name}` : `Deploy failed for ${service.name}`,
-          detail: deployed
-            ? `Live after ${durationSeconds}s`
-            : `${service.name} did not deploy; the previous version is still serving.`,
-          severity: deployed ? 'info' : 'error',
+          type: 'deployment.succeeded',
+          title: `Deployed ${service.name}`,
+          detail: `Live after ${durationSeconds}s`,
+          severity: 'info',
         });
       } else if (!isRunning) {
         await this.notifications.notify(service.orgId, {
