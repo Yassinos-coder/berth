@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.9] - 2026-08-30
+
+### Fixed
+- **2FA setup could permanently desync from the authenticator app, locking users out with no working recovery path.** `setupTotp()` generated and saved a brand-new TOTP secret on every call, with no check for a pending, unconfirmed secret already on the account. If the setup screen ever loaded a second time before the code was confirmed (a refresh, a retried request, navigating back to the page), the previously scanned QR code became stale and every future code from that authenticator entry would be rejected — including at login, well after setup appeared to succeed. `setupTotp()` now reuses the existing pending secret and QR code if one is already stored and unconfirmed, only generating a new one when none exists yet.
+
 ## [0.11.8] - 2026-08-21
 
 ### Fixed

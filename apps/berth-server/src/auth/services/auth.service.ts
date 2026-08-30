@@ -293,8 +293,12 @@ export class AuthService {
       );
     }
 
-    const secret = authenticator.generateSecret();
-    await this.users.setTotpSecret(userId, this.secretCipher.encrypt(secret));
+    const secret = user.totpSecret
+      ? this.secretCipher.decrypt(user.totpSecret)
+      : authenticator.generateSecret();
+    if (!user.totpSecret) {
+      await this.users.setTotpSecret(userId, this.secretCipher.encrypt(secret));
+    }
 
     const otpauthUrl = authenticator.keyuri(user.email, 'Berth', secret);
     const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
