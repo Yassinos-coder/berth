@@ -28,20 +28,40 @@ export abstract class BaseApiClient {
       },
     });
     if (!res.ok) {
+      const contentType = res.headers.get('content-type') ?? '';
       const body = await res.text().catch(() => res.statusText);
-      throw new ApiError(res.status, this.message(body, res.statusText));
+      throw new ApiError(
+        res.status,
+        this.message(body, res.statusText, res.status, contentType),
+      );
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
   }
 
-  private message(body: string, fallback: string): string {
+  private message(
+    body: string,
+    fallback: string,
+    status: number,
+    contentType: string,
+  ): string {
     try {
       const parsed = JSON.parse(body) as { message?: string | string[] };
       if (Array.isArray(parsed.message)) return parsed.message.join(', ');
       if (parsed.message) return parsed.message;
     } catch {
       /* not JSON */
+    }
+    const trimmed = body.trim();
+    const looksLikeHtml =
+      contentType.includes('text/html') ||
+      /^<!doctype html/i.test(trimmed) ||
+      /^<html/i.test(trimmed);
+    if (looksLikeHtml) {
+      if ([502, 503, 504].includes(status)) {
+        return 'Berth could not reach the API. Check that berth-server is running and that the UI proxy targets the active HTTP port.';
+      }
+      return `Request failed with ${status} ${fallback}`.trim();
     }
     return body || fallback;
   }

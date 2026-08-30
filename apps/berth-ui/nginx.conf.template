@@ -13,7 +13,7 @@ server {
   # Upgrade/Connection headers are forwarded so WebSocket routes (agent-facing
   # channels and the browser exec terminal) survive this proxy hop.
   location /api/ {
-    proxy_pass http://server:4000;
+    proxy_pass http://server:${BERTH_SERVER_UPSTREAM_PORT};
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;

@@ -150,6 +150,9 @@ POSTGRES_DB=berth
 DATABASE_URL=postgresql://berth:${pg_pw}@postgres:5432/berth
 REDIS_URL=redis://redis:6379
 
+# panel API
+BERTH_HTTP_PORT=4000
+
 # secrets
 JWT_SECRET=${jwt}
 BERTH_MASTER_KEY=${master}

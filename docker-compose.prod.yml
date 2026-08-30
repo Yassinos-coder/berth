@@ -36,6 +36,7 @@ services:
     env_file: .env
     environment:
       NODE_ENV: production
+      BERTH_HTTP_PORT: ${BERTH_HTTP_PORT:-4000}
       DATABASE_URL: postgresql://${POSTGRES_USER:-berth}:${POSTGRES_PASSWORD:-berth}@postgres:5432/${POSTGRES_DB:-berth}
       REDIS_URL: redis://redis:6379
       BERTH_CA_CERT_PATH: /certs/ca.pem
@@ -56,6 +57,8 @@ services:
       dockerfile: apps/berth-ui/Dockerfile
     container_name: berth-ui
     restart: unless-stopped
+    environment:
+      BERTH_SERVER_UPSTREAM_PORT: ${BERTH_HTTP_PORT:-4000}
     ports:
       - '${BERTH_UI_PORT:-3000}:80'
     depends_on:

@@ -13,6 +13,6 @@ RUN pnpm --filter @berth/protocol build \
  && pnpm --filter @berth/ui build
 
 FROM nginx:1.27-alpine AS runtime
-COPY apps/berth-ui/nginx.conf /etc/nginx/conf.d/default.conf
+COPY apps/berth-ui/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /repo/apps/berth-ui/dist /usr/share/nginx/html
 EXPOSE 80

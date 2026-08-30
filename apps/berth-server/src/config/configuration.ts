@@ -30,7 +30,7 @@ function decodeGithubKey(): string {
 
 export default (): AppConfig => ({
   nodeEnv: process.env.NODE_ENV ?? 'development',
-  port: Number(process.env.PORT ?? 4000),
+  port: Number(process.env.BERTH_HTTP_PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',
   publicPanelUrl: process.env.BERTH_PUBLIC_PANEL_URL ?? '',
   agentRepoUrl: process.env.BERTH_AGENT_REPO_URL ?? '',

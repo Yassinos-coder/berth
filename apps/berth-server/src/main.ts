@@ -42,7 +42,7 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.enableShutdownHooks();
 
-  const port = Number(process.env.PORT ?? 4000);
+  const port = Number(process.env.BERTH_HTTP_PORT ?? 4000);
   await app.listen(port);
   new Logger('Bootstrap').log(
     `berth-server listening on http://localhost:${port}/api`,
