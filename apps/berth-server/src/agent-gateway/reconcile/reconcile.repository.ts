@@ -15,7 +15,12 @@ export class ReconcileRepository {
   servicesForServer(serverId: string): Promise<ServiceWithEnv[]> {
     return this.prisma.service.findMany({
       where: { serverId },
-      include: { envVars: true, registryCredential: true },
+      include: {
+        // The agent hashes the serialized spec, so environment ordering must
+        // be deterministic or identical deploys can trigger rebuilds.
+        envVars: { orderBy: { key: 'asc' } },
+        registryCredential: true,
+      },
     });
   }
 
