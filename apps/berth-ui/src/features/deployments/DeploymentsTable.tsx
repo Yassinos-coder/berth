@@ -17,6 +17,7 @@ interface DeploymentsTableProps {
   deployments: Deployment[];
   showService?: boolean;
   onRollback?: (id: string) => void;
+  onViewBuildLogs?: () => void;
   rollbackPendingId?: string;
 }
 
@@ -31,6 +32,7 @@ export function DeploymentsTable({
   deployments,
   showService = false,
   onRollback,
+  onViewBuildLogs,
   rollbackPendingId,
 }: DeploymentsTableProps) {
   return (
@@ -43,7 +45,7 @@ export function DeploymentsTable({
           <TableHead>Trigger</TableHead>
           <TableHead>Duration</TableHead>
           <TableHead>When</TableHead>
-          {onRollback ? <TableHead className="text-right">Actions</TableHead> : null}
+          {onRollback || onViewBuildLogs ? <TableHead className="text-right">Actions</TableHead> : null}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -81,8 +83,14 @@ export function DeploymentsTable({
             <TableCell className="text-muted-foreground text-sm">
               {Format.relativeTime(dep.createdAt)}
             </TableCell>
-            {onRollback ? (
+            {onRollback || onViewBuildLogs ? (
               <TableCell className="text-right">
+                {onViewBuildLogs ? (
+                  <Button variant="ghost" size="sm" onClick={onViewBuildLogs}>
+                    Build logs
+                  </Button>
+                ) : null}
+                {onRollback ? (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -92,6 +100,7 @@ export function DeploymentsTable({
                   <RotateCcw className="size-3.5" aria-hidden="true" />
                   Rollback
                 </Button>
+                ) : null}
               </TableCell>
             ) : null}
           </TableRow>

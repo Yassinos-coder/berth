@@ -91,6 +91,7 @@ export function ServiceDetailPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') ?? 'overview';
+  const logView = searchParams.get('logs');
   const service = useService(id);
   const logs = useServiceLogs(id);
   const metrics = useServiceMetrics(id);
@@ -321,6 +322,9 @@ export function ServiceDetailPage() {
                       ) : (
                         <DeploymentsTable
                           deployments={deployments.data ?? []}
+                          onViewBuildLogs={() =>
+                            setSearchParams({ tab: 'logs', logs: 'build' })
+                          }
                           onRollback={(depId) => rollback.mutate(depId)}
                           rollbackPendingId={
                             rollback.isPending
@@ -342,7 +346,11 @@ export function ServiceDetailPage() {
                   onRetry={() => logs.refetch()}
                   loadingFallback={<Skeleton className="h-[460px]" />}
                 >
-                  <LogViewer lines={logs.data ?? []} serviceName={svc?.name} />
+                  <LogViewer
+                    lines={logs.data ?? []}
+                    serviceName={svc?.name}
+                    streams={logView === 'build' ? ['build'] : undefined}
+                  />
                 </QueryBoundary>
               </TabsContent>
 

@@ -90,9 +90,11 @@ function downloadLog(
 export function LogViewer({
   lines,
   serviceName = 'service',
+  streams,
 }: {
   lines: LogLine[];
   serviceName?: string;
+  streams?: LogLine['stream'][];
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
@@ -105,11 +107,11 @@ export function LogViewer({
 
   const rows = useMemo(
     () =>
-      lines.map((line) => {
+      lines.filter((line) => !streams || streams.includes(line.stream)).map((line) => {
         const message = clean(line.line);
         return { ...line, message, level: levelOf(line, message) };
       }),
-    [lines],
+    [lines, streams],
   );
 
   const filtered = useMemo(() => {

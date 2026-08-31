@@ -31,6 +31,7 @@ pub struct ReconcileOutcome {
     pub applied: Vec<String>,
     pub failed: Vec<FailedApply>,
     pub statuses: Vec<ServiceStatusEvent>,
+    pub build_logs: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone)]
@@ -85,6 +86,7 @@ impl DockerReconciler {
         let mut applied = Vec::new();
         let mut failed = Vec::new();
         let mut statuses = Vec::new();
+        let mut build_logs = Vec::new();
         let desired_ids: HashSet<String> = desired.iter().map(|spec| spec.id.clone()).collect();
 
         for spec in desired {
@@ -195,30 +197,34 @@ impl DockerReconciler {
                     // traffic for the entire (potentially multi-minute) build, and a failed
                     // build never takes the service down.
                     match self.build_git_source(spec, &spec_hash).await {
-                        Ok(image) => match self.cutover(spec, &spec_hash, &image, existing).await
-                        {
-                            Ok((state, container_id)) => {
-                                applied.push(spec.id.clone());
-                                statuses.push(ServiceStatusEvent {
-                                    service_id: spec.id.clone(),
-                                    state,
-                                    container_id,
-                                    deployed: true,
-                                });
+                        Ok((image, build_log)) => {
+                            if !build_log.is_empty() {
+                                build_logs.push((spec.id.clone(), build_log));
                             }
-                            Err(error) => {
-                                failed.push(FailedApply {
-                                    service_id: spec.id.clone(),
-                                    reason: redact_credentials(&error.to_string()),
-                                });
-                                statuses.push(ServiceStatusEvent {
-                                    service_id: spec.id.clone(),
-                                    state: ServiceState::Crashed,
-                                    container_id: None,
-                                    deployed: false,
-                                });
+                            match self.cutover(spec, &spec_hash, &image, existing).await {
+                                Ok((state, container_id)) => {
+                                    applied.push(spec.id.clone());
+                                    statuses.push(ServiceStatusEvent {
+                                        service_id: spec.id.clone(),
+                                        state,
+                                        container_id,
+                                        deployed: true,
+                                    });
+                                }
+                                Err(error) => {
+                                    failed.push(FailedApply {
+                                        service_id: spec.id.clone(),
+                                        reason: redact_credentials(&error.to_string()),
+                                    });
+                                    statuses.push(ServiceStatusEvent {
+                                        service_id: spec.id.clone(),
+                                        state: ServiceState::Crashed,
+                                        container_id: None,
+                                        deployed: false,
+                                    });
+                                }
                             }
-                        },
+                        }
                         Err(error) => {
                             failed.push(FailedApply {
                                 service_id: spec.id.clone(),
@@ -265,6 +271,7 @@ impl DockerReconciler {
             applied,
             failed,
             statuses,
+            build_logs,
         })
     }
 
@@ -826,7 +833,11 @@ impl DockerReconciler {
         Ok(output.trim().to_string())
     }
 
-    async fn build_git_source(&self, spec: &ServiceSpec, spec_hash: &str) -> AgentResult<String> {
+    async fn build_git_source(
+        &self,
+        spec: &ServiceSpec,
+        spec_hash: &str,
+    ) -> AgentResult<(String, String)> {
         let ServiceSource::Git {
             repo,
             branch,
@@ -886,7 +897,7 @@ impl DockerReconciler {
         let use_docker = matches!(build.builder, crate::protocol::BuilderKind::Dockerfile)
             || (matches!(build.builder, crate::protocol::BuilderKind::Auto)
                 && root.join(dockerfile).exists());
-        let status = if use_docker {
+        let output = if use_docker {
             let mut command = Command::new(&self.docker_bin);
             // Git deploys must reflect the freshly cloned branch HEAD. Avoid
             // stale application/base-image layers masking a pushed change.
@@ -907,7 +918,7 @@ impl DockerReconciler {
                     command.args(["--build-arg", &format!("{key}={value}")]);
                 }
             }
-            command.arg(".").current_dir(&root).status().await?
+            command.arg(".").current_dir(&root).output().await?
         } else {
             let mut command = Command::new("nixpacks");
             command.args(["build", ".", "--name", &image, "--no-cache"]);
@@ -917,13 +928,22 @@ impl DockerReconciler {
             if let Some(cmd) = build.start_command.as_deref() {
                 command.args(["--start-cmd", cmd]);
             }
-            command.current_dir(&root).status().await?
+            command.current_dir(&root).output().await?
         };
         let _ = tokio::fs::remove_dir_all(&work).await;
-        if !status.success() {
-            return Err("application image build failed".into());
+        let build_log = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
+        if !output.status.success() {
+            return Err(format!(
+                "application image build failed:\n{}",
+                truncate_build_log(&build_log)
+            )
+            .into());
         }
-        Ok(image)
+        Ok((image, truncate_build_log(&build_log)))
     }
 
     async fn ensure_network(&self) -> AgentResult<()> {
@@ -1083,6 +1103,17 @@ fn spec_hash(spec: &ServiceSpec) -> AgentResult<String> {
     }
 
     Ok(format!("{hash:016x}"))
+}
+
+fn truncate_build_log(log: &str) -> String {
+    const MAX_BYTES: usize = 200_000;
+    if log.len() <= MAX_BYTES {
+        return log.to_string();
+    }
+    format!(
+        "[Build output truncated to the final {MAX_BYTES} bytes]\n{}",
+        &log[log.len() - MAX_BYTES..]
+    )
 }
 
 fn build_caddy_config(

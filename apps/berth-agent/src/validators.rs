@@ -6,7 +6,7 @@ const MAX_VOLUMES: usize = 50;
 
 pub fn validate_spec(spec: &ServiceSpec) -> Result<(), String> {
     check_token("service id", &spec.id)?;
-    check_token("service name", &spec.name)?;
+    check_display_name(&spec.name)?;
 
     if spec.env.len() > MAX_ENV {
         return Err(format!("too many env vars (>{MAX_ENV})"));
@@ -47,6 +47,16 @@ fn check_token(field: &str, value: &str) -> Result<(), String> {
         .any(|c| c.is_control() || c.is_whitespace())
     {
         return Err(format!("{field} contains invalid characters"));
+    }
+    Ok(())
+}
+
+fn check_display_name(value: &str) -> Result<(), String> {
+    if value.trim().is_empty() {
+        return Err("service name is empty".to_string());
+    }
+    if value.chars().any(char::is_control) {
+        return Err("service name contains control characters".to_string());
     }
     Ok(())
 }

@@ -179,6 +179,15 @@ async fn handle_message(
                 .collect();
             telemetry.sync_logs(&running);
 
+            for (service_id, log_chunk) in outcome.build_logs {
+                let event = AgentToPanel::BuildProgress {
+                    service_id,
+                    stage: "build".to_string(),
+                    log_chunk,
+                };
+                send_json(sink, &event).await?;
+            }
+
             for status in outcome.statuses {
                 let event = AgentToPanel::ServiceStatus {
                     service_id: status.service_id,
