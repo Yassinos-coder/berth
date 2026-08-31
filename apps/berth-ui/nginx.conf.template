@@ -9,11 +9,16 @@ server {
   root /usr/share/nginx/html;
   index index.html;
 
+  # Docker replaces container IPs on restart. Resolve the service name at
+  # request time so the UI proxy follows the replacement automatically.
+  resolver 127.0.0.11 valid=10s ipv6=off;
+  set $server_upstream "server:${BERTH_SERVER_UPSTREAM_PORT}";
+
   # Panel API — same origin as the UI so the session cookie stays first-party.
   # Upgrade/Connection headers are forwarded so WebSocket routes (agent-facing
   # channels and the browser exec terminal) survive this proxy hop.
   location /api/ {
-    proxy_pass http://server:${BERTH_SERVER_UPSTREAM_PORT};
+    proxy_pass http://$server_upstream;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
