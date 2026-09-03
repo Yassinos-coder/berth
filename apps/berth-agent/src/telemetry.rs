@@ -124,6 +124,11 @@ async fn tail_logs(
         .args(["logs", "-f", "--tail", "40", &container])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        // If this task is aborted (e.g. Telemetry dropped on reconnect/session
+        // end) instead of reaching the graceful `child.kill()` below, tokio
+        // does NOT kill the child by default on Drop — it leaks the `docker
+        // logs -f` process as an orphan. kill_on_drop closes that gap.
+        .kill_on_drop(true)
         .spawn()?;
 
     let stdout = child.stdout.take().ok_or("log tail: missing stdout")?;
@@ -167,6 +172,7 @@ async fn sample_metrics(docker_bin: &str, tx: &mpsc::Sender<AgentToPanel>) -> Ag
             "--format",
             "{{.Names}}\t{{.Label \"berth.service_id\"}}",
         ])
+        .kill_on_drop(true)
         .output()
         .await?;
     if !listing.status.success() {
@@ -197,7 +203,11 @@ async fn sample_metrics(docker_bin: &str, tx: &mpsc::Sender<AgentToPanel>) -> Ag
     ];
     args.extend(names);
     let owned: Vec<&str> = args.iter().map(String::as_str).collect();
-    let stats = Command::new(docker_bin).args(&owned).output().await?;
+    let stats = Command::new(docker_bin)
+        .args(&owned)
+        .kill_on_drop(true)
+        .output()
+        .await?;
     if !stats.status.success() {
         return Ok(());
     }
