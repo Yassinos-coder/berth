@@ -102,6 +102,10 @@ export interface FailedApply {
 
 export interface ProxyRoute {
   domain: string;
+  // Always a normalized, leading-slash path with no trailing slash — "/" means
+  // no restriction (matches the whole domain), anything else is a prefix match
+  // scoped to that path, letting multiple services share one domain.
+  path: string;
   serviceId: string;
   targetPort: number;
   tls: boolean;

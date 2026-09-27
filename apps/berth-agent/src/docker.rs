@@ -1122,11 +1122,24 @@ fn build_caddy_config(
 ) -> serde_json::Value {
     use serde_json::json;
 
-    let mut routes: Vec<serde_json::Value> = proxies
+    let mut sorted: Vec<&ProxyRoute> = proxies.iter().collect();
+    // Within the same host, a scoped path (e.g. "/api") must be tried before
+    // the whole-domain catch-all ("/"), or the catch-all would win first and
+    // the scoped route would never be reached. Caddy evaluates routes in
+    // array order and stops at the first match.
+    sorted.sort_by_key(|route| route.path == "/");
+
+    let mut routes: Vec<serde_json::Value> = sorted
         .iter()
         .map(|route| {
+            let mut matcher = json!({ "host": [route.domain] });
+            if route.path != "/" {
+                // Match the bare path and everything under it, not a plain
+                // prefix, so "/api" doesn't also swallow "/apiary".
+                matcher["path"] = json!([route.path.clone(), format!("{}/*", route.path)]);
+            }
             json!({
-                "match": [{ "host": [route.domain] }],
+                "match": [matcher],
                 "handle": [{
                     "handler": "reverse_proxy",
                     "upstreams": [{

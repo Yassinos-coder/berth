@@ -6,6 +6,7 @@ export class ProxyHostMapper {
     return {
       id: host.id,
       domain: host.domain,
+      path: host.path,
       serviceId: host.serviceId,
       serviceName: host.service.name,
       targetPort: host.targetPort,

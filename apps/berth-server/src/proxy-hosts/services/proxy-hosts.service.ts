@@ -40,6 +40,7 @@ export class ProxyHostsService {
         orgId: user.orgId,
         serviceId: dto.serviceId,
         domain,
+        path: this.normalizePath(dto.path),
         targetPort: dto.targetPort,
         ssl: dto.ssl ?? true,
         forceHttps: dto.forceHttps ?? true,
@@ -62,6 +63,7 @@ export class ProxyHostsService {
     const updated = await this.persist(() =>
       this.repository.update(user.orgId, id, {
         domain,
+        path: dto.path === undefined ? undefined : this.normalizePath(dto.path),
         targetPort: dto.targetPort,
         ssl: dto.ssl,
         forceHttps: dto.forceHttps,
@@ -87,10 +89,18 @@ export class ProxyHostsService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        throw new BadRequestException('That domain is already in use');
+        throw new BadRequestException(
+          'That domain and path combination is already in use',
+        );
       }
       throw error;
     }
+  }
+
+  private normalizePath(path?: string): string {
+    const trimmed = (path ?? '/').trim();
+    if (!trimmed || trimmed === '/') return '/';
+    return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
   }
 
   private async assertNotPanelDomain(domain: string): Promise<void> {

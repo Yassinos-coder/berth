@@ -1,6 +1,7 @@
 export interface ProxyHostDto {
   id: string;
   domain: string;
+  path: string;
   serviceId: string;
   serviceName: string;
   targetPort: number;

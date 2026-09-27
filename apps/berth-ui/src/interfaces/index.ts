@@ -219,6 +219,7 @@ export interface ActivityItem {
 export interface ProxyHost {
   id: string;
   domain: string;
+  path: string;
   serviceId: string;
   serviceName: string;
   targetPort: number;

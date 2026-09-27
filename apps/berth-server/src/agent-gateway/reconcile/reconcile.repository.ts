@@ -38,6 +38,7 @@ export class ReconcileRepository {
     });
     return hosts.map((host) => ({
       domain: host.domain,
+      path: host.path,
       serviceId: host.serviceId,
       targetPort: host.targetPort,
       tls: host.ssl,

@@ -15,13 +15,16 @@ export function ProxyHostCard({ host }: { host: ProxyHost }) {
       <CardContent className="flex items-center justify-between gap-4">
         <div className="min-w-0 space-y-1">
           <a
-            href={`${scheme}://${host.domain}`}
+            href={`${scheme}://${host.domain}${host.path === '/' ? '' : host.path}`}
             target="_blank"
             rel="noreferrer"
             className="text-primary focus-visible:ring-ring/40 inline-flex items-center gap-1.5 rounded-sm font-medium outline-none focus-visible:ring-[3px]"
             translate="no"
           >
             {host.domain}
+            {host.path === '/' ? null : (
+              <span className="text-muted-foreground">{host.path}</span>
+            )}
             <ExternalLink className="size-3.5" aria-hidden="true" />
             <span className="sr-only">(opens in a new tab)</span>
           </a>
@@ -45,7 +48,7 @@ export function ProxyHostCard({ host }: { host: ProxyHost }) {
                 size="icon"
                 className="text-muted-foreground hover:text-destructive"
                 disabled={remove.isPending}
-                aria-label={`Delete proxy host ${host.domain}`}
+                aria-label={`Delete proxy host ${host.domain}${host.path}`}
               >
                 {remove.isPending ? (
                   <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -54,10 +57,11 @@ export function ProxyHostCard({ host }: { host: ProxyHost }) {
                 )}
               </Button>
             }
-            title={`Delete ${host.domain}?`}
+            title={`Delete ${host.domain}${host.path === '/' ? '' : host.path}?`}
             description={
               <>
-                Caddy stops routing this domain to{' '}
+                Caddy stops routing this{' '}
+                {host.path === '/' ? 'domain' : 'path'} to{' '}
                 <span translate="no">{host.serviceName}</span> as soon as the
                 agent reconciles. The certificate is kept.
               </>

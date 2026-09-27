@@ -515,7 +515,11 @@ model ProxyHost {
   id         String   @id @default(cuid())
   orgId      String
   serviceId  String
-  domain     String   @unique
+  domain     String
+  // Leading-slash, no trailing slash. "/" (the default) claims the whole
+  // domain like before; anything else scopes this host to that path prefix,
+  // so several services can share one domain (e.g. "/" + "/api").
+  path       String   @default("/")
   targetPort Int
   ssl        Boolean  @default(true)
   forceHttps Boolean  @default(true)
@@ -525,6 +529,7 @@ model ProxyHost {
   org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   service Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
+  @@unique([domain, path])
   @@index([orgId])
   @@index([serviceId])
 }

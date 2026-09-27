@@ -40,6 +40,7 @@ export class ProxyHostRepository {
     orgId: string;
     serviceId: string;
     domain: string;
+    path: string;
     targetPort: number;
     ssl: boolean;
     forceHttps: boolean;
@@ -52,6 +53,7 @@ export class ProxyHostRepository {
     id: string,
     data: {
       domain?: string;
+      path?: string;
       targetPort?: number;
       ssl?: boolean;
       forceHttps?: boolean;

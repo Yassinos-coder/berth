@@ -30,6 +30,7 @@ export function AddProxyHostDialog({
 } = {}) {
   const [open, setOpen] = useState(false);
   const [domain, setDomain] = useState('');
+  const [path, setPath] = useState('');
   const [serviceId, setServiceId] = useState(defaultServiceId ?? '');
   const [targetPort, setTargetPort] = useState('80');
   const [ssl, setSsl] = useState(true);
@@ -45,6 +46,7 @@ export function AddProxyHostDialog({
 
   const reset = () => {
     setDomain('');
+    setPath('');
     setServiceId(defaultServiceId ?? '');
     setTargetPort('80');
     setSsl(true);
@@ -66,6 +68,7 @@ export function AddProxyHostDialog({
     create.mutate(
       {
         domain: domain.trim(),
+        path: path.trim() || undefined,
         serviceId,
         targetPort: Number(targetPort) || 80,
         ssl,
@@ -100,6 +103,23 @@ export function AddProxyHostDialog({
               onChange={(e) => setDomain(e.target.value)}
               className="font-mono"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="ph-path">Path</Label>
+            <Input
+              id="ph-path"
+              placeholder="/ (whole domain)"
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              className="font-mono"
+            />
+            <p className="text-muted-foreground text-xs">
+              Leave as <span className="font-mono">/</span> to route the whole
+              domain here, or scope this host to a path like{' '}
+              <span className="font-mono">/api</span> to share the domain with
+              another service.
+            </p>
           </div>
 
           <div className="space-y-1.5">

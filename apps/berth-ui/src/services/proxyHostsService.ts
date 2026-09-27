@@ -3,6 +3,7 @@ import type { ProxyHost } from '@/interfaces';
 
 export interface CreateProxyHostPayload {
   domain: string;
+  path?: string;
   serviceId: string;
   targetPort: number;
   ssl?: boolean;
@@ -11,6 +12,7 @@ export interface CreateProxyHostPayload {
 
 export interface UpdateProxyHostPayload {
   domain?: string;
+  path?: string;
   targetPort?: number;
   ssl?: boolean;
   forceHttps?: boolean;

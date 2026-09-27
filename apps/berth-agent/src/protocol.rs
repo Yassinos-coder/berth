@@ -157,6 +157,9 @@ pub struct FailedApply {
 #[serde(rename_all = "camelCase")]
 pub struct ProxyRoute {
     pub domain: String,
+    // Always normalized by the panel: "/" (no restriction) or a leading-slash,
+    // no-trailing-slash prefix like "/api".
+    pub path: String,
     pub service_id: String,
     pub target_port: u16,
     pub tls: bool,
