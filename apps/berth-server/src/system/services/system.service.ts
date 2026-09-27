@@ -86,7 +86,7 @@ export class SystemService {
       throw new NotFoundException('Could not identify the panel host');
     }
     if (domain) {
-      const proxyHost = await this.prisma.proxyHost.findUnique({
+      const proxyHost = await this.prisma.proxyHost.findFirst({
         where: { domain },
         select: { id: true },
       });
