@@ -13,7 +13,7 @@ const SEEN_LIMIT = 5000;
 const client = () => new BerthApiClient(ConfigStore.load());
 
 const program = new Command();
-program.name('berth').description('Manage your Berth panel from the terminal').version('0.13.0');
+program.name('berth').description('Manage your Berth panel from the terminal').version('0.14.0');
 
 program
   .command('login')

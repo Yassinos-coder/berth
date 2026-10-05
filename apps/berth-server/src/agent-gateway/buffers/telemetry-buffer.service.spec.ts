@@ -27,6 +27,14 @@ describe('TelemetryBuffer logs', () => {
     expect(buffer.getLogs('s').map((entry) => entry.line)).toEqual(['==> Build started', 'new step']);
   });
 
+  it('also starts a fresh log for image deploys', () => {
+    const buffer = new TelemetryBuffer();
+    buffer.appendLog('s', line(1, '==> Deploy started', 'build'));
+    buffer.appendLog('s', line(2, '==> Pulling image nginx:alpine', 'build'));
+    buffer.appendLog('s', line(3, '==> Deploy started', 'build'));
+    expect(buffer.getLogs('s').map((entry) => entry.line)).toEqual(['==> Deploy started']);
+  });
+
   it('returns runtime and build lines in time order', () => {
     const buffer = new TelemetryBuffer();
     buffer.appendLog('s', line(5, 'later'));

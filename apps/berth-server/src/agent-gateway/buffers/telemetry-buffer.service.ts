@@ -3,7 +3,7 @@ import type { LogLine, MetricPeak, MetricPoint } from '../../services/interfaces
 
 const MAX_LOGS = 500;
 const MAX_BUILD_LOGS = 3000;
-const BUILD_START_MARKER = '==> Build started';
+const BUILD_START_MARKERS = ['==> Build started', '==> Deploy started'];
 const MAX_METRICS = 120;
 const PEAK_BUCKET_MS = 5 * 60_000;
 const PEAK_WINDOW_MS = 24 * 60 * 60_000;
@@ -67,7 +67,7 @@ export class TelemetryBuffer {
   }
 
   private appendBuildLog(serviceId: string, line: LogLine): void {
-    const startsNewBuild = line.line.startsWith(BUILD_START_MARKER);
+    const startsNewBuild = BUILD_START_MARKERS.some((marker) => line.line.startsWith(marker));
     const bucket = startsNewBuild ? [] : (this.buildLogs.get(serviceId) ?? []);
     bucket.push(line);
     if (bucket.length > MAX_BUILD_LOGS)

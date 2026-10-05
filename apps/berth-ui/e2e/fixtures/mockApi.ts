@@ -9,7 +9,7 @@ export const SERVER = {
   ip: '203.0.113.7',
   region: 'eu',
   os: 'Ubuntu 24.04',
-  agentVersion: '0.13.0',
+  agentVersion: '0.14.0',
   cpuCores: 4,
   memoryMb: 8192,
   diskGb: 80,
@@ -75,6 +75,12 @@ export interface MockOptions {
   githubConnected?: boolean;
   proxyHosts?: unknown[];
   channels?: unknown[];
+  role?: string;
+  environments?: unknown[];
+  alertSettings?: Record<string, unknown>;
+  deployments?: unknown[];
+  logs?: unknown[];
+  dns?: { status: string; message: string; resolved?: string[]; expectedIp?: string };
 }
 
 const json = (route: Route, body: unknown, status = 200) =>
@@ -87,6 +93,12 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Ap
     githubConnected = false,
     proxyHosts = [],
     channels = [],
+    role = 'owner',
+    environments = [],
+    alertSettings = { enabled: true, cpuPct: 90, memPct: 90, diskPct: 90, minutes: 5 },
+    deployments = [],
+    logs = LOGS,
+    dns = { status: 'ok', message: 'app.example.com points to this server.', resolved: ['203.0.113.7'], expectedIp: '203.0.113.7' },
   } = options;
   const calls: ApiCall[] = [];
 
@@ -104,9 +116,14 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Ap
     calls.push({ method, path, search: url.search, body });
 
     if (path === '/auth/me') {
-      return authenticated ? json(route, USER) : json(route, { message: 'Unauthorized' }, 401);
+      return authenticated ? json(route, { ...USER, role }) : json(route, { message: 'Unauthorized' }, 401);
     }
     if (path === '/auth/setup-state') return json(route, { needsSetup: false });
+    if (path === '/environments' && method === 'GET') return json(route, environments);
+    if (path === '/environments' && method === 'POST') return json(route, { id: 'env-new', ...(body as object) });
+    if (path.startsWith('/environments/assign/') && method === 'PATCH') return json(route, { ok: true });
+    if (path === '/alert-settings' && method === 'GET') return json(route, alertSettings);
+    if (path === '/alert-settings' && method === 'PATCH') return json(route, { ...alertSettings, ...(body as object) });
     if (path === '/templates') return json(route, TEMPLATES);
     if (path === '/servers') return json(route, [SERVER]);
     if (path === '/services' && method === 'GET') return json(route, services);
@@ -117,7 +134,7 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Ap
       return json(route, { ...service, ...(body as object) });
     }
 
-    if (/^\/services\/[^/]+\/logs$/.test(path)) return json(route, LOGS);
+    if (/^\/services\/[^/]+\/logs$/.test(path)) return json(route, logs);
     if (/^\/services\/[^/]+\/metrics\/peak$/.test(path)) return json(route, { cpuPct: 10, memMb: 200 });
     if (/^\/services\/[^/]+\/metrics(\/history)?$/.test(path)) {
       return json(route, [
@@ -135,8 +152,9 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Ap
       return json(route, { servers: 1, serversOnline: 1, services: services.length, servicesRunning: services.length, deploymentsToday: 0, avgCpuPct: 5, avgMemPct: 20 });
     }
     if (path === '/notification-channels') return json(route, channels);
-    if (path === '/system/version') return json(route, { current: '0.13.0', latest: '0.13.0', updateAvailable: false });
-    if (path === '/deployments') return json(route, []);
+    if (path === '/system/version') return json(route, { current: '0.14.0', latest: '0.14.0', updateAvailable: false });
+    if (path === '/deployments') return json(route, deployments);
+    if (path === '/proxy-hosts/dns-check') return json(route, { domain: url.searchParams.get('domain'), resolved: [], ...dns });
     if (path === '/proxy-hosts') return json(route, proxyHosts);
 
     if (method === 'GET') return json(route, []);

@@ -2,7 +2,10 @@ import { Server, Service } from '@prisma/client';
 import type { ServiceSource } from '@berth/protocol';
 import type { ServiceDto } from '../interfaces';
 
-type ServiceWithServer = Service & { server: Pick<Server, 'name'> };
+type ServiceWithServer = Service & {
+  server: Pick<Server, 'name'>;
+  environment?: { name: string } | null;
+};
 
 export class ServiceMapper {
   static toDto(
@@ -31,6 +34,9 @@ export class ServiceMapper {
       targetPlatform: service.targetPlatform ?? undefined,
       internalDomains: service.internalDomains,
       previewsEnabled: service.previewsEnabled,
+      environmentId: service.environmentId ?? undefined,
+      environmentName: service.environment?.name,
+      alertsMuted: service.alertsMuted,
       previewOfId: service.previewOfId ?? undefined,
       prNumber: service.prNumber ?? undefined,
       usage,

@@ -67,6 +67,9 @@ export interface Service {
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
   internalDomains: string[];
   previewsEnabled: boolean;
+  environmentId?: string;
+  environmentName?: string;
+  alertsMuted: boolean;
   previewOfId?: string;
   prNumber?: number;
   usage: ServiceUsage;

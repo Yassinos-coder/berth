@@ -7,23 +7,38 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { ProxyHostsService } from '../services/proxy-hosts.service';
+import { DnsCheckService } from '../services/dns-check.service';
 import { CreateProxyHostDto } from '../dto/create-proxy-host.dto';
 import { UpdateProxyHostDto } from '../dto/update-proxy-host.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces';
 import type { ProxyHostDto } from '../interfaces';
+import type { DnsCheckDto } from '../interfaces/dns-check';
 
 @Controller('proxy-hosts')
 export class ProxyHostsController {
-  constructor(private readonly proxyHostsService: ProxyHostsService) {}
+  constructor(
+    private readonly proxyHostsService: ProxyHostsService,
+    private readonly dnsCheck: DnsCheckService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser): Promise<ProxyHostDto[]> {
     return this.proxyHostsService.list(user.orgId);
+  }
+
+  @Get('dns-check')
+  check(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('domain') domain = '',
+    @Query('serviceId') serviceId = '',
+  ): Promise<DnsCheckDto> {
+    return this.dnsCheck.check(user.orgId, domain, serviceId);
   }
 
   @Roles(Role.owner, Role.admin, Role.deployer)

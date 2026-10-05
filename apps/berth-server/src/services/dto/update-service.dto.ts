@@ -37,4 +37,8 @@ export class UpdateServiceDto {
   @IsOptional()
   @IsBoolean()
   previewsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  alertsMuted?: boolean;
 }

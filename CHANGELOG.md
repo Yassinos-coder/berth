@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-10-05
+
+### Added
+- **DNS pre-check for proxy hosts.** The Add proxy host dialog checks the domain's A record against the server's public IP and reports whether it matches, points somewhere else, or does not resolve yet, before Let's Encrypt is attempted. It never blocks adding the host, because a proxy such as Cloudflare can legitimately show a different address.
+- **Deploy progress stepper.** The Deployments tab shows Clone, Build, Start and Health check (Pull image, Start and Health check for image services) with the running stage, the failed stage on failure, and a link to the build logs. The agent now writes stage markers for starting the container, waiting for the health check and the result, so the stepper reflects real progress. Update the agent to get it.
+- **Configurable resource alerts.** Settings → Resources has org-level thresholds for CPU, memory and disk, the sustained duration, and an on/off switch (owners and admins). Each service can be muted from its settings. Defaults match the previous fixed behaviour (90% for 5 minutes).
+- **Environment grouping.** Services can be assigned to an environment from their settings or the New Service form, grouped by environment on the Services page (production first, unassigned last), and filtered by environment. Pull request previews are placed in the environment marked as preview.
+- Environments settings now use shared hooks and an assign/clear endpoint (`PATCH /environments/assign/:serviceId`).
+
+### Changed
+- A new build or deploy now resets the previous deploy log, for image deploys as well as git builds.
+- Deployment lists refresh every few seconds while a deployment is in flight.
+
 ## [0.13.0] - 2026-10-05
 
 ### Added

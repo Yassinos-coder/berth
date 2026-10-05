@@ -33,7 +33,7 @@ const event = (action: PullRequestEvent['action']): PullRequestEvent => ({
   author: 'dev',
 });
 
-function build(existing: object | null = null, parents: object[] = [parent]) {
+function build(existing: object | null = null, parents: object[] = [parent], previewEnvironment: object | null = null) {
   const prisma = {
     service: {
       findMany: vi.fn().mockResolvedValue(parents),
@@ -42,6 +42,7 @@ function build(existing: object | null = null, parents: object[] = [parent]) {
       update: vi.fn().mockResolvedValue({ id: 'prev1', serverId: 's1' }),
       delete: vi.fn().mockResolvedValue({}),
     },
+    environment: { findFirst: vi.fn().mockResolvedValue(previewEnvironment) },
     proxyHost: { create: vi.fn().mockResolvedValue({}) },
     deployment: { create: vi.fn().mockResolvedValue({}) },
   };
@@ -86,6 +87,19 @@ describe('PreviewsService', () => {
     expect(prisma.service.create).not.toHaveBeenCalled();
     expect(prisma.service.update.mock.calls[0][0].data).toMatchObject({ specHash: 'sha1', branch: 'feat' });
     expect(agents.reconcileForService).toHaveBeenCalledWith('prev1', true);
+  });
+
+  it('places previews in the organization preview environment when one exists', async () => {
+    const { service, prisma } = build(null, [parent], { id: 'env-preview' });
+    await service.handle('o1', event('opened'));
+    expect(prisma.environment.findFirst.mock.calls[0][0].where).toEqual({ orgId: 'o1', preview: true });
+    expect(prisma.service.create.mock.calls[0][0].data.environmentId).toBe('env-preview');
+  });
+
+  it('leaves the environment unset when there is no preview environment', async () => {
+    const { service, prisma } = build();
+    await service.handle('o1', event('opened'));
+    expect(prisma.service.create.mock.calls[0][0].data.environmentId).toBeUndefined();
   });
 
   it('survives a duplicate preview domain', async () => {

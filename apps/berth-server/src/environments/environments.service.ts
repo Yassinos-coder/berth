@@ -12,9 +12,11 @@ export class EnvironmentsService {
     if (dto.isProduction) await this.prisma.environment.updateMany({ where: { orgId, isProduction: true }, data: { isProduction: false } });
     return this.prisma.environment.create({ data: { orgId, name: dto.name.trim(), slug, isProduction: dto.isProduction ?? false, preview: dto.preview ?? false } });
   }
-  async assign(orgId: string, serviceId: string, environmentId: string) {
-    const environment = await this.prisma.environment.findFirst({ where: { id: environmentId, orgId } });
-    if (!environment) throw new NotFoundException('Environment not found');
+  async assign(orgId: string, serviceId: string, environmentId: string | null) {
+    if (environmentId) {
+      const environment = await this.prisma.environment.findFirst({ where: { id: environmentId, orgId } });
+      if (!environment) throw new NotFoundException('Environment not found');
+    }
     const result = await this.prisma.service.updateMany({ where: { id: serviceId, orgId }, data: { environmentId } });
     if (!result.count) throw new NotFoundException('Service not found');
     return { ok: true };

@@ -41,6 +41,9 @@ export interface ServiceDto {
   targetPlatform?: string;
   internalDomains: string[];
   previewsEnabled: boolean;
+  environmentId?: string;
+  environmentName?: string;
+  alertsMuted: boolean;
   previewOfId?: string;
   prNumber?: number;
   usage: { cpuPct: number; memMb: number };

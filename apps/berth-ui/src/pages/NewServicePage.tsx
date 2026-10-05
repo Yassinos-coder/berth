@@ -29,6 +29,7 @@ import {
   SOURCE_OPTIONS,
   type SourceChoice,
 } from '@/features/services/newServiceOptions';
+import { useEnvironments } from '@/hooks/useEnvironments';
 import { useServers } from '@/hooks/useServersQueries';
 import { useCreateService } from '@/hooks/useServicesMutations';
 import {
@@ -60,6 +61,8 @@ export function NewServicePage() {
   const [choice, setChoice] = useState<SourceChoice | null>(null);
   const [name, setName] = useState('');
   const [serverId, setServerId] = useState('');
+  const [environmentId, setEnvironmentId] = useState('');
+  const environments = useEnvironments();
   const [reference, setReference] = useState('');
   const [branch, setBranch] = useState('main');
   const [domain, setDomain] = useState('');
@@ -144,6 +147,7 @@ export function NewServicePage() {
           name: name.trim(),
           kind: 'image',
           serverId,
+          environmentId: environmentId || undefined,
           resources,
           template: templateKind,
           domain: domain.trim() || undefined,
@@ -164,6 +168,7 @@ export function NewServicePage() {
           name: name.trim(),
           kind: 'database',
           serverId,
+          environmentId: environmentId || undefined,
           resources,
           template: templateKind,
           publicNetworking,
@@ -183,6 +188,7 @@ export function NewServicePage() {
           name: name.trim(),
           kind: 'git',
           serverId,
+          environmentId: environmentId || undefined,
           source: {
             kind: 'git',
             repo: reference,
@@ -210,6 +216,7 @@ export function NewServicePage() {
         name: name.trim(),
         kind: option.kind,
         serverId,
+        environmentId: environmentId || undefined,
         source: { kind: 'image', image, tag },
         resources,
         domain: domain.trim() || undefined,
@@ -544,6 +551,28 @@ export function NewServicePage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {(environments.data ?? []).length > 0 ? (
+              <div className="space-y-2">
+                <Label>Environment (optional)</Label>
+                <Select
+                  value={environmentId || 'none'}
+                  onValueChange={(value) => setEnvironmentId(value === 'none' ? '' : value)}
+                >
+                  <SelectTrigger className="w-full" aria-label="Environment">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No environment</SelectItem>
+                    {(environments.data ?? []).map((environment) => (
+                      <SelectItem key={environment.id} value={environment.id}>
+                        {environment.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
 
             {!managedDb && !isGit ? (
               <div className="space-y-2">

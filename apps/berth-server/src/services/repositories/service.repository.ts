@@ -11,10 +11,14 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
-type ServiceWithServer = Service & { server: Pick<Server, 'name'> };
+type ServiceWithServer = Service & {
+  server: Pick<Server, 'name'>;
+  environment: { name: string } | null;
+};
 
 const withServer = {
   server: { select: { name: true } },
+  environment: { select: { name: true } },
 } satisfies Prisma.ServiceInclude;
 
 @Injectable()
@@ -27,6 +31,11 @@ export class ServiceRepository {
       orderBy: { createdAt: 'desc' },
       include: withServer,
     });
+  }
+
+  async environmentExists(orgId: string, id: string): Promise<boolean> {
+    const count = await this.prisma.environment.count({ where: { id, orgId } });
+    return count > 0;
   }
 
   findById(orgId: string, id: string): Promise<ServiceWithServer | null> {
@@ -73,6 +82,7 @@ export class ServiceRepository {
     volumePath?: string;
     internalDomains?: string[];
     command?: string[];
+    environmentId?: string;
     env?: { key: string; value: string; isSecret: boolean }[];
   }): Promise<ServiceWithServer> {
     const { env, ...fields } = data;
@@ -109,6 +119,7 @@ export class ServiceRepository {
       registryCredentialId?: string | null;
       targetPlatform?: string | null;
       previewsEnabled?: boolean;
+      alertsMuted?: boolean;
     },
   ): Promise<ServiceWithServer | null> {
     const result = await this.prisma.service.updateMany({

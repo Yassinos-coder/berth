@@ -1,3 +1,4 @@
+import type { DeploymentStatus } from '@/interfaces';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deploymentsService } from '@/services/deploymentsService';
 import { queryKeys } from '@/lib/queryClient';
@@ -10,11 +11,15 @@ export function useDeployments() {
   });
 }
 
+const IN_FLIGHT: DeploymentStatus[] = ['queued', 'building', 'deploying'];
+
 export function useServiceDeployments(serviceId: string) {
   return useQuery({
     queryKey: queryKeys.serviceDeployments(serviceId),
     queryFn: () => deploymentsService.listForService(serviceId),
     enabled: Boolean(serviceId),
+    refetchInterval: (query) =>
+      query.state.data?.some((deployment) => IN_FLIGHT.includes(deployment.status)) ? 3000 : false,
   });
 }
 

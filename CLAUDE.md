@@ -86,6 +86,8 @@ Nest: Controller→Service→Repository→DB. Interfaces in `interfaces/` folder
 
 **Live build logs, previews, metrics history, CLI/MCP, tests.** Build output streams line-by-line from the agent (`BuildProgress`) into a separate build buffer; the UI polls it (Runtime/Build toggle). PR **preview environments** (`previews/` module): a service with `previewsEnabled` gets a temporary child service per same-repo PR, deleted on close; forks are ignored; needs the GitHub App subscribed to `pull_request`. Per-minute **metric samples** are persisted for 7 days (`metrics/`), with sustained CPU/memory and disk alerts. The template catalog has app templates (`templates/app-catalog.ts`). The Jobs/cron feature was removed. Tests: vitest (server, UI, CLI), Playwright e2e against a mocked API (`apps/berth-ui/e2e`), `cargo test`; CI in `.github/workflows/ci.yml`.
 
+**Also built:** DNS pre-check when adding a proxy host (`proxy-hosts/dns-check`), a deploy-progress stepper (agent emits `==> ...` stage markers into the build log; UI derives Clone/Build/Start/Health from them), org-level alert thresholds plus per-service mute (`metrics/alert-settings`), and environment grouping (Environments are the grouping; services can be filtered/grouped by them, and PR previews go into the environment flagged preview).
+
 Still stubbed: nothing user-facing from the original list.
 
 ### mTLS / cert issuance (RESOLVED)

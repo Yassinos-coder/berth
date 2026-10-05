@@ -20,6 +20,7 @@ export interface CreateServicePayload {
   password?: string;
   diskGb?: number;
   publicNetworking?: boolean;
+  environmentId?: string;
   env?: { key: string; value: string; isSecret?: boolean }[];
 }
 
@@ -33,6 +34,7 @@ export interface UpdateServicePayload {
   registryCredentialId?: string;
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
   previewsEnabled?: boolean;
+  alertsMuted?: boolean;
 }
 
 export type ServiceAction = 'start' | 'stop' | 'restart' | 'redeploy';

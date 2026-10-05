@@ -109,6 +109,10 @@ export class CreateServiceDto {
 
   @IsOptional()
   @IsString()
+  environmentId?: string;
+
+  @IsOptional()
+  @IsString()
   username?: string;
 
   @IsOptional()

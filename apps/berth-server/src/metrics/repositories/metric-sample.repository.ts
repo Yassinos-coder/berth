@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { MetricReading } from '../interfaces';
+import type { AlertThresholds, MetricReading } from '../interfaces';
+import { AlertThresholdMapper, ORG_ALERT_SELECT } from '../mappers/alert-threshold.mapper';
 
 @Injectable()
 export class MetricSampleRepository {
@@ -30,14 +31,39 @@ export class MetricSampleRepository {
   serviceLimits(ids: string[]) {
     return this.prisma.service.findMany({
       where: { id: { in: ids } },
-      select: { id: true, name: true, orgId: true, cpuCores: true, memoryMb: true },
+      select: {
+        id: true,
+        name: true,
+        orgId: true,
+        cpuCores: true,
+        memoryMb: true,
+        alertsMuted: true,
+        org: { select: ORG_ALERT_SELECT },
+      },
     });
   }
 
   serverInfo(serverId: string) {
     return this.prisma.server.findUnique({
       where: { id: serverId },
-      select: { name: true, orgId: true },
+      select: { name: true, orgId: true, org: { select: ORG_ALERT_SELECT } },
     });
+  }
+
+  async alertThresholds(orgId: string): Promise<AlertThresholds> {
+    const org = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: orgId },
+      select: ORG_ALERT_SELECT,
+    });
+    return AlertThresholdMapper.fromOrg(org);
+  }
+
+  async updateAlertThresholds(orgId: string, input: Partial<AlertThresholds>): Promise<AlertThresholds> {
+    const org = await this.prisma.organization.update({
+      where: { id: orgId },
+      data: AlertThresholdMapper.toOrgData(input),
+      select: ORG_ALERT_SELECT,
+    });
+    return AlertThresholdMapper.fromOrg(org);
   }
 }

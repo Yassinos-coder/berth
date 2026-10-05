@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MetricAlertRulesUtil } from './metric-alert-rules.util';
+import { DEFAULT_ALERT_THRESHOLDS, MetricAlertRulesUtil } from './metric-alert-rules.util';
 import { MetricDownsamplerUtil } from './metric-downsampler.util';
 import { MetricRangeValidator } from '../validators/metric-range.validator';
 
@@ -46,11 +46,15 @@ describe('MetricAlertRulesUtil', () => {
   const hot = { cpuPct: 190, memMb: 950 };
   const cool = { cpuPct: 10, memMb: 100 };
 
-  const run = (readings: { cpuPct: number; memMb: number }[], start = 0) => {
+  const run = (
+    readings: { cpuPct: number; memMb: number }[],
+    start = 0,
+    thresholds = DEFAULT_ALERT_THRESHOLDS,
+  ) => {
     let watch = MetricAlertRulesUtil.emptyWatch();
     const fired: string[][] = [];
     readings.forEach((item, index) => {
-      const result = MetricAlertRulesUtil.evaluate(watch, item, limits, start + index * 60_000);
+      const result = MetricAlertRulesUtil.evaluate(watch, item, limits, thresholds, start + index * 60_000);
       watch = result.watch;
       fired.push(result.fired);
     });
@@ -70,6 +74,7 @@ describe('MetricAlertRulesUtil', () => {
       MetricAlertRulesUtil.emptyWatch(),
       { cpuPct: 95, memMb: 0 },
       { cpuCores: 4, memoryMb: 1000 },
+      DEFAULT_ALERT_THRESHOLDS,
       0,
     );
     expect(oneCore.watch.cpuHighMinutes).toBe(0);
@@ -88,9 +93,28 @@ describe('MetricAlertRulesUtil', () => {
     expect(run(long).fired.flat().filter((kind) => kind === 'cpu')).toHaveLength(2);
   });
 
+  it('fires sooner and at a lower level with custom thresholds', () => {
+    const custom = { ...DEFAULT_ALERT_THRESHOLDS, cpuPct: 50, memPct: 50, minutes: 2 };
+    const moderate = { cpuPct: 120, memMb: 600 };
+    expect(run([moderate], 0, custom).fired.flat()).toEqual([]);
+    expect(run([moderate, moderate], 0, custom).fired[1].sort()).toEqual(['cpu', 'memory']);
+    expect(run([moderate, moderate], 0).fired.flat()).toEqual([]);
+  });
+
+  it('needs the longer window when the minutes setting is raised', () => {
+    const slow = { ...DEFAULT_ALERT_THRESHOLDS, minutes: 10 };
+    expect(run(Array(9).fill(hot), 0, slow).fired.flat()).toEqual([]);
+    expect(run(Array(10).fill(hot), 0, slow).fired[9].sort()).toEqual(['cpu', 'memory']);
+  });
+
   it('flags a nearly full disk only', () => {
-    expect(MetricAlertRulesUtil.diskHigh(91, 100)).toBe(true);
-    expect(MetricAlertRulesUtil.diskHigh(50, 100)).toBe(false);
-    expect(MetricAlertRulesUtil.diskHigh(1, 0)).toBe(false);
+    expect(MetricAlertRulesUtil.diskHigh(91, 100, 90)).toBe(true);
+    expect(MetricAlertRulesUtil.diskHigh(50, 100, 90)).toBe(false);
+    expect(MetricAlertRulesUtil.diskHigh(1, 0, 90)).toBe(false);
+  });
+
+  it('honours a custom disk threshold', () => {
+    expect(MetricAlertRulesUtil.diskHigh(75, 100, 70)).toBe(true);
+    expect(MetricAlertRulesUtil.diskHigh(75, 100, 80)).toBe(false);
   });
 });

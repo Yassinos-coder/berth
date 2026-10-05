@@ -26,4 +26,5 @@ export const queryKeys = {
   templates: ['templates'] as const,
   team: ['team'] as const,
   proxyHosts: ['proxyHosts'] as const,
+  dnsCheck: (domain: string, serviceId: string) => ['proxyHosts', 'dns', domain, serviceId] as const,
 };

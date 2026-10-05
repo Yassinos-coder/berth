@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { AlertSettingsCard } from '@/features/alerts/AlertSettingsCard';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
@@ -297,6 +298,7 @@ export function SettingsPage() {
               ) : null}
             </CardContent>
           </Card>
+          <AlertSettingsCard canManage={canManageResources} />
         </TabsContent>
 
         <TabsContent value="networking" className="mt-4 space-y-4">

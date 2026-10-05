@@ -99,6 +99,11 @@ model Organization {
   id                   String   @id @default(cuid())
   name                 String
   smartResourcesEnabled Boolean @default(false)
+  alertsEnabled         Boolean @default(true)
+  alertCpuPct           Int     @default(90)
+  alertMemPct           Int     @default(90)
+  alertDiskPct          Int     @default(90)
+  alertMinutes          Int     @default(5)
   panelDomain          String?  @unique
   createdAt            DateTime @default(now())
 
@@ -308,6 +313,7 @@ model Service {
   environmentId        String?
   targetPlatform       String?
   previewsEnabled      Boolean    @default(false)
+  alertsMuted          Boolean    @default(false)
   previewOfId          String?
   prNumber             Int?
   createdAt        DateTime   @default(now())

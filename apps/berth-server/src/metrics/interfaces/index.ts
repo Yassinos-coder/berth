@@ -36,3 +36,11 @@ export interface AlertEvaluation {
   watch: AlertWatch;
   fired: AlertKind[];
 }
+
+export interface AlertThresholds {
+  enabled: boolean;
+  cpuPct: number;
+  memPct: number;
+  diskPct: number;
+  minutes: number;
+}

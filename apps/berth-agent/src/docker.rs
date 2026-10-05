@@ -128,11 +128,16 @@ impl DockerReconciler {
                         if let Some(auth) = &spec.registry_auth {
                             self.docker_login(auth).await?;
                         }
+                        emit_build_line(build_log, &spec.id, "==> Deploy started");
+                        emit_build_line(build_log, &spec.id, &format!("==> Pulling image {image}:{tag}"));
                         self.pull_image(image, tag).await?;
                         let image_ref = format!("{image}:{tag}");
                         let existing_before = existing.clone();
 
-                        match self.cutover(spec, &spec_hash, &image_ref, existing).await {
+                        match self
+                            .cutover(spec, &spec_hash, &image_ref, existing, build_log)
+                            .await
+                        {
                             Ok((state, container_id)) => {
                                 applied.push(spec.id.clone());
                                 statuses.push(ServiceStatusEvent {
@@ -200,7 +205,10 @@ impl DockerReconciler {
                     // build never takes the service down.
                     match self.build_git_source(spec, &spec_hash, build_log).await {
                         Ok(image) => {
-                            match self.cutover(spec, &spec_hash, &image, existing).await {
+                            match self
+                                .cutover(spec, &spec_hash, &image, existing, build_log)
+                                .await
+                            {
                                 Ok((state, container_id)) => {
                                     applied.push(spec.id.clone());
                                     statuses.push(ServiceStatusEvent {
@@ -708,7 +716,9 @@ impl DockerReconciler {
         spec_hash: &str,
         image: &str,
         existing: Option<ManagedContainer>,
+        build_log: Option<&BuildLogSink>,
     ) -> AgentResult<(ServiceState, Option<String>)> {
+        emit_build_line(build_log, &spec.id, "==> Starting container");
         let publishes_host_port = spec
             .ports
             .iter()
@@ -721,6 +731,7 @@ impl DockerReconciler {
             let container_id = self
                 .run_service(spec, spec_hash, Some(image), &container_name(&spec.id))
                 .await?;
+            emit_build_line(build_log, &spec.id, "==> Container started");
             return Ok((ServiceState::Running, Some(container_id)));
         }
 
@@ -728,6 +739,7 @@ impl DockerReconciler {
             let container_id = self
                 .run_service(spec, spec_hash, Some(image), &container_name(&spec.id))
                 .await?;
+            emit_build_line(build_log, &spec.id, "==> Container started");
             return Ok((ServiceState::Running, Some(container_id)));
         };
 
@@ -737,14 +749,21 @@ impl DockerReconciler {
             .run_service(spec, spec_hash, Some(image), &next_name)
             .await?;
 
+        emit_build_line(build_log, &spec.id, "==> Waiting for health check");
         match self.wait_until_healthy(&next_name, spec).await {
             Ok(()) => {
+                emit_build_line(build_log, &spec.id, "==> Container healthy");
                 self.remove_container(&old.name).await?;
                 self.docker(&["rename", &next_name, &container_name(&spec.id)])
                     .await?;
                 Ok((ServiceState::Running, Some(container_id)))
             }
             Err(error) => {
+                emit_build_line(
+                    build_log,
+                    &spec.id,
+                    &format!("==> Health check failed: {error}"),
+                );
                 self.remove_container(&next_name).await?;
                 Err(error)
             }

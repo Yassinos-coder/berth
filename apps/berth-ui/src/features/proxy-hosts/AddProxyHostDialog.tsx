@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { useServices } from '@/hooks/useServicesQueries';
 import { useCreateProxyHost } from '@/hooks/useProxyHostsMutations';
+import { DnsCheckNotice } from '@/features/proxy-hosts/DnsCheckNotice';
 
 export function AddProxyHostDialog({
   defaultServiceId,
@@ -178,12 +179,7 @@ export function AddProxyHostDialog({
             />
           </div>
 
-          <div className="border-warning/40 bg-warning/10 text-warning rounded-lg border px-3 py-2 text-xs">
-            Point{' '}
-            <span className="font-mono">{domain || 'your domain'}</span>'s DNS
-            A record at this server and open ports 80 &amp; 443 before the
-            certificate can be issued.
-          </div>
+          <DnsCheckNotice domain={domain} serviceId={serviceId} />
         </div>
 
         <DialogFooter>

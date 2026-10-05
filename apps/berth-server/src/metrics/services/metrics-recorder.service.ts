@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { MetricSampleRepository } from '../repositories/metric-sample.repository';
 import type { AlertKind, AlertWatch, MetricAccumulator, MetricReading } from '../interfaces';
+import { AlertThresholdMapper } from '../mappers/alert-threshold.mapper';
 import { MetricAlertRulesUtil } from '../utils/metric-alert-rules.util';
 import { METRIC_RETENTION_MS } from '../validators/metric-range.validator';
 
@@ -56,14 +57,17 @@ export class MetricsRecorderService implements OnModuleInit, OnModuleDestroy {
   }
 
   async observeHostDisk(serverId: string, usedGb: number, totalGb: number): Promise<void> {
-    if (!MetricAlertRulesUtil.diskHigh(usedGb, totalGb)) return;
     const now = Date.now();
     const last = this.hostAlertedAt.get(serverId);
     if (last !== undefined && now - last < HOST_ALERT_COOLDOWN_MS) return;
-    this.hostAlertedAt.set(serverId, now);
 
     const server = await this.repository.serverInfo(serverId);
     if (!server) return;
+    const thresholds = AlertThresholdMapper.fromOrg(server.org);
+    if (!thresholds.enabled) return;
+    if (!MetricAlertRulesUtil.diskHigh(usedGb, totalGb, thresholds.diskPct)) return;
+    this.hostAlertedAt.set(serverId, now);
+
     await this.notifications.notify(server.orgId, {
       type: 'resource.high',
       title: `Disk almost full on ${server.name}`,
@@ -115,10 +119,16 @@ export class MetricsRecorderService implements OnModuleInit, OnModuleDestroy {
     for (const service of services) {
       const entry = batch.get(service.id);
       if (!entry) continue;
+      const thresholds = AlertThresholdMapper.fromOrg(service.org);
+      if (!thresholds.enabled || service.alertsMuted) {
+        this.watches.delete(service.id);
+        continue;
+      }
       const { watch, fired } = MetricAlertRulesUtil.evaluate(
         this.watches.get(service.id) ?? MetricAlertRulesUtil.emptyWatch(),
         { cpuPct: entry.cpuSum / entry.count, memMb: entry.memMax },
         { cpuCores: service.cpuCores, memoryMb: service.memoryMb },
+        thresholds,
         now,
       );
       this.watches.set(service.id, watch);
@@ -126,7 +136,7 @@ export class MetricsRecorderService implements OnModuleInit, OnModuleDestroy {
         await this.notifications.notify(service.orgId, {
           type: 'resource.high',
           title: `High ${ALERT_LABEL[kind]} on ${service.name}`,
-          detail: `${service.name} has been using over 90% of its ${ALERT_LABEL[kind]} limit for 5+ minutes. Raise the limit or enable smart resources.`,
+          detail: `${service.name} has been using over ${kind === 'cpu' ? thresholds.cpuPct : thresholds.memPct}% of its ${ALERT_LABEL[kind]} limit for ${thresholds.minutes}+ minutes. Raise the limit or enable smart resources.`,
           severity: 'warning',
         });
       }

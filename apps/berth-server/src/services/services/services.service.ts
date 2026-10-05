@@ -99,12 +99,20 @@ export class ServicesService {
     const server = await this.servers.findById(user.orgId, dto.serverId);
     if (!server) throw new BadRequestException('Target server not found');
 
+    if (
+      dto.environmentId &&
+      !(await this.repository.environmentExists(user.orgId, dto.environmentId))
+    ) {
+      throw new BadRequestException('Environment not found');
+    }
+
     const input = dto.template
       ? this.buildFromTemplate(user, dto)
       : this.buildFromSource(user, dto);
 
     const service = await this.repository.create({
       ...input,
+      environmentId: dto.environmentId,
       internalDomains: [InternalDomainUtil.generate(dto.name)],
     });
 
@@ -178,6 +186,7 @@ export class ServicesService {
       registryCredentialId,
       targetPlatform: dto.targetPlatform,
       previewsEnabled: dto.previewsEnabled,
+      alertsMuted: dto.alertsMuted,
     });
     if (!updated) throw new NotFoundException('Service not found');
 

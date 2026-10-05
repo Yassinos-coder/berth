@@ -76,6 +76,10 @@ export class PreviewsService {
     parent: Service & Prisma.ServiceGetPayload<{ include: typeof withPreviewSources }>,
     event: PullRequestEvent,
   ): Promise<Service> {
+    const previewEnvironment = await this.prisma.environment.findFirst({
+      where: { orgId: parent.orgId, preview: true },
+      select: { id: true },
+    });
     const preview = await this.prisma.service.create({
       data: {
         ...PreviewMapper.toCreateData(
@@ -83,6 +87,7 @@ export class PreviewsService {
           event,
           InternalDomainUtil.generate(PreviewMapper.name(parent.name, event)),
         ),
+        ...(previewEnvironment ? { environmentId: previewEnvironment.id } : {}),
         state: 'building',
         envVars: {
           create: parent.envVars.map((item) => ({

@@ -7,7 +7,7 @@ import type { AuthenticatedUser } from '../common/interfaces';
 import { EnvironmentsService } from './environments.service';
 
 export class CreateEnvironmentDto { @IsString() @MaxLength(80) name!: string; @IsOptional() @IsBoolean() isProduction?: boolean; @IsOptional() @IsBoolean() preview?: boolean; }
-export class AssignEnvironmentDto { @IsOptional() @IsString() environmentId?: string; }
+export class AssignEnvironmentDto { @IsOptional() @IsString() environmentId?: string | null; }
 
 @Controller('environments')
 export class EnvironmentsController {
@@ -15,5 +15,6 @@ export class EnvironmentsController {
   @Get() list(@CurrentUser() user: AuthenticatedUser) { return this.environments.list(user.orgId); }
   @Roles(Role.owner, Role.admin) @Post() create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateEnvironmentDto) { return this.environments.create(user.orgId, dto); }
   @Roles(Role.owner, Role.admin) @Delete(':id') @HttpCode(204) remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) { return this.environments.remove(user.orgId, id); }
+  @Roles(Role.owner, Role.admin, Role.deployer) @Patch('assign/:serviceId') assignOrClear(@CurrentUser() user: AuthenticatedUser, @Param('serviceId') serviceId: string, @Body() dto: AssignEnvironmentDto) { return this.environments.assign(user.orgId, serviceId, dto.environmentId || null); }
   @Roles(Role.owner, Role.admin, Role.deployer) @Patch(':id/services/:serviceId') assign(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Param('serviceId') serviceId: string) { return this.environments.assign(user.orgId, serviceId, id); }
 }

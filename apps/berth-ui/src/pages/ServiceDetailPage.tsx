@@ -16,12 +16,15 @@ import { QueryBoundary } from '@/components/shared/QueryBoundary';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ServiceStateBadge } from '@/components/shared/StatusBadge';
 import { DeploymentsTable } from '@/features/deployments/DeploymentsTable';
+import { DeployStepper } from '@/features/deployments/DeployStepper';
 import { LogViewer } from '@/features/services/LogViewer';
 import { MetricsPanel, type MetricsRange } from '@/features/services/MetricsPanel';
 import { EnvironmentEditor } from '@/features/services/EnvironmentEditor';
 import { ConnectionPanel } from '@/features/services/ConnectionPanel';
 import { BuildSettings } from '@/features/services/BuildSettings';
 import { PreviewSettings } from '@/features/services/PreviewSettings';
+import { AlertMuteSettings } from '@/features/services/AlertMuteSettings';
+import { EnvironmentPicker } from '@/features/services/EnvironmentPicker';
 import { RegistryCredentialPicker } from '@/features/services/RegistryCredentialPicker';
 import { BackupsPanel } from '@/features/services/BackupsPanel';
 import { EditableServiceName } from '@/features/services/EditableServiceName';
@@ -316,7 +319,17 @@ export function ServiceDetailPage() {
                 ) : null}
               </TabsContent>
 
-              <TabsContent value="deployments" className="mt-4">
+              <TabsContent value="deployments" className="mt-4 space-y-4">
+                {deployments.data?.[0] ? (
+                  <Card className="py-0">
+                    <DeployStepper
+                      deployment={deployments.data[0]}
+                      logs={logs.data ?? []}
+                      sourceKind={svc.source.kind}
+                      serviceId={svc.id}
+                    />
+                  </Card>
+                ) : null}
                 <Card className="py-0">
                   <CardContent className="p-0">
                     <QueryBoundary
@@ -434,6 +447,8 @@ export function ServiceDetailPage() {
                     branch={svc.source.branch}
                   />
                 ) : null}
+                <EnvironmentPicker serviceId={svc.id} environmentId={svc.environmentId} />
+                <AlertMuteSettings serviceId={svc.id} muted={svc.alertsMuted} />
                 <RegistryCredentialPicker
                   serviceId={svc.id}
                   registryCredentialId={svc.registryCredentialId}
