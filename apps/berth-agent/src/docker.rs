@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::process::Stdio;
 
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
+use tokio::sync::mpsc;
 
 use crate::protocol::{
     FailedApply, PanelRoute, ProxyRoute, RegistryAuth, RestartPolicy, ServiceSource, ServiceSpec,
@@ -19,6 +20,8 @@ const SFTPGO_CONTAINER: &str = "berth-sftpgo";
 const SFTPGO_MINIO_PORT: u16 = 9000;
 const SFTPGO_BUCKET_NAME: &str = "bucket";
 
+pub type BuildLogSink = mpsc::UnboundedSender<(String, String)>;
+
 pub type AgentResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[derive(Clone, Debug)]
@@ -31,7 +34,6 @@ pub struct ReconcileOutcome {
     pub applied: Vec<String>,
     pub failed: Vec<FailedApply>,
     pub statuses: Vec<ServiceStatusEvent>,
-    pub build_logs: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone)]
@@ -73,6 +75,7 @@ impl DockerReconciler {
         proxies: &[ProxyRoute],
         panel: Option<&PanelRoute>,
         force_service_ids: &[String],
+        build_log: Option<&BuildLogSink>,
     ) -> AgentResult<ReconcileOutcome> {
         self.heal_orphaned_next_containers().await?;
 
@@ -86,7 +89,6 @@ impl DockerReconciler {
         let mut applied = Vec::new();
         let mut failed = Vec::new();
         let mut statuses = Vec::new();
-        let mut build_logs = Vec::new();
         let desired_ids: HashSet<String> = desired.iter().map(|spec| spec.id.clone()).collect();
 
         for spec in desired {
@@ -196,11 +198,8 @@ impl DockerReconciler {
                     // Build before touching the old container: the old one keeps serving
                     // traffic for the entire (potentially multi-minute) build, and a failed
                     // build never takes the service down.
-                    match self.build_git_source(spec, &spec_hash).await {
-                        Ok((image, build_log)) => {
-                            if !build_log.is_empty() {
-                                build_logs.push((spec.id.clone(), build_log));
-                            }
+                    match self.build_git_source(spec, &spec_hash, build_log).await {
+                        Ok(image) => {
                             match self.cutover(spec, &spec_hash, &image, existing).await {
                                 Ok((state, container_id)) => {
                                     applied.push(spec.id.clone());
@@ -271,7 +270,6 @@ impl DockerReconciler {
             applied,
             failed,
             statuses,
-            build_logs,
         })
     }
 
@@ -837,7 +835,8 @@ impl DockerReconciler {
         &self,
         spec: &ServiceSpec,
         spec_hash: &str,
-    ) -> AgentResult<(String, String)> {
+        build_log: Option<&BuildLogSink>,
+    ) -> AgentResult<String> {
         let ServiceSource::Git {
             repo,
             branch,
@@ -846,10 +845,12 @@ impl DockerReconciler {
         else {
             return Err("expected git source".into());
         };
+        emit_build_line(build_log, &spec.id, "==> Build started");
         let work = std::env::temp_dir().join(format!("berth-build-{}", spec.id));
         if work.exists() {
             tokio::fs::remove_dir_all(&work).await?;
         }
+        emit_build_line(build_log, &spec.id, &format!("==> Cloning branch {branch}"));
         let clone = Command::new("git")
             .args([
                 "clone",
@@ -866,7 +867,7 @@ impl DockerReconciler {
         if !clone.status.success() {
             return Err(format!(
                 "git clone failed: {}",
-                String::from_utf8_lossy(&clone.stderr)
+                redact_clone_error(&String::from_utf8_lossy(&clone.stderr))
             )
             .into());
         }
@@ -897,7 +898,8 @@ impl DockerReconciler {
         let use_docker = matches!(build.builder, crate::protocol::BuilderKind::Dockerfile)
             || (matches!(build.builder, crate::protocol::BuilderKind::Auto)
                 && root.join(dockerfile).exists());
-        let output = if use_docker {
+        let mut command = if use_docker {
+            emit_build_line(build_log, &spec.id, "==> Building with Dockerfile");
             let mut command = Command::new(&self.docker_bin);
             // Git deploys must reflect the freshly cloned branch HEAD. Avoid
             // stale application/base-image layers masking a pushed change.
@@ -905,6 +907,7 @@ impl DockerReconciler {
                 "build",
                 "--no-cache",
                 "--pull",
+                "--progress=plain",
                 "-t",
                 &image,
                 "-f",
@@ -918,8 +921,10 @@ impl DockerReconciler {
                     command.args(["--build-arg", &format!("{key}={value}")]);
                 }
             }
-            command.arg(".").current_dir(&root).output().await?
+            command.arg(".");
+            command
         } else {
+            emit_build_line(build_log, &spec.id, "==> Building with Nixpacks");
             let mut command = Command::new("nixpacks");
             command.args(["build", ".", "--name", &image, "--no-cache"]);
             if let Some(cmd) = build.build_command.as_deref() {
@@ -928,22 +933,20 @@ impl DockerReconciler {
             if let Some(cmd) = build.start_command.as_deref() {
                 command.args(["--start-cmd", cmd]);
             }
-            command.current_dir(&root).output().await?
+            command
         };
+        command.current_dir(&root);
+        let (success, log) = run_streamed(command, &spec.id, build_log).await?;
         let _ = tokio::fs::remove_dir_all(&work).await;
-        let build_log = format!(
-            "{}{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr),
-        );
-        if !output.status.success() {
+        if !success {
             return Err(format!(
                 "application image build failed:\n{}",
-                truncate_build_log(&build_log)
+                truncate_build_log(&log)
             )
             .into());
         }
-        Ok((image, truncate_build_log(&build_log)))
+        emit_build_line(build_log, &spec.id, "==> Build finished");
+        Ok(image)
     }
 
     async fn ensure_network(&self) -> AgentResult<()> {
@@ -1105,6 +1108,63 @@ fn spec_hash(spec: &ServiceSpec) -> AgentResult<String> {
     Ok(format!("{hash:016x}"))
 }
 
+fn emit_build_line(sink: Option<&BuildLogSink>, service_id: &str, line: &str) {
+    if let Some(sink) = sink {
+        let _ = sink.send((service_id.to_string(), line.to_string()));
+    }
+}
+
+fn redact_clone_error(stderr: &str) -> String {
+    stderr
+        .lines()
+        .map(|line| {
+            let Some((scheme, rest)) = line.split_once("://") else {
+                return line.to_string();
+            };
+            let Some((credentials, host)) = rest.split_once('@') else {
+                return line.to_string();
+            };
+            if credentials.contains('/') || credentials.contains(' ') {
+                return line.to_string();
+            }
+            format!("{scheme}://***@{host}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+async fn run_streamed(
+    mut command: Command,
+    service_id: &str,
+    sink: Option<&BuildLogSink>,
+) -> AgentResult<(bool, String)> {
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    let mut stdout = BufReader::new(child.stdout.take().ok_or("missing stdout")?).lines();
+    let mut stderr = BufReader::new(child.stderr.take().ok_or("missing stderr")?).lines();
+    let mut log = String::new();
+    let (mut out_open, mut err_open) = (true, true);
+    while out_open || err_open {
+        let line = tokio::select! {
+            line = stdout.next_line(), if out_open => match line? {
+                Some(line) => line,
+                None => { out_open = false; continue; }
+            },
+            line = stderr.next_line(), if err_open => match line? {
+                Some(line) => line,
+                None => { err_open = false; continue; }
+            },
+        };
+        emit_build_line(sink, service_id, &line);
+        log.push_str(&line);
+        log.push('\n');
+    }
+    let status = child.wait().await?;
+    Ok((status.success(), log))
+}
+
 fn truncate_build_log(log: &str) -> String {
     const MAX_BYTES: usize = 200_000;
     if log.len() <= MAX_BYTES {
@@ -1189,4 +1249,110 @@ fn build_caddy_config(
     }
 
     config
+}
+
+#[cfg(test)]
+mod build_log_tests {
+    use super::*;
+
+    #[test]
+    fn redacts_credentials_in_clone_urls() {
+        let raw = "fatal: unable to access 'https://x-access-token:ghs_abc@github.com/o/r.git/': 403";
+        let out = redact_clone_error(raw);
+        assert!(!out.contains("ghs_abc"));
+        assert!(out.contains("https://***@github.com/o/r.git/"));
+    }
+
+    #[test]
+    fn leaves_plain_lines_alone() {
+        assert_eq!(redact_clone_error("fatal: repository not found"), "fatal: repository not found");
+        assert_eq!(
+            redact_clone_error("see https://github.com/o/r for help"),
+            "see https://github.com/o/r for help"
+        );
+    }
+}
+
+#[cfg(test)]
+mod spec_hash_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn spec(overrides: serde_json::Value) -> ServiceSpec {
+        let mut base = json!({
+            "id": "svc1",
+            "name": "web",
+            "serverId": "srv1",
+            "source": {
+                "kind": "git",
+                "repo": "https://x-access-token:tok1@github.com/o/r.git",
+                "branch": "main",
+                "build": {
+                    "builder": "auto",
+                    "buildArgs": { "VITE_A": "1", "VITE_B": "2", "VITE_C": "3" }
+                }
+            },
+            "env": [],
+            "ports": [],
+            "volumes": [],
+            "resources": { "cpuCores": 1.0, "memoryMb": 512 },
+            "healthCheck": null,
+            "restartPolicy": "always",
+            "replicas": 1,
+            "templateKind": null
+        });
+        if let (Some(base), Some(extra)) = (base.as_object_mut(), overrides.as_object()) {
+            for (key, value) in extra {
+                base.insert(key.clone(), value.clone());
+            }
+        }
+        serde_json::from_value(base).expect("valid spec")
+    }
+
+    #[test]
+    fn identical_specs_hash_identically_across_deserializations() {
+        let hashes: std::collections::HashSet<String> =
+            (0..50).map(|_| spec_hash(&spec(json!({}))).unwrap()).collect();
+        assert_eq!(hashes.len(), 1);
+    }
+
+    #[test]
+    fn rotating_the_installation_token_does_not_change_the_hash() {
+        let a = spec(json!({}));
+        let b = spec(json!({
+            "source": {
+                "kind": "git",
+                "repo": "https://x-access-token:tok2@github.com/o/r.git",
+                "branch": "main",
+                "build": {
+                    "builder": "auto",
+                    "buildArgs": { "VITE_A": "1", "VITE_B": "2", "VITE_C": "3" }
+                }
+            }
+        }));
+        assert_eq!(spec_hash(&a).unwrap(), spec_hash(&b).unwrap());
+    }
+
+    #[test]
+    fn resource_limit_changes_do_not_force_a_rebuild() {
+        let a = spec(json!({}));
+        let b = spec(json!({ "resources": { "cpuCores": 4.0, "memoryMb": 4096, "cpuShares": 2048 } }));
+        assert_eq!(spec_hash(&a).unwrap(), spec_hash(&b).unwrap());
+    }
+
+    #[test]
+    fn real_changes_change_the_hash() {
+        let a = spec(json!({}));
+        let env = spec(json!({ "env": [{ "key": "A", "value": "1", "isSecret": false }] }));
+        let branch = spec(json!({
+            "source": {
+                "kind": "git",
+                "repo": "https://github.com/o/r.git",
+                "branch": "dev",
+                "build": { "builder": "auto" }
+            }
+        }));
+        assert_ne!(spec_hash(&a).unwrap(), spec_hash(&env).unwrap());
+        assert_ne!(spec_hash(&a).unwrap(), spec_hash(&branch).unwrap());
+    }
 }

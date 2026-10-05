@@ -40,6 +40,9 @@ export interface ServiceDto {
   registryCredentialId?: string;
   targetPlatform?: string;
   internalDomains: string[];
+  previewsEnabled: boolean;
+  previewOfId?: string;
+  prNumber?: number;
   usage: { cpuPct: number; memMb: number };
   lastDeployedAt?: string;
   lastSmartResourceAt?: string;

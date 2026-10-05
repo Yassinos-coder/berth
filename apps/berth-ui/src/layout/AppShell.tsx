@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from '@/layout/Sidebar';
 import { Topbar } from '@/layout/Topbar';
 import { Footer } from '@/layout/Footer';
+import { CommandPalette } from '@/features/command-palette/components/CommandPalette';
 
 export function AppShell() {
   return (
@@ -12,6 +13,7 @@ export function AppShell() {
       >
         Skip to main content
       </a>
+      <CommandPalette />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />

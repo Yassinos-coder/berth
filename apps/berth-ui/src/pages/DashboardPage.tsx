@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { StatTile } from '@/components/shared/StatTile';
 import { QueryBoundary } from '@/components/shared/QueryBoundary';
 import { ActivityFeed } from '@/features/dashboard/ActivityFeed';
+import { GettingStarted } from '@/features/dashboard/GettingStarted';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,6 +39,8 @@ export function DashboardPage() {
           </Button>
         }
       />
+
+      <GettingStarted />
 
       <QueryBoundary
         isLoading={stats.isLoading}

@@ -167,9 +167,26 @@ async fn handle_message(
             panel,
             force_service_ids,
         } => {
-            let outcome = reconciler
-                .reconcile(&services, &proxies, panel.as_ref(), &force_service_ids)
-                .await?;
+            let (log_tx, mut log_rx) = mpsc::unbounded_channel::<(String, String)>();
+            let reconcile = reconciler.reconcile(
+                &services,
+                &proxies,
+                panel.as_ref(),
+                &force_service_ids,
+                Some(&log_tx),
+            );
+            tokio::pin!(reconcile);
+            let outcome = loop {
+                tokio::select! {
+                    result = &mut reconcile => break result?,
+                    Some((service_id, log_chunk)) = log_rx.recv() => {
+                        send_build_progress(sink, service_id, log_chunk).await?;
+                    }
+                }
+            };
+            while let Ok((service_id, log_chunk)) = log_rx.try_recv() {
+                send_build_progress(sink, service_id, log_chunk).await?;
+            }
 
             let running: Vec<String> = outcome
                 .statuses
@@ -178,15 +195,6 @@ async fn handle_message(
                 .map(|status| status.service_id.clone())
                 .collect();
             telemetry.sync_logs(&running);
-
-            for (service_id, log_chunk) in outcome.build_logs {
-                let event = AgentToPanel::BuildProgress {
-                    service_id,
-                    stage: "build".to_string(),
-                    log_chunk,
-                };
-                send_json(sink, &event).await?;
-            }
 
             for status in outcome.statuses {
                 let event = AgentToPanel::ServiceStatus {
@@ -296,9 +304,6 @@ async fn handle_message(
         PanelToAgent::ExecResize { session_id, cols, rows } => {
             exec_manager.resize(&session_id, cols, rows).await;
         }
-        PanelToAgent::RunCommand { run_id, container_name, command } => {
-            exec_manager.run_command(run_id, container_name, command);
-        }
     }
 
     Ok(())
@@ -327,6 +332,19 @@ fn launch_self_update() {
     if let Err(error) = result {
         eprintln!("[berth-agent] failed to launch self-update: {error}");
     }
+}
+
+async fn send_build_progress(
+    sink: &mut WsSink,
+    service_id: String,
+    log_chunk: String,
+) -> AgentResult<()> {
+    let event = AgentToPanel::BuildProgress {
+        service_id,
+        stage: "build".to_string(),
+        log_chunk,
+    };
+    send_json(sink, &event).await
 }
 
 async fn send_json(sink: &mut WsSink, message: &AgentToPanel) -> AgentResult<()> {

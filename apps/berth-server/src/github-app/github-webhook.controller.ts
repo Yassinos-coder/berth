@@ -8,12 +8,14 @@ import { AgentRegistry } from '../agent-gateway/registry/agent-registry.service'
 import { GithubAppService } from './github-app.service';
 import { GithubInstallationRepository } from './github-installation.repository';
 import { PrismaService } from '../prisma/prisma.service';
+import { PreviewsService } from '../previews/services/previews.service';
+import { PullRequestEventValidator } from '../previews/validators/pull-request-event.validator';
 
 @Public()
 @SkipCsrf()
 @Controller('webhooks/github')
 export class GithubWebhookController {
-  constructor(private readonly github: GithubAppService, private readonly installations: GithubInstallationRepository, private readonly prisma: PrismaService, private readonly agents: AgentRegistry) {}
+  constructor(private readonly github: GithubAppService, private readonly installations: GithubInstallationRepository, private readonly prisma: PrismaService, private readonly agents: AgentRegistry, private readonly previews: PreviewsService) {}
 
   @Post()
   async receive(@Req() request: RawBodyRequest<Request>, @Headers('x-hub-signature-256') signature = '', @Headers('x-github-event') event = '') {
@@ -25,9 +27,14 @@ export class GithubWebhookController {
       await this.installations.deleteByInstallationId(body.installation.id);
       return { ok: true };
     }
-    if (event !== 'push' || !body.installation?.id) return { ok: true };
+    if (!['push', 'pull_request'].includes(event) || !body.installation?.id) return { ok: true };
     const installation = await this.installations.findByInstallationId(body.installation.id);
     if (!installation) return { ok: true };
+    if (event === 'pull_request') {
+      const pullRequest = PullRequestEventValidator.parse(body);
+      if (!pullRequest) return { ok: true };
+      return { ok: true, previews: await this.previews.handle(installation.orgId, pullRequest) };
+    }
     const branch = String(body.ref ?? '').replace('refs/heads/', '');
     const services = await this.prisma.service.findMany({ where: { orgId: installation.orgId, sourceKind: 'git', repo: body.repository.full_name, branch } });
     await Promise.all(services.map(async (service) => {

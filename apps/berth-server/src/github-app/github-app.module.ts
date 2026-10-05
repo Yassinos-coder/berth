@@ -5,9 +5,10 @@ import { GithubAppService } from './github-app.service';
 import { GithubInstallationRepository } from './github-installation.repository';
 import { GithubAppRepository } from './github-app.repository';
 import { AgentGatewayModule } from '../agent-gateway/agent-gateway.module';
+import { PreviewsModule } from '../previews/previews.module';
 
 @Module({
-  imports: [forwardRef(() => AgentGatewayModule)],
+  imports: [forwardRef(() => AgentGatewayModule), PreviewsModule],
   controllers: [GithubAppController, GithubWebhookController],
   providers: [GithubAppService, GithubInstallationRepository, GithubAppRepository],
   exports: [GithubAppService],

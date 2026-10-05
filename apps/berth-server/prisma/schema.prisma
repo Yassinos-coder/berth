@@ -95,13 +95,6 @@ enum GitProvider {
   bitbucket
 }
 
-enum JobRunStatus {
-  queued
-  running
-  success
-  failed
-}
-
 model Organization {
   id                   String   @id @default(cuid())
   name                 String
@@ -122,8 +115,6 @@ model Organization {
   backupTargets BackupTarget[]
   backups       Backup[]
   notificationChannels NotificationChannel[]
-  jobs                 ScheduledJob[]
-  jobRuns              JobRun[]
   environments         Environment[]
   sourceCredentials    SourceCredential[]
   auditEvents          AuditEvent[]
@@ -316,23 +307,44 @@ model Service {
   registryCredentialId String?
   environmentId        String?
   targetPlatform       String?
+  previewsEnabled      Boolean    @default(false)
+  previewOfId          String?
+  prNumber             Int?
   createdAt        DateTime   @default(now())
 
   org                Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   server             Server              @relation(fields: [serverId], references: [id], onDelete: Cascade)
   registryCredential RegistryCredential? @relation(fields: [registryCredentialId], references: [id], onDelete: SetNull)
   environment        Environment?        @relation(fields: [environmentId], references: [id], onDelete: SetNull)
+  previewOf          Service?            @relation("ServicePreviews", fields: [previewOfId], references: [id], onDelete: Cascade)
+  previews           Service[]           @relation("ServicePreviews")
   envVars            EnvVar[]
   deployments        Deployment[]
   proxyHosts         ProxyHost[]
   backups            Backup[]
-  jobs               ScheduledJob[]
-  jobRuns            JobRun[]
+  metricSamples      MetricSample[]
 
   @@index([orgId])
   @@index([serverId])
   @@index([registryCredentialId])
   @@index([environmentId])
+  @@index([previewOfId])
+  @@unique([previewOfId, prNumber])
+}
+
+model MetricSample {
+  id        String   @id @default(cuid())
+  serviceId String
+  ts        DateTime
+  cpuPct    Float
+  memMb     Float
+  netRxMb   Float    @default(0)
+  netTxMb   Float    @default(0)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, ts])
+  @@index([ts])
 }
 
 model StatusPage {
@@ -413,50 +425,6 @@ model Environment {
 
   @@unique([orgId, slug])
   @@index([orgId])
-}
-
-model ScheduledJob {
-  id        String   @id @default(cuid())
-  orgId     String
-  serviceId String
-  name      String
-  command   String[]
-  cron      String
-  timezone  String   @default("UTC")
-  enabled   Boolean  @default(true)
-  lastRunAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  service Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  runs    JobRun[]
-
-  @@index([orgId])
-  @@index([serviceId])
-  @@index([enabled])
-}
-
-model JobRun {
-  id          String       @id @default(cuid())
-  orgId       String
-  serviceId   String
-  jobId       String?
-  command     String[]
-  status      JobRunStatus @default(queued)
-  output      String       @default("")
-  exitCode    Int?
-  startedAt   DateTime?
-  finishedAt  DateTime?
-  createdAt   DateTime     @default(now())
-
-  org     Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  service Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  job     ScheduledJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
-
-  @@index([orgId])
-  @@index([serviceId])
-  @@index([jobId])
 }
 
 model BackupTarget {

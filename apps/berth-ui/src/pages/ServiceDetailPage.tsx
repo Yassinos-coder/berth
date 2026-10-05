@@ -1,4 +1,4 @@
-﻿import { Suspense, lazy } from 'react';
+﻿import { Suspense, lazy, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -17,15 +17,15 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { ServiceStateBadge } from '@/components/shared/StatusBadge';
 import { DeploymentsTable } from '@/features/deployments/DeploymentsTable';
 import { LogViewer } from '@/features/services/LogViewer';
-import { MetricsPanel } from '@/features/services/MetricsPanel';
+import { MetricsPanel, type MetricsRange } from '@/features/services/MetricsPanel';
 import { EnvironmentEditor } from '@/features/services/EnvironmentEditor';
 import { ConnectionPanel } from '@/features/services/ConnectionPanel';
 import { BuildSettings } from '@/features/services/BuildSettings';
+import { PreviewSettings } from '@/features/services/PreviewSettings';
 import { RegistryCredentialPicker } from '@/features/services/RegistryCredentialPicker';
 import { BackupsPanel } from '@/features/services/BackupsPanel';
 import { EditableServiceName } from '@/features/services/EditableServiceName';
 import { ServiceDomains } from '@/features/services/ServiceDomains';
-import { JobsPanel } from '@/features/services/JobsPanel';
 import { PlatformPicker } from '@/features/services/PlatformPicker';
 import {
   KIND_META,
@@ -50,6 +50,7 @@ import {
   useService,
   useServiceLogs,
   useServiceMetrics,
+  useServiceMetricsHistory,
   useServiceMetricsPeak,
 } from '@/hooks/useServicesQueries';
 import {
@@ -86,15 +87,31 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+const SERVICE_TABS = [
+  'overview',
+  'connect',
+  'deployments',
+  'logs',
+  'terminal',
+  'metrics',
+  'env',
+  'domains',
+  'backups',
+  'settings',
+];
+
 export function ServiceDetailPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') ?? 'overview';
+  const requestedTab = searchParams.get('tab');
+  const activeTab = requestedTab && SERVICE_TABS.includes(requestedTab) ? requestedTab : 'overview';
   const logView = searchParams.get('logs');
   const service = useService(id);
   const logs = useServiceLogs(id);
+  const [metricsRange, setMetricsRange] = useState<MetricsRange>('live');
   const metrics = useServiceMetrics(id);
+  const metricsHistory = useServiceMetricsHistory(id, metricsRange, metricsRange !== 'live');
   const metricsPeak = useServiceMetricsPeak(id);
   const deployments = useServiceDeployments(id);
   const action = useServiceAction(id);
@@ -198,9 +215,6 @@ export function ServiceDetailPage() {
                   </TabsTrigger>
                   <TabsTrigger className="flex-none" value="terminal">
                     Terminal
-                  </TabsTrigger>
-                  <TabsTrigger className="flex-none" value="jobs">
-                    Jobs
                   </TabsTrigger>
                   <TabsTrigger className="flex-none" value="metrics">
                     Metrics
@@ -346,10 +360,29 @@ export function ServiceDetailPage() {
                   onRetry={() => logs.refetch()}
                   loadingFallback={<Skeleton className="h-[460px]" />}
                 >
+                  <div className="mb-2 flex gap-1" role="group" aria-label="Log source">
+                    <Button
+                      size="sm"
+                      variant={logView === 'build' ? 'outline' : 'secondary'}
+                      aria-pressed={logView !== 'build'}
+                      onClick={() => setSearchParams({ tab: 'logs' })}
+                    >
+                      Runtime
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={logView === 'build' ? 'secondary' : 'outline'}
+                      aria-pressed={logView === 'build'}
+                      onClick={() => setSearchParams({ tab: 'logs', logs: 'build' })}
+                    >
+                      Build
+                    </Button>
+                  </div>
                   <LogViewer
+                    key={logView ?? 'runtime'}
                     lines={logs.data ?? []}
                     serviceName={svc?.name}
-                    streams={logView === 'build' ? ['build'] : undefined}
+                    streams={logView === 'build' ? ['build'] : ['stdout', 'stderr']}
                   />
                 </QueryBoundary>
               </TabsContent>
@@ -360,19 +393,20 @@ export function ServiceDetailPage() {
                 </Suspense>
               </TabsContent>
 
-              <TabsContent value="jobs" className="mt-4">
-                <JobsPanel serviceId={svc.id} />
-              </TabsContent>
-
               <TabsContent value="metrics" className="mt-4">
                 <QueryBoundary
-                  isLoading={metrics.isLoading}
-                  isError={metrics.isError}
-                  error={metrics.error}
-                  onRetry={() => metrics.refetch()}
+                  isLoading={metricsRange === 'live' ? metrics.isLoading : metricsHistory.isLoading}
+                  isError={metricsRange === 'live' ? metrics.isError : metricsHistory.isError}
+                  error={metricsRange === 'live' ? metrics.error : metricsHistory.error}
+                  onRetry={() => (metricsRange === 'live' ? metrics.refetch() : metricsHistory.refetch())}
                   loadingFallback={<Skeleton className="h-56" />}
                 >
-                  <MetricsPanel points={metrics.data ?? []} peak={metricsPeak.data} />
+                  <MetricsPanel
+                    points={(metricsRange === 'live' ? metrics.data : metricsHistory.data) ?? []}
+                    peak={metricsPeak.data}
+                    range={metricsRange}
+                    onRangeChange={setMetricsRange}
+                  />
                 </QueryBoundary>
               </TabsContent>
 
@@ -390,6 +424,13 @@ export function ServiceDetailPage() {
                     serviceId={svc.id}
                     build={svc.source.build}
                     repo={svc.source.repo}
+                    branch={svc.source.branch}
+                  />
+                ) : null}
+                {svc.source.kind === 'git' && !svc.previewOfId ? (
+                  <PreviewSettings
+                    serviceId={svc.id}
+                    enabled={svc.previewsEnabled}
                     branch={svc.source.branch}
                   />
                 ) : null}

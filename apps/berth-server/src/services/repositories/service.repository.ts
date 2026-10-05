@@ -108,6 +108,7 @@ export class ServiceRepository {
       builder?: Builder;
       registryCredentialId?: string | null;
       targetPlatform?: string | null;
+      previewsEnabled?: boolean;
     },
   ): Promise<ServiceWithServer | null> {
     const result = await this.prisma.service.updateMany({

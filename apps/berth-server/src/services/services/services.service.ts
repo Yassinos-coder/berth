@@ -12,11 +12,11 @@ import {
   ServiceState,
   SourceKind,
 } from '@prisma/client';
-import { randomBytes } from 'node:crypto';
 import { ServiceRepository } from '../repositories/service.repository';
 import { ServiceMapper } from '../mappers/service.mapper';
 import { ServiceSourceValidator } from '../validators/service-source.validator';
 import { DatabaseTemplateFactory } from '../templates/database-template.factory';
+import { AppTemplateFactory } from '../templates/app-template.factory';
 import { ServerRepository } from '../../servers/repositories/server.repository';
 import { DeploymentRepository } from '../../deployments/repositories/deployment.repository';
 import { ActivityService } from '../../activity/activity.service';
@@ -27,20 +27,12 @@ import { RegistryCredentialRepository } from '../../registry-credentials/reposit
 import { CreateServiceDto } from '../dto/create-service.dto';
 import { UpdateServiceDto } from '../dto/update-service.dto';
 import type { AuthenticatedUser } from '../../common/interfaces';
+import { InternalDomainUtil } from '../../common/utils/internal-domain.util';
 import type { LogLine, MetricPeak, MetricPoint, ServiceDto } from '../interfaces';
 
 function emptyToNull(value?: string): string | null | undefined {
   if (value === undefined) return undefined;
   return value.trim() === '' ? null : value;
-}
-
-function generateInternalDomain(name: string): string {
-  const slug =
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'service';
-  return `${slug}-${randomBytes(3).toString('hex')}.berth.local`;
 }
 
 export type ServiceAction = 'start' | 'stop' | 'restart' | 'redeploy';
@@ -113,7 +105,7 @@ export class ServicesService {
 
     const service = await this.repository.create({
       ...input,
-      internalDomains: [generateInternalDomain(dto.name)],
+      internalDomains: [InternalDomainUtil.generate(dto.name)],
     });
 
     if (service.sourceKind === SourceKind.git) {
@@ -185,6 +177,7 @@ export class ServicesService {
       builder: dto.builder as Builder | undefined,
       registryCredentialId,
       targetPlatform: dto.targetPlatform,
+      previewsEnabled: dto.previewsEnabled,
     });
     if (!updated) throw new NotFoundException('Service not found');
 
@@ -246,7 +239,7 @@ export class ServicesService {
     const service = await this.repository.findById(user.orgId, id);
     if (!service) throw new NotFoundException('Service not found');
 
-    const domain = customDomain?.trim() || generateInternalDomain(service.name);
+    const domain = customDomain?.trim() || InternalDomainUtil.generate(service.name);
     if (customDomain) {
       const siblings = await this.repository.listByOrg(user.orgId);
       const taken = siblings.some(
@@ -341,6 +334,9 @@ export class ServicesService {
     user: AuthenticatedUser,
     dto: CreateServiceDto,
   ): CreateInput {
+    if (AppTemplateFactory.isApp(dto.template!)) {
+      return this.buildFromAppTemplate(user, dto);
+    }
     const generated = DatabaseTemplateFactory.build(dto.template!, dto.name, {
       username: dto.username,
       password: dto.password,
@@ -353,6 +349,34 @@ export class ServicesService {
         generated.targetKind === 'bucket'
           ? ServiceKind.bucket
           : ServiceKind.database,
+      sourceKind: SourceKind.image,
+      image: generated.image,
+      tag: generated.tag,
+      cpuCores: dto.resources.cpuCores,
+      memoryMb: dto.resources.memoryMb,
+      cpuShares: dto.resources.cpuShares,
+      diskGb: dto.diskGb,
+      templateKind: generated.templateKind,
+      containerPort: generated.containerPort,
+      publicNetworking: dto.publicNetworking ?? false,
+      volumeName: generated.volumeName,
+      volumePath: generated.volumePath,
+      command: generated.command,
+      env: this.encryptEnv(generated.env),
+    };
+  }
+
+  private buildFromAppTemplate(
+    user: AuthenticatedUser,
+    dto: CreateServiceDto,
+  ): CreateInput {
+    const generated = AppTemplateFactory.build(dto.template!, dto.name);
+    return {
+      orgId: user.orgId,
+      serverId: dto.serverId,
+      name: dto.name,
+      kind: ServiceKind.image,
+      domain: dto.domain,
       sourceKind: SourceKind.image,
       image: generated.image,
       tag: generated.tag,

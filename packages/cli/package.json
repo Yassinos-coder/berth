@@ -1,9 +1,27 @@
 {
   "name": "@berth/cli",
-  "version": "0.11.2",
+  "version": "0.13.0",
   "private": false,
+  "description": "Berth command line and MCP server.",
   "type": "module",
-  "bin": { "berth": "dist/index.js" },
-  "scripts": { "build": "tsc", "type-check": "tsc --noEmit" },
-  "devDependencies": { "@types/node": "^22.13.1", "typescript": "^5.6.0" }
+  "bin": {
+    "berth": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "commander": "^14.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.0"
+  }
 }

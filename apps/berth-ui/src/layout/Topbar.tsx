@@ -59,8 +59,11 @@ export function Topbar() {
           autoComplete="off"
           spellCheck={false}
           placeholder="Search services, servers…"
-          className="bg-muted/50 h-9 pl-9"
+          className="bg-muted/50 h-9 pl-9 pr-14"
         />
+        <kbd className="text-muted-foreground border-border pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border px-1.5 text-[10px]">
+          Ctrl K
+        </kbd>
       </form>
 
       <div className="flex flex-1 items-center justify-end gap-1.5">

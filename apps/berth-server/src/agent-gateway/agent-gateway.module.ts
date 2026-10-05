@@ -15,9 +15,10 @@ import { AuthModule } from '../auth/auth.module';
 import { ExecSessionService } from './exec/exec-session.service';
 import { BrowserExecGateway } from './gateway/browser-exec-gateway.service';
 import { SourceIntegrationsModule } from '../source-integrations/source-integrations.module';
+import { MetricsModule } from '../metrics/metrics.module';
 
 @Module({
-  imports: [forwardRef(() => GithubAppModule), AuthModule, ActivityModule, NotificationsModule, SourceIntegrationsModule],
+  imports: [forwardRef(() => GithubAppModule), AuthModule, ActivityModule, NotificationsModule, SourceIntegrationsModule, MetricsModule],
   providers: [
     CaService,
     EnrollmentService,

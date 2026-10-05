@@ -5,7 +5,6 @@ import {
   AgentStatus,
   BackupStatus,
   DeploymentStatus,
-  JobRunStatus,
   ServiceState,
 } from '@prisma/client';
 import type { AgentToPanel, FailedApply, ServerSpecs } from '@berth/protocol';
@@ -16,6 +15,7 @@ import { SmartResourceService } from '../resources/smart-resource.service';
 import { ActivityService } from '../../activity/activity.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { ExecSessionService } from '../exec/exec-session.service';
+import { MetricsRecorderService } from '../../metrics/services/metrics-recorder.service';
 
 @Injectable()
 export class AgentMessageHandler {
@@ -29,6 +29,7 @@ export class AgentMessageHandler {
     private readonly activityService: ActivityService,
     private readonly notifications: NotificationsService,
     private readonly exec: ExecSessionService,
+    private readonly metricsRecorder: MetricsRecorderService,
   ) {}
 
   async handle(serverId: string, message: AgentToPanel): Promise<void> {
@@ -63,6 +64,12 @@ export class AgentMessageHandler {
           netRxMb: message.netRxMb,
           netTxMb: message.netTxMb,
         });
+        this.metricsRecorder.record(message.serviceId, {
+          cpuPct: message.cpuPct,
+          memMb: message.memMb,
+          netRxMb: message.netRxMb,
+          netTxMb: message.netTxMb,
+        });
         await this.smartResources.observe(message.serviceId, message.memMb);
         return;
       case 'HostUsage':
@@ -73,6 +80,11 @@ export class AgentMessageHandler {
             diskGb: Math.round(message.diskTotalGb),
           },
         });
+        await this.metricsRecorder.observeHostDisk(
+          serverId,
+          message.diskUsedGb,
+          message.diskTotalGb,
+        );
         return;
       case 'ReconcileResult':
         await this.onReconcileResult(serverId, message.applied, message.failed);
@@ -86,17 +98,6 @@ export class AgentMessageHandler {
       case 'ExecOutput':
       case 'ExecExit':
         this.exec.handle(message);
-        return;
-      case 'CommandResult':
-        await this.prisma.jobRun.updateMany({
-          where: { id: message.runId },
-          data: {
-            status: message.exitCode === 0 ? JobRunStatus.success : JobRunStatus.failed,
-            output: message.output,
-            exitCode: message.exitCode,
-            finishedAt: new Date(),
-          },
-        });
         return;
     }
   }

@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdateServiceDto {
   @IsOptional()
@@ -33,4 +33,8 @@ export class UpdateServiceDto {
   @IsOptional()
   @IsIn(['linux/amd64', 'linux/arm64'])
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
+
+  @IsOptional()
+  @IsBoolean()
+  previewsEnabled?: boolean;
 }

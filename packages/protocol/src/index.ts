@@ -148,8 +148,7 @@ export type PanelToAgent =
   | { type: 'ExecStart'; sessionId: string; containerName: string }
   | { type: 'ExecInput'; sessionId: string; data: string }
   | { type: 'ExecStop'; sessionId: string }
-  | { type: 'ExecResize'; sessionId: string; cols: number; rows: number }
-  | { type: 'RunCommand'; runId: string; containerName: string; command: string[] };
+  | { type: 'ExecResize'; sessionId: string; cols: number; rows: number };
 
 export type AgentToPanel =
   | { type: 'Enrolled'; agentId: string; serverSpecs: ServerSpecs }
@@ -175,5 +174,4 @@ export type AgentToPanel =
     }
   | { type: 'RestoreResult'; serviceId: string; success: boolean; error?: string }
   | { type: 'ExecOutput'; sessionId: string; data: string }
-  | { type: 'ExecExit'; sessionId: string; exitCode: number | null }
-  | { type: 'CommandResult'; runId: string; output: string; exitCode: number | null };
+  | { type: 'ExecExit'; sessionId: string; exitCode: number | null };

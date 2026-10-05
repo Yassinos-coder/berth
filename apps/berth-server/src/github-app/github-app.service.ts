@@ -103,8 +103,8 @@ export class GithubAppService {
       setup_url: `${base}/api/github/callback`,
       setup_on_update: false,
       public: false,
-      default_permissions: { contents: 'read', metadata: 'read' },
-      default_events: ['push'],
+      default_permissions: { contents: 'read', metadata: 'read', pull_requests: 'read' },
+      default_events: ['push', 'pull_request'],
     };
     return {
       url: `https://github.com/settings/apps/new?state=${encodeURIComponent(state)}`,

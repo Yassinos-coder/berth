@@ -51,7 +51,7 @@ Docker labels `berth.service_id` + `berth.spec_hash` let the agent know what it 
 | Install domain | `berth.sh` (available; `.io`/`.com`/`.dev` taken) |
 | A deployed service | a **berth** ("spin up a new berth") |
 | Container labels | `berth.service_id`, `berth.spec_hash` |
-| Future CLI | `berth` (`berth deploy`, `berth logs`) |
+| CLI | `berth` (`berth deploy`, `berth logs`, `berth mcp`) |
 
 ## RBAC roles (v1)
 
@@ -64,6 +64,7 @@ apps/berth-agent/   — Rust: Tokio, bollard (Docker), tokio-tungstenite (WS), r
 apps/berth-server/  — NestJS: auth, RBAC, GitHub OAuth+webhooks, Postgres (Prisma), agent WS channel
 apps/berth-ui/      — React + TS dashboard (Vite, shadcn/ui, Tailwind CSS v4)
 packages/protocol/  — shared panel⇄agent message contract (source of truth for both sides)
+packages/cli/       — `berth` CLI + MCP server (tsup, commander, @modelcontextprotocol/sdk)
 docs/architecture.md — full design
 ```
 
@@ -83,7 +84,9 @@ Nest: Controller→Service→Repository→DB. Interfaces in `interfaces/` folder
 
 **Bucket SFTP access is built (v0.10.2).** `ServiceSpec` carries an optional `templateKind` so the agent can recognize `bucket` (MinIO) services. The agent runs a second managed container, **`berth-sftpgo`** (`drakkan/sftpgo`, port 2022 only — no legacy FTP, since passive-mode FTP needs a large published port range that doesn't fit the current per-container model), and syncs one SFTPGo user per bucket via its REST API (`GET /token` → bearer auth → `PUT/POST/DELETE /users`), each backed by that bucket's own MinIO instance as an S3 filesystem. The agent also creates the bucket itself inside each MinIO instance on reconcile (`minio/mc mb --ignore-existing`, one-shot container) since a fresh `minio/minio` server has no buckets by default. SFTPGo's own admin credentials are generated once and persisted at `/var/lib/berth/sftpgo/admin.secret` — stable across agent restarts, never sent to the panel. The SFTP login is identical to the bucket's S3 credentials (`MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`), which is why `DatabaseTemplateFactory`'s default username changed from a fixed `'berth'` to the sanitized service name (avoids every SFTPGo user colliding on the same default login, since — unlike per-container databases — the SFTPGo gateway is shared across all buckets on a server).
 
-Still stubbed: live build-log/metric **streaming** into the UI (build output currently goes to the agent journal).
+**Live build logs, previews, metrics history, CLI/MCP, tests.** Build output streams line-by-line from the agent (`BuildProgress`) into a separate build buffer; the UI polls it (Runtime/Build toggle). PR **preview environments** (`previews/` module): a service with `previewsEnabled` gets a temporary child service per same-repo PR, deleted on close; forks are ignored; needs the GitHub App subscribed to `pull_request`. Per-minute **metric samples** are persisted for 7 days (`metrics/`), with sustained CPU/memory and disk alerts. The template catalog has app templates (`templates/app-catalog.ts`). The Jobs/cron feature was removed. Tests: vitest (server, UI, CLI), Playwright e2e against a mocked API (`apps/berth-ui/e2e`), `cargo test`; CI in `.github/workflows/ci.yml`.
+
+Still stubbed: nothing user-facing from the original list.
 
 ### mTLS / cert issuance (RESOLVED)
 
@@ -101,4 +104,3 @@ Sessions are **httpOnly + Secure + SameSite=strict cookies** (not localStorage).
 
 - Monorepo tooling — using Turborepo + pnpm workspaces (settled in practice).
 - License choice (Apache-2.0 vs AGPL-3.0).
-- Live build-log/metric streaming into the UI is still a stub (build output goes to the agent journal for now).

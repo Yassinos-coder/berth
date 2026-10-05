@@ -17,7 +17,7 @@ export interface NotificationChannelDto {
 export type NotificationSeverity = 'info' | 'warning' | 'error';
 
 export interface NotificationEvent {
-  type?: 'deployment.succeeded' | 'deployment.failed' | 'service.crashed' | 'backup.failed' | 'restore.completed' | 'restore.failed';
+  type?: 'deployment.succeeded' | 'deployment.failed' | 'service.crashed' | 'backup.failed' | 'restore.completed' | 'restore.failed' | 'resource.high';
   title: string;
   detail: string;
   severity: NotificationSeverity;

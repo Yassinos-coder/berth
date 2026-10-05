@@ -92,9 +92,6 @@ impl ExecManager {
         }
     }
 
-    pub fn run_command(&self, run_id: String, container_name: String, command: Vec<String>) {
-        super::spawn_run_command(self.docker_bin.clone(), self.tx.clone(), run_id, container_name, command);
-    }
 }
 
 fn run_session(

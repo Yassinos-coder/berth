@@ -28,6 +28,15 @@ export function useServiceLogs(id: string) {
   });
 }
 
+export function useServiceMetricsHistory(id: string, range: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.serviceMetricsHistory(id, range),
+    queryFn: () => servicesService.metricsHistory(id, range),
+    enabled: Boolean(id) && enabled,
+    refetchInterval: 60_000,
+  });
+}
+
 export function useServiceMetrics(id: string) {
   return useQuery({
     queryKey: queryKeys.serviceMetrics(id),

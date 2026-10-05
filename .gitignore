@@ -39,3 +39,7 @@ Thumbs.db
 # lockfiles we never commit (pnpm-lock.yaml IS committed)
 package-lock.json
 yarn.lock
+
+# playwright
+test-results/
+playwright-report/

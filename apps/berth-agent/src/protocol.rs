@@ -243,13 +243,6 @@ pub enum PanelToAgent {
         cols: u16,
         rows: u16,
     },
-    RunCommand {
-        #[serde(rename = "runId")]
-        run_id: String,
-        #[serde(rename = "containerName")]
-        container_name: String,
-        command: Vec<String>,
-    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -337,13 +330,6 @@ pub enum AgentToPanel {
     ExecExit {
         #[serde(rename = "sessionId")]
         session_id: String,
-        #[serde(rename = "exitCode")]
-        exit_code: Option<i32>,
-    },
-    CommandResult {
-        #[serde(rename = "runId")]
-        run_id: String,
-        output: String,
         #[serde(rename = "exitCode")]
         exit_code: Option<i32>,
     },

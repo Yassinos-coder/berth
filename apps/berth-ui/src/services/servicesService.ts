@@ -32,6 +32,7 @@ export interface UpdateServicePayload {
   builder?: 'auto' | 'nixpacks' | 'dockerfile';
   registryCredentialId?: string;
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
+  previewsEnabled?: boolean;
 }
 
 export type ServiceAction = 'start' | 'stop' | 'restart' | 'redeploy';
@@ -53,6 +54,10 @@ class ServicesService extends BaseApiClient {
 
   metrics(id: string): Promise<MetricPoint[]> {
     return this.get<MetricPoint[]>(`/${id}/metrics`);
+  }
+
+  metricsHistory(id: string, range: string): Promise<MetricPoint[]> {
+    return this.get<MetricPoint[]>(`/${id}/metrics/history?range=${range}`);
   }
 
   metricsPeak(id: string): Promise<MetricPeak> {

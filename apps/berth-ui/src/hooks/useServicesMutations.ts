@@ -60,12 +60,10 @@ export function useUpdateServiceSettings(id: string) {
       servicesService.update(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.service(id) });
-      notify.success('Build settings saved', {
-        description: 'Redeploy to apply the new configuration.',
-      });
+      notify.success('Settings saved');
     },
     onError: (error) =>
-      notify.error('Could not save build settings', {
+      notify.error('Could not save settings', {
         description: error.message,
       }),
   });

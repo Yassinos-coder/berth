@@ -1,5 +1,5 @@
 ﻿import { Link } from 'react-router-dom';
-import { Cpu, Gauge, Globe, MemoryStick, Server } from 'lucide-react';
+import { Cpu, GitPullRequest, Gauge, Globe, MemoryStick, Server } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { ServiceStateBadge } from '@/components/shared/StatusBadge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -34,7 +34,16 @@ export function ServiceCard({
               <p className="group-hover:text-primary truncate font-medium transition-colors">
                 {service.name}
               </p>
-              <p className="text-muted-foreground truncate text-xs">{label}</p>
+              <p className="text-muted-foreground flex items-center gap-1 truncate text-xs">
+                {service.prNumber ? (
+                  <>
+                    <GitPullRequest className="size-3" aria-hidden="true" />
+                    Preview #{service.prNumber}
+                  </>
+                ) : (
+                  label
+                )}
+              </p>
             </div>
           </div>
           <ServiceStateBadge state={service.state} />

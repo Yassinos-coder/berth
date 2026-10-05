@@ -88,7 +88,9 @@ export function NewServicePage() {
   const diskHint = selectedServer
     ? `${Math.max(0, Math.round(selectedServer.usage.diskTotalGb - selectedServer.usage.diskGb))} GB free of ${selectedServer.usage.diskTotalGb} GB on ${selectedServer.name}.`
     : undefined;
-  const managedDb = Boolean(templateKind) && asDatabase;
+  const selectedTemplate = templates.data?.find((item) => item.kind === templateKind);
+  const appTemplate = Boolean(selectedTemplate?.app);
+  const managedDb = Boolean(templateKind) && asDatabase && !appTemplate;
   const github = useGithubStatus();
   const repos = useGithubRepos(isGit && Boolean(github.data?.connected));
   const branches = useGithubBranches(reference);
@@ -135,6 +137,23 @@ export function NewServicePage() {
     if (!option) return;
     if (!name.trim()) return notify.warn('Give your service a name');
     if (!serverId) return notify.warn('Pick a server to deploy on');
+
+    if (appTemplate) {
+      createService.mutate(
+        {
+          name: name.trim(),
+          kind: 'image',
+          serverId,
+          resources,
+          template: templateKind,
+          domain: domain.trim() || undefined,
+          publicNetworking,
+          diskGb,
+        },
+        { onSuccess: () => navigate('/services') },
+      );
+      return;
+    }
 
     if (managedDb) {
       if (customCredentials && password.trim() && password.trim().length < 8) {
@@ -374,7 +393,41 @@ export function NewServicePage() {
               </>
             ) : null}
 
-            {templateKind ? (
+            {templateKind && appTemplate ? (
+              <div className="border-primary/30 bg-primary/5 space-y-3 rounded-lg border p-4">
+                <div className="flex items-start gap-2">
+                  <Globe className="text-primary mt-0.5 size-4" aria-hidden="true" />
+                  <div>
+                    <p className="text-sm font-medium">{selectedTemplate?.name}</p>
+                    <p className="text-muted-foreground text-xs">
+                      Secrets are generated for you and listed under Variables after deploy.
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="app-domain" className="text-xs">
+                    Domain (optional)
+                  </Label>
+                  <Input
+                    id="app-domain"
+                    placeholder="app.example.com"
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4 border-t border-primary/20 pt-3">
+                  <div>
+                    <p className="text-sm font-medium">Expose publicly</p>
+                    <p className="text-muted-foreground text-xs">
+                      Publish the port on the server's public IP.
+                    </p>
+                  </div>
+                  <Switch checked={publicNetworking} onCheckedChange={setPublicNetworking} />
+                </div>
+              </div>
+            ) : null}
+
+            {templateKind && !appTemplate ? (
               <div className="border-primary/30 bg-primary/5 space-y-3 rounded-lg border p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-start gap-2">

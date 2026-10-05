@@ -1,11 +1,29 @@
 # Changelog
 
-- GitHub push deployments now force the affected service to rebuild, even when its saved service configuration is unchanged. Git redeploys also bypass Docker/Nixpacks build caches (and Dockerfile builds refresh base images), preventing stale build output from hiding newly pushed code. Persistent volumes and databases remain untouched.
-
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.13.0] - 2026-10-05
+
+### Added
+- **Live build logs.** The agent streams clone and build output line by line while a deploy runs, instead of sending it after the build finishes. The Logs tab has a Runtime / Build toggle, and build output now has its own buffer so a long build no longer evicts runtime logs.
+- **PR preview environments.** Turn on "Deploy every pull request" for a git service and each same-repo pull request into its branch gets a temporary copy built from the PR branch, rebuilt on every push and deleted when the PR closes. Previews copy the parent's variables and, when the parent has a proxy host, get `pr-N.<domain>`. Fork pull requests are ignored. The GitHub App manifest now subscribes to pull request events; apps registered earlier need that event enabled in GitHub.
+- **App templates.** 15 one-click apps (n8n, Uptime Kuma, Grafana, Ghost, Gitea, Vaultwarden, Memos, Metabase, NocoDB, Mailpit, Adminer, Linkding, changedetection.io, Excalidraw, Nginx) with generated secrets and a data volume. The Templates page has search and category filters.
+- **Metrics history and alerts.** Per-minute CPU, memory and network samples are stored for 7 days with 1h / 24h / 7d views on the Metrics tab. Notifications fire when a service stays above 90% of its CPU or memory limit for 5 minutes, and when a server disk passes 90%.
+- **`berth` CLI and MCP server.** `berth login`, `ls`, `deploy`, `restart`, `logs -f`, `env`, `rollback`, `shell`, and `berth mcp` for AI assistants (secrets masked, no variable writes).
+- **Command palette** (Ctrl/Cmd+K) to jump to pages, services and servers, and a **Getting started** checklist on the dashboard.
+- Test suites and CI: vitest for the server, UI and CLI, `cargo test` for the agent, Playwright end-to-end tests, and a GitHub Actions workflow.
+
+### Fixed
+- **The web terminal showed nothing, and backup/restore results were lost.** The server's agent-message validator only accepted 7 of the 12 message types, silently dropping terminal output, terminal exit, backup results and restore results. All message types are accepted now, and a new protocol message that is not added to the list fails to compile.
+- GitHub push deployments force the affected service to rebuild even when its saved configuration is unchanged, and git redeploys bypass Docker/Nixpacks build caches (Dockerfile builds refresh base images), so stale output cannot hide newly pushed code. Persistent volumes and databases are untouched.
+- Git clone errors no longer print the installation token embedded in the repository URL.
+- Opening a service with a removed or unknown `?tab=` no longer renders a blank page.
+
+### Removed
+- **Scheduled jobs (cron).** The Jobs tab, the `/services/:id/jobs` API and the agent's `RunCommand` are gone. Migration `25_remove_scheduled_jobs` drops the `ScheduledJob` and `JobRun` tables, so existing schedules and run history are deleted.
 
 ## [0.12.0] - 2026-09-27
 

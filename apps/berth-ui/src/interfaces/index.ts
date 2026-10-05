@@ -66,6 +66,9 @@ export interface Service {
   registryCredentialId?: string;
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
   internalDomains: string[];
+  previewsEnabled: boolean;
+  previewOfId?: string;
+  prNumber?: number;
   usage: ServiceUsage;
   lastDeployedAt?: string;
   lastSmartResourceAt?: string;
@@ -177,6 +180,7 @@ export interface Template {
   accent: string;
   official: boolean;
   kind: string;
+  app: boolean;
 }
 
 export type MemberStatus = 'active' | 'invited' | 'suspended';
