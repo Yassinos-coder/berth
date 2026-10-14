@@ -15,6 +15,7 @@ import {
 import { ServiceRepository } from '../repositories/service.repository';
 import { ServiceMapper } from '../mappers/service.mapper';
 import { ServiceSourceValidator } from '../validators/service-source.validator';
+import { ServiceVolumeValidator } from '../validators/service-volume.validator';
 import { DatabaseTemplateFactory } from '../templates/database-template.factory';
 import { AppTemplateFactory } from '../templates/app-template.factory';
 import { ServerRepository } from '../../servers/repositories/server.repository';
@@ -145,6 +146,8 @@ export class ServicesService {
     const service = await this.repository.findById(user.orgId, id);
     if (!service) throw new NotFoundException('Service not found');
 
+    const volumeChange = this.resolveVolumeChange(service, dto.volumePath);
+
     const touchesBuild = [
       dto.rootDirectory,
       dto.buildCommand,
@@ -187,15 +190,17 @@ export class ServicesService {
       targetPlatform: dto.targetPlatform,
       previewsEnabled: dto.previewsEnabled,
       alertsMuted: dto.alertsMuted,
+      ...volumeChange,
     });
     if (!updated) throw new NotFoundException('Service not found');
 
     await this.activityService.record(user.orgId, {
       kind: ActivityKind.deploy,
       title: `${updated.name} updated`,
-      detail: touchesBuild
-        ? 'Redeploy to apply the new build configuration.'
-        : 'Service settings updated.',
+      detail:
+        touchesBuild || volumeChange
+          ? 'Redeploy to apply the new configuration.'
+          : 'Service settings updated.',
       actor: user.id,
     });
     return ServiceMapper.toDto(updated, this.usageFor(updated.id));
@@ -411,7 +416,16 @@ export class ServicesService {
       throw new BadRequestException('A source or template is required');
     }
     const source = ServiceSourceValidator.normalize(dto);
+    const volumePath = dto.volumePath
+      ? ServiceVolumeValidator.normalize(dto.volumePath)
+      : null;
     return {
+      ...(volumePath
+        ? {
+            volumeName: ServiceVolumeValidator.volumeNameFor(dto.name),
+            volumePath,
+          }
+        : {}),
       orgId: user.orgId,
       serverId: dto.serverId,
       name: dto.name,
@@ -432,6 +446,25 @@ export class ServicesService {
         })),
       ),
       ...source,
+    };
+  }
+
+  private resolveVolumeChange(
+    service: { templateKind: string | null; volumeName: string | null; name: string },
+    rawPath: string | undefined,
+  ): { volumeName?: string; volumePath: string | null } | undefined {
+    if (rawPath === undefined) return undefined;
+    if (service.templateKind) {
+      throw new BadRequestException(
+        'The volume of a template service is managed by the template',
+      );
+    }
+    const volumePath = ServiceVolumeValidator.normalize(rawPath);
+    if (!volumePath) return { volumePath: null };
+    return {
+      volumeName:
+        service.volumeName ?? ServiceVolumeValidator.volumeNameFor(service.name),
+      volumePath,
     };
   }
 

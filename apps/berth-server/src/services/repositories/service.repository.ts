@@ -120,6 +120,8 @@ export class ServiceRepository {
       targetPlatform?: string | null;
       previewsEnabled?: boolean;
       alertsMuted?: boolean;
+      volumeName?: string;
+      volumePath?: string | null;
     },
   ): Promise<ServiceWithServer | null> {
     const result = await this.prisma.service.updateMany({

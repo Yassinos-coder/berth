@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   useServiceEnv,
 } from '@/hooks/useServicesQueries';
-import { useSetServiceEnv } from '@/hooks/useServicesMutations';
+import { useServiceAction, useSetServiceEnv } from '@/hooks/useServicesMutations';
 import type { EnvVar } from '@berth/protocol';
 
 const SECRET_HINT = /(SECRET|TOKEN|PASSWORD|PRIVATE|CREDENTIAL|_KEY|APIKEY|PASS)/i;
@@ -135,6 +135,7 @@ function Editor({ serviceId, initial }: { serviceId: string; initial: EnvVar[] }
   );
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const setEnv = useSetServiceEnv(serviceId);
+  const redeploy = useServiceAction(serviceId);
 
   const update = (rowId: string, patch: Partial<EnvVar>) =>
     setRows((r) =>
@@ -161,12 +162,13 @@ function Editor({ serviceId, initial }: { serviceId: string; initial: EnvVar[] }
       return Array.from(byKey.values());
     });
 
-  const save = () => {
-    const valid = rows
+  const validRows = () =>
+    rows
       .filter((r) => r.key.trim())
       .map(({ key, value, isSecret }) => ({ key, value, isSecret }));
-    setEnv.mutate(valid);
-  };
+  const save = () => setEnv.mutate(validRows());
+  const saveAndRedeploy = () =>
+    setEnv.mutate(validRows(), { onSuccess: () => redeploy.mutate('redeploy') });
 
   return (
     <Card>
@@ -174,7 +176,9 @@ function Editor({ serviceId, initial }: { serviceId: string; initial: EnvVar[] }
         <div className="flex items-center justify-between">
           <p className="text-muted-foreground text-sm">
             Passed to the container on the next deploy. Secrets are encrypted at
-            rest.
+            rest. Reference another service on the same server with{' '}
+            <code className="text-xs">{'${{service-name.VARIABLE}}'}</code>; HOST
+            and PORT are available too.
           </p>
           <div className="flex items-center gap-2">
             <CopyButton value={toDotenv(rows)} label="Copy .env" />
@@ -284,14 +288,23 @@ function Editor({ serviceId, initial }: { serviceId: string; initial: EnvVar[] }
           <Button variant="outline" size="sm" onClick={add}>
             <Plus className="size-4" aria-hidden="true" /> Add Variable
           </Button>
-          <Button size="sm" onClick={save} disabled={setEnv.isPending}>
-            {setEnv.isPending ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <Save className="size-4" aria-hidden="true" />
-            )}
-            {setEnv.isPending ? 'Saving…' : 'Save Variables'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={save} disabled={setEnv.isPending}>
+              {setEnv.isPending ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Save className="size-4" aria-hidden="true" />
+              )}
+              {setEnv.isPending ? 'Saving…' : 'Save Variables'}
+            </Button>
+            <Button
+              size="sm"
+              onClick={saveAndRedeploy}
+              disabled={setEnv.isPending || redeploy.isPending}
+            >
+              Save &amp; Redeploy
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -14,6 +14,9 @@ pub const LABEL_MANAGED: &str = "berth.managed";
 pub const LABEL_SERVICE_ID: &str = "berth.service_id";
 pub const LABEL_SPEC_HASH: &str = "berth.spec_hash";
 pub const BERTH_NETWORK: &str = "berth";
+const KEPT_BUILD_IMAGES: usize = 2;
+const MINIO_CLIENT_IMAGE: &str = "bitnamilegacy/minio-client:latest";
+const BUILD_CACHE_MAX_AGE: &str = "until=72h";
 const CADDY_CONTAINER: &str = "berth-caddy";
 const CADDY_CONFIG_DIR: &str = "/var/lib/berth/caddy";
 const SFTPGO_CONTAINER: &str = "berth-sftpgo";
@@ -113,7 +116,12 @@ impl DockerReconciler {
                 ServiceSource::Image { image, tag } => {
                     let existing = current_by_service.remove(&spec.id);
                     if let Some(container) = existing.as_ref() {
-                        self.update_resources(&container.name, spec).await?;
+                        if let Err(error) = self.update_resources(&container.name, spec).await {
+                            eprintln!(
+                                "[berth-agent] resource update failed for {}: {error}",
+                                spec.id
+                            );
+                        }
                     }
                     let should_replace = existing
                         .as_ref()
@@ -125,12 +133,30 @@ impl DockerReconciler {
                         || force_service_ids.iter().any(|id| id == &spec.id);
 
                     if should_replace {
-                        if let Some(auth) = &spec.registry_auth {
-                            self.docker_login(auth).await?;
-                        }
                         emit_build_line(build_log, &spec.id, "==> Deploy started");
-                        emit_build_line(build_log, &spec.id, &format!("==> Pulling image {image}:{tag}"));
-                        self.pull_image(image, tag).await?;
+                        let prepared = async {
+                            if let Some(auth) = &spec.registry_auth {
+                                self.docker_login(auth).await?;
+                            }
+                            emit_build_line(
+                                build_log,
+                                &spec.id,
+                                &format!("==> Pulling image {image}:{tag}"),
+                            );
+                            self.pull_image(image, tag).await
+                        }
+                        .await;
+                        if let Err(error) = prepared {
+                            record_failure(
+                                &mut failed,
+                                &mut statuses,
+                                build_log,
+                                &spec.id,
+                                &error.to_string(),
+                                existing.as_ref(),
+                            );
+                            continue;
+                        }
                         let image_ref = format!("{image}:{tag}");
                         let existing_before = existing.clone();
 
@@ -176,8 +202,14 @@ impl DockerReconciler {
                 ServiceSource::Git { .. } => {
                     let existing = current_by_service.remove(&spec.id);
                     if let Some(container) = existing.as_ref() {
-                        self.update_resources(&container.name, spec).await?;
+                        if let Err(error) = self.update_resources(&container.name, spec).await {
+                            eprintln!(
+                                "[berth-agent] resource update failed for {}: {error}",
+                                spec.id
+                            );
+                        }
                     }
+                    let forced = force_service_ids.iter().any(|id| id == &spec.id);
                     let should_replace = existing
                         .as_ref()
                         .map(|container| {
@@ -185,7 +217,7 @@ impl DockerReconciler {
                                 || !matches!(container.state, ServiceState::Running)
                         })
                         .unwrap_or(true)
-                        || force_service_ids.iter().any(|id| id == &spec.id);
+                        || forced;
                     if !should_replace {
                         let container = existing.expect("existing container");
                         applied.push(spec.id.clone());
@@ -198,12 +230,25 @@ impl DockerReconciler {
                         continue;
                     }
                     if let Some(auth) = &spec.registry_auth {
-                        self.docker_login(auth).await?;
+                        if let Err(error) = self.docker_login(auth).await {
+                            record_failure(
+                                &mut failed,
+                                &mut statuses,
+                                build_log,
+                                &spec.id,
+                                &error.to_string(),
+                                existing.as_ref(),
+                            );
+                            continue;
+                        }
                     }
                     // Build before touching the old container: the old one keeps serving
                     // traffic for the entire (potentially multi-minute) build, and a failed
                     // build never takes the service down.
-                    match self.build_git_source(spec, &spec_hash, build_log).await {
+                    match self
+                        .build_git_source(spec, &spec_hash, forced, build_log)
+                        .await
+                    {
                         Ok(image) => {
                             match self
                                 .cutover(spec, &spec_hash, &image, existing, build_log)
@@ -217,6 +262,7 @@ impl DockerReconciler {
                                         container_id,
                                         deployed: true,
                                     });
+                                    self.prune_build_artifacts(&spec.id).await;
                                 }
                                 Err(error) => {
                                     failed.push(FailedApply {
@@ -257,7 +303,13 @@ impl DockerReconciler {
                 continue;
             }
 
-            self.remove_container(&container.name).await?;
+            if let Err(error) = self.remove_container(&container.name).await {
+                eprintln!(
+                    "[berth-agent] failed to remove orphaned {}: {error}",
+                    container.name
+                );
+                continue;
+            }
             statuses.push(ServiceStatusEvent {
                 service_id,
                 state: ServiceState::Stopped,
@@ -439,7 +491,7 @@ impl DockerReconciler {
     }
 
     /// Idempotently creates `bucket` inside a bucket service's own MinIO
-    /// instance via a one-shot `minio/mc` container — a fresh `minio/minio`
+    /// instance via a one-shot minio-client container — a fresh MinIO
     /// server has no buckets until one is created.
     async fn ensure_bucket(
         &self,
@@ -463,7 +515,8 @@ impl DockerReconciler {
             BERTH_NETWORK,
             "-e",
             &format!("MC_HOST_b={alias_url}"),
-            "minio/mc",
+            MINIO_CLIENT_IMAGE,
+            "mc",
             "mb",
             "--ignore-existing",
             &format!("b/{bucket}"),
@@ -854,6 +907,7 @@ impl DockerReconciler {
         &self,
         spec: &ServiceSpec,
         spec_hash: &str,
+        clean: bool,
         build_log: Option<&BuildLogSink>,
     ) -> AgentResult<String> {
         let ServiceSource::Git {
@@ -920,18 +974,14 @@ impl DockerReconciler {
         let mut command = if use_docker {
             emit_build_line(build_log, &spec.id, "==> Building with Dockerfile");
             let mut command = Command::new(&self.docker_bin);
-            // Git deploys must reflect the freshly cloned branch HEAD. Avoid
-            // stale application/base-image layers masking a pushed change.
-            command.args([
-                "build",
-                "--no-cache",
-                "--pull",
-                "--progress=plain",
-                "-t",
-                &image,
-                "-f",
-                dockerfile,
-            ]);
+            // Layers are keyed by content, so a pushed change always rebuilds
+            // the affected layers. --pull keeps base images fresh; an explicit
+            // Redeploy additionally drops the layer cache for a clean build.
+            command.args(["build", "--pull", "--progress=plain"]);
+            if clean {
+                command.arg("--no-cache");
+            }
+            command.args(["-t", &image, "-f", dockerfile]);
             if let Some(platform) = &spec.target_platform {
                 command.args(["--platform", platform]);
             }
@@ -945,7 +995,10 @@ impl DockerReconciler {
         } else {
             emit_build_line(build_log, &spec.id, "==> Building with Nixpacks");
             let mut command = Command::new("nixpacks");
-            command.args(["build", ".", "--name", &image, "--no-cache"]);
+            command.args(["build", ".", "--name", &image]);
+            if clean {
+                command.arg("--no-cache");
+            }
             if let Some(cmd) = build.build_command.as_deref() {
                 command.args(["--build-cmd", cmd]);
             }
@@ -966,6 +1019,37 @@ impl DockerReconciler {
         }
         emit_build_line(build_log, &spec.id, "==> Build finished");
         Ok(image)
+    }
+
+    async fn prune_build_artifacts(&self, service_id: &str) {
+        let listing = Command::new(&self.docker_bin)
+            .args([
+                "images",
+                "--filter",
+                &format!("reference=berth-build-{service_id}:*"),
+                "--format",
+                "{{.CreatedAt}}|{{.Repository}}:{{.Tag}}",
+            ])
+            .output()
+            .await;
+        if let Ok(output) = listing {
+            let mut images: Vec<(String, String)> = String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .filter_map(|line| line.split_once('|'))
+                .map(|(created, image)| (created.to_string(), image.to_string()))
+                .collect();
+            images.sort_by(|left, right| right.0.cmp(&left.0));
+            for (_, image) in images.into_iter().skip(KEPT_BUILD_IMAGES) {
+                let _ = Command::new(&self.docker_bin)
+                    .args(["rmi", &image])
+                    .output()
+                    .await;
+            }
+        }
+        let _ = Command::new(&self.docker_bin)
+            .args(["builder", "prune", "-f", "--filter", BUILD_CACHE_MAX_AGE])
+            .output()
+            .await;
     }
 
     async fn ensure_network(&self) -> AgentResult<()> {
@@ -1054,7 +1138,7 @@ fn env_value(spec: &ServiceSpec, key: &str) -> Option<String> {
         .map(|item| item.value.clone())
 }
 
-fn redact_credentials(message: &str) -> String {
+pub(crate) fn redact_credentials(message: &str) -> String {
     if let Some(at) = message.find("@github.com") {
         if let Some(start) = message[..at].rfind("https://") {
             return format!("{}https://***{}", &message[..start], &message[at..]);
@@ -1085,6 +1169,30 @@ fn parse_labels(input: &str) -> HashMap<String, String> {
     }
 
     labels
+}
+
+fn record_failure(
+    failed: &mut Vec<FailedApply>,
+    statuses: &mut Vec<ServiceStatusEvent>,
+    build_log: Option<&BuildLogSink>,
+    service_id: &str,
+    message: &str,
+    existing: Option<&ManagedContainer>,
+) {
+    let reason = redact_credentials(message);
+    emit_build_line(build_log, service_id, &format!("==> Failed: {reason}"));
+    failed.push(FailedApply {
+        service_id: service_id.to_string(),
+        reason,
+    });
+    statuses.push(ServiceStatusEvent {
+        service_id: service_id.to_string(),
+        state: existing
+            .map(|container| container.state.clone())
+            .unwrap_or(ServiceState::Crashed),
+        container_id: existing.map(|container| container.id.clone()),
+        deployed: false,
+    });
 }
 
 fn docker_status_to_state(status: &str) -> ServiceState {
@@ -1373,5 +1481,60 @@ mod spec_hash_tests {
         }));
         assert_ne!(spec_hash(&a).unwrap(), spec_hash(&env).unwrap());
         assert_ne!(spec_hash(&a).unwrap(), spec_hash(&branch).unwrap());
+    }
+}
+
+#[cfg(test)]
+mod failure_tests {
+    use super::*;
+
+    fn running_container() -> ManagedContainer {
+        ManagedContainer {
+            id: "abc123".to_string(),
+            name: "berth-svc".to_string(),
+            service_id: "svc".to_string(),
+            spec_hash: None,
+            state: ServiceState::Running,
+        }
+    }
+
+    #[test]
+    fn a_failed_first_deploy_is_reported_as_crashed_with_its_reason() {
+        let mut failed = Vec::new();
+        let mut statuses = Vec::new();
+
+        record_failure(&mut failed, &mut statuses, None, "svc", "pull access denied", None);
+
+        assert_eq!(failed.len(), 1);
+        assert_eq!(failed[0].service_id, "svc");
+        assert!(failed[0].reason.contains("pull access denied"));
+        assert!(matches!(statuses[0].state, ServiceState::Crashed));
+        assert!(!statuses[0].deployed);
+    }
+
+    #[test]
+    fn a_failed_redeploy_keeps_the_running_container_untouched() {
+        let mut failed = Vec::new();
+        let mut statuses = Vec::new();
+        let existing = running_container();
+
+        record_failure(&mut failed, &mut statuses, None, "svc", "build failed", Some(&existing));
+
+        assert!(matches!(statuses[0].state, ServiceState::Running));
+        assert_eq!(statuses[0].container_id.as_deref(), Some("abc123"));
+        assert!(!statuses[0].deployed);
+    }
+
+    #[test]
+    fn the_failure_reason_is_written_to_the_build_log() {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut failed = Vec::new();
+        let mut statuses = Vec::new();
+
+        record_failure(&mut failed, &mut statuses, Some(&tx), "svc", "image not found", None);
+
+        let (service_id, line) = rx.try_recv().expect("a build log line");
+        assert_eq!(service_id, "svc");
+        assert!(line.contains("image not found"));
     }
 }

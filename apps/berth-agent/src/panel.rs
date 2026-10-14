@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use futures_util::stream::SplitSink;
+use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
@@ -12,16 +12,17 @@ use tokio_tungstenite::{
 
 use crate::backup;
 use crate::config::AgentConfig;
-use crate::docker::{AgentResult, DockerReconciler};
+use crate::docker::{redact_credentials, AgentResult, DockerReconciler};
 use crate::enroll;
 use crate::exec::ExecManager;
 use crate::host::collect_server_specs;
-use crate::protocol::{AgentToPanel, PanelToAgent, ServiceState};
+use crate::protocol::{AgentToPanel, FailedApply, PanelToAgent, ServiceState};
 use crate::telemetry::Telemetry;
 use crate::tls;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 type WsSink = SplitSink<Socket, Message>;
+type WsStream = SplitStream<Socket>;
 
 const MAX_MESSAGE_BYTES: usize = 1 << 20;
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
@@ -135,10 +136,23 @@ async fn connect_and_serve(
                         continue;
                     }
                 };
-                if let Err(error) =
-                    handle_message(inbound, reconciler, &mut sink, &telemetry, &exec_manager).await
-                {
-                    eprintln!("[berth-agent] handler error (continuing): {error}");
+                let mut queue = vec![inbound];
+                while !queue.is_empty() {
+                    let next = queue.remove(0);
+                    if let Err(error) = handle_message(
+                        next,
+                        reconciler,
+                        &mut sink,
+                        &mut stream,
+                        &mut rx,
+                        &mut queue,
+                        &telemetry,
+                        &exec_manager,
+                    )
+                    .await
+                    {
+                        eprintln!("[berth-agent] handler error (continuing): {error}");
+                    }
                 }
             }
             Some(outbound) = rx.recv() => {
@@ -153,10 +167,14 @@ async fn connect_and_serve(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_message(
     inbound: PanelToAgent,
     reconciler: &DockerReconciler,
     sink: &mut WsSink,
+    stream: &mut WsStream,
+    outbound: &mut mpsc::Receiver<AgentToPanel>,
+    deferred: &mut Vec<PanelToAgent>,
     telemetry: &Telemetry,
     exec_manager: &ExecManager,
 ) -> AgentResult<()> {
@@ -178,15 +196,52 @@ async fn handle_message(
             tokio::pin!(reconcile);
             let outcome = loop {
                 tokio::select! {
-                    result = &mut reconcile => break result?,
+                    result = &mut reconcile => break result,
                     Some((service_id, log_chunk)) = log_rx.recv() => {
                         send_build_progress(sink, service_id, log_chunk).await?;
+                    }
+                    Some(message) = outbound.recv() => {
+                        send_json(sink, &message).await?;
+                    }
+                    frame = stream.next() => {
+                        match frame {
+                            Some(Ok(message)) => {
+                                if let Ok(text) = message.to_text() {
+                                    if let Ok(panel_message) = serde_json::from_str::<PanelToAgent>(text) {
+                                        deferred.push(panel_message);
+                                    }
+                                }
+                                sink.flush().await?;
+                            }
+                            Some(Err(error)) => return Err(error.into()),
+                            None => return Err("panel closed the connection during a reconcile".into()),
+                        }
                     }
                 }
             };
             while let Ok((service_id, log_chunk)) = log_rx.try_recv() {
                 send_build_progress(sink, service_id, log_chunk).await?;
             }
+
+            let outcome = match outcome {
+                Ok(outcome) => outcome,
+                Err(error) => {
+                    let reason = redact_credentials(&error.to_string());
+                    let failed = services
+                        .iter()
+                        .map(|service| FailedApply {
+                            service_id: service.id.clone(),
+                            reason: reason.clone(),
+                        })
+                        .collect();
+                    let result = AgentToPanel::ReconcileResult {
+                        applied: Vec::new(),
+                        failed,
+                    };
+                    send_json(sink, &result).await?;
+                    return Err(error);
+                }
+            };
 
             let running: Vec<String> = outcome
                 .statuses

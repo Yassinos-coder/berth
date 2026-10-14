@@ -19,6 +19,7 @@ export interface CreateServicePayload {
   username?: string;
   password?: string;
   diskGb?: number;
+  volumePath?: string;
   publicNetworking?: boolean;
   environmentId?: string;
   env?: { key: string; value: string; isSecret?: boolean }[];
@@ -35,6 +36,7 @@ export interface UpdateServicePayload {
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
   previewsEnabled?: boolean;
   alertsMuted?: boolean;
+  volumePath?: string;
 }
 
 export type ServiceAction = 'start' | 'stop' | 'restart' | 'redeploy';

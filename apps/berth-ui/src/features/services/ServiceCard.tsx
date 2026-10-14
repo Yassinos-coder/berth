@@ -77,7 +77,7 @@ export function ServiceCard({
             <TooltipTrigger asChild>
               <span className="border-warning/30 bg-warning/10 text-warning inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium">
                 <Gauge className="size-3" aria-hidden="true" />
-                Auto-scaled
+                Memory raised to {Format.bytes(service.resources.memoryMb)}
               </span>
             </TooltipTrigger>
             <TooltipContent>

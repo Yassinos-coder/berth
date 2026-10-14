@@ -138,6 +138,10 @@ export class CreateServiceDto {
   diskGb?: number;
 
   @IsOptional()
+  @IsString()
+  volumePath?: string;
+
+  @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => EnvVarDto)
   env?: EnvVarDto[];

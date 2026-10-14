@@ -59,6 +59,7 @@ export interface Service {
   source: ServiceSource;
   resources: ResourceLimits;
   diskGb?: number;
+  volumePath?: string;
   replicas: number;
   domain?: string;
   templateKind?: string;

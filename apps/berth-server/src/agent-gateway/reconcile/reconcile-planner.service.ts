@@ -7,6 +7,7 @@ import type {
   ServiceSource,
   VolumeMount,
 } from '@berth/protocol';
+import { EnvReferenceResolver, ReferenceTarget } from './env-reference.resolver';
 import { ReconcileRepository, ServiceWithEnv } from './reconcile.repository';
 import { SecretCipher } from '../../common/crypto/secret-cipher.service';
 import { GithubAppService } from '../../github-app/github-app.service';
@@ -29,7 +30,10 @@ export class ReconcilePlanner {
 
   async desiredForServer(serverId: string): Promise<ServiceSpec[]> {
     const services = await this.repository.servicesForServer(serverId);
-    return Promise.all(services.map((service) => this.toSpec(service)));
+    const targets = EnvReferenceResolver.index(
+      services.map((service) => this.toReferenceTarget(service)),
+    );
+    return Promise.all(services.map((service) => this.toSpec(service, targets)));
   }
 
   proxyRoutesForServer(serverId: string): Promise<ProxyRoute[]> {
@@ -40,10 +44,24 @@ export class ReconcilePlanner {
     return this.repository.panelRouteForServer(serverId);
   }
 
-  private async toSpec(service: ServiceWithEnv): Promise<ServiceSpec> {
+  private toReferenceTarget(service: ServiceWithEnv): ReferenceTarget {
+    return {
+      name: service.name,
+      containerPort: service.containerPort,
+      env: service.envVars.map((envVar) => ({
+        key: envVar.key,
+        value: this.cipher.decrypt(envVar.value),
+      })),
+    };
+  }
+
+  private async toSpec(
+    service: ServiceWithEnv,
+    targets: Map<string, ReferenceTarget>,
+  ): Promise<ServiceSpec> {
     const env = service.envVars.map<ResolvedEnv>((envVar) => ({
       key: envVar.key,
-      value: this.cipher.decrypt(envVar.value),
+      value: EnvReferenceResolver.resolve(this.cipher.decrypt(envVar.value), targets),
       isSecret: envVar.isSecret,
     }));
 

@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-10-14
+
+### Added
+- **Volumes for repo and image services.** A service built from GitHub or a plain image can now have a persistent volume. Set the mount path on the New Service form or in the service Settings tab (Persistent volume); files survive redeploys, and clearing the path unmounts the volume but keeps its data. Template services keep their template-managed volume.
+- **Service references in variables.** A variable can use `${{service-name.VARIABLE}}` to read another service's variable on the same server, plus `${{service-name.HOST}}` and `${{service-name.PORT}}`. Unknown references are left as written so a typo stays visible. Changing the referenced value redeploys dependents on the next reconcile.
+- **Save & Redeploy** on the Variables tab, so a changed variable does not leave the running container on stale values.
+- **Resource pressure warnings.** The service overview shows CPU and memory as a percentage of their limits and warns when either is close to the limit.
+
+### Changed
+- **Deploy failures are reported.** A failed image pull or registry login now marks the deployment failed with the error text in the build log, and the service keeps its previous container. Before, the error aborted the whole reconcile, the panel never heard about it, and the service sat on Starting. One service failing no longer blocks reconciling the others, and a reconcile that fails as a whole still reports each requested service as failed.
+- **Builds use the Docker layer cache.** Git builds still pull fresh base images, and only an explicit Redeploy drops the cache for a clean build. Before, every deploy ran with `--no-cache`.
+- **Old build images and cache are cleaned up.** After a successful deploy the agent keeps the two newest build images for the service and prunes build cache older than 72 hours.
+- The memory badge on the service card now reads "Memory raised to X" instead of "Auto-scaled".
+
+### Fixed
+- **Agent connection dropping during long builds.** The agent did not read the websocket while a reconcile ran, so the panel's pings went unanswered and it closed the connection after a missed pong. The agent now keeps reading, answers pings, forwards telemetry, and queues panel messages that arrive during a reconcile. This removes the recurring `Broken pipe` errors and lost reconcile results.
+- **Bucket template could not start.** MinIO's official images are no longer published on Docker Hub or Quay. The bucket template and the agent's bucket creation now use the Bitnami legacy MinIO and MinIO client images, which still pull. These images are frozen and receive no security updates, so plan a move to a maintained S3 server.
+
 ## [0.14.0] - 2026-10-05
 
 ### Added

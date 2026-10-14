@@ -73,14 +73,13 @@ export const DATABASE_TEMPLATES: Record<string, DatabaseTemplate> = {
   },
   minio: {
     kind: 'minio',
-    image: 'minio/minio',
+    image: 'bitnamilegacy/minio',
     defaultTag: 'latest',
     port: 9000,
     scheme: 'http',
-    volumePath: '/data',
+    volumePath: '/bitnami/minio/data',
     usernameEnv: 'MINIO_ROOT_USER',
     passwordEnv: 'MINIO_ROOT_PASSWORD',
-    command: ['server', '/data', '--console-address', ':9001'],
     targetKind: 'bucket',
   },
   rabbitmq: {

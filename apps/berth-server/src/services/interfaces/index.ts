@@ -24,6 +24,7 @@ export interface MetricPeak {
 }
 
 export interface ServiceDto {
+  volumePath?: string;
   id: string;
   name: string;
   kind: ServiceKind;

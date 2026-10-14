@@ -23,7 +23,7 @@ export class BerthMcpServer {
   constructor(private readonly api: BerthApiClient) {}
 
   async serve(): Promise<void> {
-    const server = new McpServer({ name: 'berth', version: '0.14.0' });
+    const server = new McpServer({ name: 'berth', version: '0.15.0' });
     this.register(server);
     await server.connect(new StdioServerTransport());
   }

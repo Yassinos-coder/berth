@@ -41,4 +41,8 @@ export class UpdateServiceDto {
   @IsOptional()
   @IsBoolean()
   alertsMuted?: boolean;
+
+  @IsOptional()
+  @IsString()
+  volumePath?: string;
 }

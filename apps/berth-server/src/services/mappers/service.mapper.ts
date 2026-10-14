@@ -26,6 +26,7 @@ export class ServiceMapper {
         cpuShares: service.cpuShares ?? undefined,
       },
       diskGb: service.diskGb ?? undefined,
+      volumePath: service.volumePath ?? undefined,
       replicas: service.replicas,
       domain: service.domain ?? undefined,
       templateKind: service.templateKind ?? undefined,

@@ -77,6 +77,7 @@ export function NewServicePage() {
     memoryMb: 1024,
   });
   const [diskGb, setDiskGb] = useState(5);
+  const [volumePath, setVolumePath] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [rootDirectory, setRootDirectory] = useState('');
   const [dockerfilePath, setDockerfilePath] = useState('');
@@ -202,6 +203,7 @@ export function NewServicePage() {
           resources,
           domain: domain.trim() || undefined,
           diskGb,
+          volumePath: volumePath.trim() || undefined,
         },
         { onSuccess: () => navigate('/services') },
       );
@@ -222,6 +224,7 @@ export function NewServicePage() {
         domain: domain.trim() || undefined,
         publicNetworking,
         diskGb,
+        volumePath: volumePath.trim() || undefined,
       },
       { onSuccess: () => navigate('/services') },
     );
@@ -571,6 +574,21 @@ export function NewServicePage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            ) : null}
+
+            {!managedDb && !appTemplate ? (
+              <div className="space-y-2">
+                <Label htmlFor="volume-path">Volume path (optional)</Label>
+                <Input
+                  id="volume-path"
+                  placeholder="/app/data"
+                  value={volumePath}
+                  onChange={(e) => setVolumePath(e.target.value)}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Mount a persistent volume here so files survive redeploys.
+                </p>
               </div>
             ) : null}
 

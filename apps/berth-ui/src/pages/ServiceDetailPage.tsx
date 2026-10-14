@@ -24,6 +24,8 @@ import { ConnectionPanel } from '@/features/services/ConnectionPanel';
 import { BuildSettings } from '@/features/services/BuildSettings';
 import { PreviewSettings } from '@/features/services/PreviewSettings';
 import { AlertMuteSettings } from '@/features/services/AlertMuteSettings';
+import { VolumeSettings } from '@/features/services/VolumeSettings';
+import { ResourcePressure } from '@/features/services/utils/resourcePressure';
 import { EnvironmentPicker } from '@/features/services/EnvironmentPicker';
 import { RegistryCredentialPicker } from '@/features/services/RegistryCredentialPicker';
 import { BackupsPanel } from '@/features/services/BackupsPanel';
@@ -123,6 +125,9 @@ export function ServiceDetailPage() {
 
   const svc = service.data;
   const isRunning = svc?.state === 'running';
+  const memoryPressure = ResourcePressure.memory(svc?.usage.memMb ?? 0, svc?.resources.memoryMb ?? 1);
+  const cpuPressure = ResourcePressure.cpu(svc?.usage.cpuPct ?? 0, svc?.resources.cpuCores ?? 1);
+  const pressureWarning = isRunning ? ResourcePressure.warning(memoryPressure, cpuPressure) : null;
 
   return (
     <div className="space-y-6">
@@ -277,6 +282,14 @@ export function ServiceDetailPage() {
                   </Card>
                   <Card>
                     <CardContent className="divide-border divide-y">
+                      {pressureWarning ? (
+                        <p
+                          role="alert"
+                          className="border-warning/30 bg-warning/10 text-warning my-2 rounded-md border px-3 py-2 text-xs"
+                        >
+                          {pressureWarning}
+                        </p>
+                      ) : null}
                       <DetailRow
                         label="CPU limit"
                         value={Format.cpu(svc.resources.cpuCores)}
@@ -293,11 +306,11 @@ export function ServiceDetailPage() {
                       ) : null}
                       <DetailRow
                         label="CPU usage"
-                        value={Format.percent(svc.usage.cpuPct)}
+                        value={`${Format.percent(svc.usage.cpuPct)} (${Format.percent(cpuPressure.ratio * 100)} of limit)`}
                       />
                       <DetailRow
                         label="Memory usage"
-                        value={Format.bytes(svc.usage.memMb)}
+                        value={`${Format.bytes(svc.usage.memMb)} (${Format.percent(memoryPressure.ratio * 100)} of limit)`}
                       />
                       <DetailRow
                         label="Created"
@@ -448,6 +461,11 @@ export function ServiceDetailPage() {
                   />
                 ) : null}
                 <EnvironmentPicker serviceId={svc.id} environmentId={svc.environmentId} />
+                <VolumeSettings
+                  serviceId={svc.id}
+                  volumePath={svc.volumePath}
+                  managedByTemplate={Boolean(svc.templateKind)}
+                />
                 <AlertMuteSettings serviceId={svc.id} muted={svc.alertsMuted} />
                 <RegistryCredentialPicker
                   serviceId={svc.id}
