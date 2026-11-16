@@ -1,3 +1,24 @@
+export const PROTOCOL_VERSION = 1;
+export const MIN_SUPPORTED_AGENT_PROTOCOL = 1;
+
+export interface ReplicaPolicy {
+  minReplicas: number;
+  maxReplicas: number;
+  targetCpuPct: number;
+  targetMemoryPct: number;
+  strategy: 'manual' | 'cpu' | 'memory' | 'balanced';
+  cooldownSeconds: number;
+}
+
+export interface ReplicaScalePlan {
+  serviceId: string;
+  currentReplicas: number;
+  desiredReplicas: number;
+  reason: string;
+  strategy: ReplicaPolicy['strategy'];
+  changed: boolean;
+}
+
 export interface ServiceSpec {
   id: string;
   name: string;
@@ -12,6 +33,7 @@ export interface ServiceSpec {
   healthCheck?: HealthCheck;
   restartPolicy: RestartPolicy;
   replicas: number;
+  replicaPolicy?: ReplicaPolicy;
   templateKind?: string;
   registryAuth?: RegistryAuth;
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
@@ -43,6 +65,7 @@ export interface BuildConfig {
   buildCommand?: string;
   startCommand?: string;
   revision?: string;
+  pinned?: boolean;
 }
 
 export interface ResourceLimits {
@@ -123,11 +146,14 @@ export type PanelToAgent =
       proxies: ProxyRoute[];
       panel?: PanelRoute;
       forceServiceIds?: string[];
+      correlationId?: string;
     }
   | { type: 'RemoveService'; serviceId: string }
   | { type: 'StreamLogs'; serviceId: string; follow: boolean }
   | { type: 'GetMetrics'; serviceId?: string }
   | { type: 'SelfUpdate' }
+  | { type: 'RenewCertificate' }
+  | { type: 'CertificateIssued'; certPem: string }
   | {
       type: 'RunBackup';
       serviceId: string;
@@ -152,6 +178,7 @@ export type PanelToAgent =
 
 export type AgentToPanel =
   | { type: 'Enrolled'; agentId: string; serverSpecs: ServerSpecs }
+  | { type: 'CertificateRenewal'; csr: string }
   | { type: 'ServiceStatus'; serviceId: string; state: ServiceState; containerId?: string; deployed: boolean }
   | { type: 'BuildProgress'; serviceId: string; stage: string; logChunk: string }
   | { type: 'LogChunk'; serviceId: string; line: string; ts: number }

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2ccbe0" />
+      <stop offset="1" stop-color="#0e7f92" />
+    </linearGradient>
+    <radialGradient id="glow" cx="600" cy="210" r="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22b8cf" stop-opacity="0.28" />
+      <stop offset="1" stop-color="#22b8cf" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#14171d" />
+  <rect width="1200" height="630" fill="url(#glow)" />
+
+  <g transform="translate(540 132)">
+    <rect width="120" height="120" rx="26" fill="url(#tile)" />
+    <g transform="translate(22 20) scale(2.35)"
+       stroke="#ecfeff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M6 9 C7.5 12 10 13 16 13 C22 13 24.5 12 26 9" />
+      <path d="M16 13 V24" />
+      <ellipse cx="16" cy="25" rx="6.5" ry="1.9" />
+      <path d="M16 18 C11.5 14.5 7 16 7 18.5 C7 21 11.5 22 16 18 C20.5 14 25 15.5 25 18 C25 20.5 20.5 21.5 16 18 Z" />
+    </g>
+  </g>
+
+  <text x="600" y="370" text-anchor="middle"
+        font-family="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        font-size="92" font-weight="700" letter-spacing="-2" fill="#f4f7fb">Berth</text>
+  <text x="600" y="430" text-anchor="middle"
+        font-family="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        font-size="34" font-weight="400" fill="#9aa7b8">Self-hosted deployment panel for your own VPS</text>
+  <text x="600" y="524" text-anchor="middle"
+        font-family="ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace"
+        font-size="26" fill="#22b8cf">curl -fsSL https://berth.sh | sudo bash</text>
+</svg>

@@ -15,7 +15,7 @@ Current implementation status:
 - `berth-agent reconcile-file <path>` applies a local `ServiceSpec[]` or `Reconcile` JSON payload without needing panel transport.
 - Image-based services are supported first; git-source builds, log streaming, metrics, reverse proxying, and mTLS are still TODOs.
 
-Not part of the pnpm/Turborepo workspace - built with Cargo. Requires the Rust toolchain.
+Not part of the Bun/Turborepo workspace - built with Cargo. Requires the Rust toolchain.
 
 Installer assets:
 - `install.sh` installs Docker, the Rust toolchain, build dependencies, the agent binary, `/etc/berth/agent.env`, and the `systemd` unit.
@@ -23,7 +23,7 @@ Installer assets:
 
 Typical usage on a server:
 ```bash
-curl -fsSL https://berth.sh/install | BERTH_PANEL_URL=wss://panel.example.com:4443 BERTH_BOOTSTRAP=... BERTH_REPO_URL=https://github.com/your-org/berth.git sudo bash
+curl -fsSL https://yassinos-coder.github.io/berth/agent-install.sh | BERTH_PANEL_URL=wss://panel.example.com:4443 BERTH_BOOTSTRAP=... BERTH_REPO_URL=https://github.com/your-org/berth.git sudo bash
 ```
 
 If you run the installer from a checked-out repo instead of a hosted script:

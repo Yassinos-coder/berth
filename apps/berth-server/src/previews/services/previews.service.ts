@@ -53,7 +53,7 @@ export class PreviewsService {
     const preview = existing
       ? await this.prisma.service.update({
           where: { id: existing.id },
-          data: { branch: event.headRef, specHash: event.headSha, state: 'building' },
+          data: { branch: event.headRef, specHash: event.headSha, rollbackCommitSha: null, state: 'building' },
         })
       : await this.create(parent, event);
 

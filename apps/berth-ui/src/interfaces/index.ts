@@ -3,6 +3,7 @@ import type {
   ServiceSource,
   ServiceState,
   ResourceLimits,
+  ReplicaPolicy,
 } from '@berth/protocol';
 
 export type Role = 'owner' | 'admin' | 'deployer' | 'viewer';
@@ -61,6 +62,7 @@ export interface Service {
   diskGb?: number;
   volumePath?: string;
   replicas: number;
+  replicaPolicy?: ReplicaPolicy;
   domain?: string;
   templateKind?: string;
   containerPort?: number;

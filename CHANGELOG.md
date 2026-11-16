@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Clarified product scope and v1 release gates in the root README.
+- Added a dedicated production-readiness roadmap for the self-hosted deployment core.
+- Added runbooks for operational incident handling and recovery.
+- Added a security policy and vulnerability disclosure baseline.
+- Added persisted, validated replica policies to service settings and the agent protocol.
+- Added a cooldown-aware autoscaler that evaluates fresh, persisted CPU and memory metrics, enforces per-server resource budgets, and reconciles changed replica counts.
+- Added per-server CPU and memory reservation checks for service creation, manual replica increases, and stopped-service activation, serialized with autoscaler changes.
+- Added live vertical scaling controls for CPU and memory limits, with resource changes surfaced as agent reconciliation failures.
+- Agent certificate revocation: the gateway now refuses agents whose server was deleted, whose token was regenerated (re-enrollment pending), or whose certificate was superseded by a newer enrollment.
+- Protocol versioning: `PROTOCOL_VERSION` is declared in the protocol package and the agent, sent as `/agent?protocol=<n>`, and enforced by the panel. A Rust test keeps both values in sync.
+- Request correlation: every response carries `x-request-id`, request and error logs include it, and 500 responses return it.
+- CI jobs for migrations on an empty database with a schema drift check, a database and Redis backed panel smoke test (`scripts/smoke-panel.sh`), dependency audits (JavaScript report-only, Rust), Dockerfile linting and the protocol version check.
+- Documentation: security lifecycle (certificates, secrets, reconcile review checklist), protocol versioning, reliability and observability guarantees, and environments.
+- Panel modules are grouped by domain (fleet, delivery, edge, operations, access).
+- **Automatic agent certificate renewal.** Client certificates now last one year. The panel asks an agent to renew when its certificate is within 120 days of expiry or is a legacy long-lived one; the agent sends a CSR over the live channel. The old and new certificates are both accepted until the new one connects, so a failed install cannot lock an agent out.
+- **Master key rotation.** Encrypted values carry a key id (`v2:<id>:...`) and the panel accepts `BERTH_MASTER_KEY_PREVIOUS`, so keys can be rotated without downtime. `bun --filter @berth/server secrets:rotate` re-encrypts every stored secret (`--dry-run` to preview).
+- The request id is passed to the agent on reconciles and appears in the agent journal.
+- `E2E install` workflow (manual and weekly) that runs the real installer, deploys an image service, redeploys it, and rescales it live.
+
+### Changed
+- **Rollback now restores the exact commit.** Previously a rollback only recorded a deployment and redeployed the branch head. It now pins the service to the chosen deployment's commit, the agent checks that commit out and fails the deploy (leaving the running version up) if it cannot, and the next push or redeploy clears the pin. Rolling back to a deployment that never went live, or has no commit, is refused.
+- Dependency updates: 110 audit findings reduced to 61, with no critical findings in production dependencies. CI blocks on production criticals.
+- **Bun replaces pnpm** as the package manager and script runner for the whole monorepo. `bun.lock` replaces `pnpm-lock.yaml`, Dockerfiles and CI install with Bun, and docs use Bun commands.
+
+### Fixed
+- **Fresh installs could not apply migrations.** Unpadded folder names sorted `10_` before `5_`, so a new database failed at `10_proxy_host_paths`. Folders are now zero-padded, and `bun run migrate` (used by the container entrypoint) renames recorded history on existing databases first, so upgrades are unaffected.
+- Added migration `30_updated_at_defaults` to remove two `updatedAt` defaults that the Prisma schema did not declare.
+
 ## [0.15.0] - 2026-10-14
 
 ### Added

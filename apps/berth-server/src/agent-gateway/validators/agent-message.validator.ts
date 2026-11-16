@@ -4,6 +4,7 @@ const MAX_MESSAGE_BYTES = 256 * 1024;
 
 const KNOWN_TYPES: Record<AgentToPanel['type'], true> = {
   Enrolled: true,
+  CertificateRenewal: true,
   ServiceStatus: true,
   BuildProgress: true,
   LogChunk: true,

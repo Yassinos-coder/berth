@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Berth panel installer — turns a fresh Debian/Ubuntu or Amazon Linux/RHEL VPS
 # into a running panel. Safe to re-run.
-# Usage:  curl -fsSL https://berth.sh | sudo bash
+# Usage:  curl -fsSL https://yassinos-coder.github.io/berth/install.sh | sudo bash
 # The only manual step afterwards: open the printed URL and create your admin.
 set -uo pipefail
 

@@ -60,7 +60,7 @@ async function main(): Promise<void> {
   console.log('\n✅ Local server + demo-nginx service created.\n');
   console.log(`   server : ${server.name} (${server.id})`);
   console.log(`   token  : ${token}\n`);
-  console.log('1) Make sure the panel is running (pnpm --filter @berth/server start)');
+  console.log('1) Make sure the panel is running (bun --filter @berth/server start)');
   console.log('2) Run the agent:\n');
   console.log(
     `   BERTH_PANEL_URL=wss://localhost:4443 BERTH_BOOTSTRAP=${token} \\\n` +

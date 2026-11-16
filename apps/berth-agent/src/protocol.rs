@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub const PROTOCOL_VERSION: u32 = 1;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceSpec {
@@ -18,12 +20,34 @@ pub struct ServiceSpec {
     pub health_check: Option<HealthCheck>,
     pub restart_policy: RestartPolicy,
     pub replicas: u32,
+    #[serde(default)]
+    pub replica_policy: Option<ReplicaPolicy>,
     #[serde(rename = "templateKind")]
     pub template_kind: Option<String>,
     #[serde(default)]
     pub registry_auth: Option<RegistryAuth>,
     #[serde(default)]
     pub target_platform: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplicaPolicy {
+    pub min_replicas: u32,
+    pub max_replicas: u32,
+    pub target_cpu_pct: u32,
+    pub target_memory_pct: u32,
+    pub strategy: ReplicaStrategy,
+    pub cooldown_seconds: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReplicaStrategy {
+    Manual,
+    Cpu,
+    Memory,
+    Balanced,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -37,7 +61,10 @@ pub struct RegistryAuth {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum ServiceSource {
-    Image { image: String, tag: String },
+    Image {
+        image: String,
+        tag: String,
+    },
     Git {
         repo: String,
         branch: String,
@@ -61,6 +88,12 @@ pub struct BuildConfig {
     pub build_command: Option<String>,
     pub start_command: Option<String>,
     pub revision: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub pinned: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -183,6 +216,8 @@ pub enum PanelToAgent {
         panel: Option<PanelRoute>,
         #[serde(rename = "forceServiceIds", default)]
         force_service_ids: Vec<String>,
+        #[serde(rename = "correlationId", default)]
+        correlation_id: Option<String>,
     },
     RemoveService {
         #[serde(rename = "serviceId")]
@@ -198,6 +233,11 @@ pub enum PanelToAgent {
         service_id: Option<String>,
     },
     SelfUpdate,
+    RenewCertificate,
+    CertificateIssued {
+        #[serde(rename = "certPem")]
+        cert_pem: String,
+    },
     RunBackup {
         #[serde(rename = "serviceId")]
         service_id: String,
@@ -259,6 +299,9 @@ pub struct BackupTarget {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum AgentToPanel {
+    CertificateRenewal {
+        csr: String,
+    },
     Enrolled {
         #[serde(rename = "agentId")]
         agent_id: String,
@@ -333,4 +376,20 @@ pub enum AgentToPanel {
         #[serde(rename = "exitCode")]
         exit_code: Option<i32>,
     },
+}
+
+#[cfg(test)]
+mod protocol_version_tests {
+    use super::PROTOCOL_VERSION;
+
+    #[test]
+    fn matches_the_typescript_protocol_package() {
+        let source = include_str!("../../../packages/protocol/src/index.ts");
+        let declared = source
+            .lines()
+            .find_map(|line| line.strip_prefix("export const PROTOCOL_VERSION = "))
+            .and_then(|rest| rest.trim_end_matches(';').trim().parse::<u32>().ok())
+            .expect("PROTOCOL_VERSION declared in packages/protocol");
+        assert_eq!(declared, PROTOCOL_VERSION);
+    }
 }

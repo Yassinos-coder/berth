@@ -19,6 +19,7 @@ function build(options: { service?: object | null; deployment?: object | null } 
     },
   };
   const notifications = { notify: vi.fn().mockResolvedValue(undefined) };
+  const certificateRenewal = { issue: vi.fn().mockResolvedValue(undefined) };
   const handler = new AgentMessageHandler(
     prisma as never,
     {} as never,
@@ -28,8 +29,9 @@ function build(options: { service?: object | null; deployment?: object | null } 
     notifications as never,
     {} as never,
     {} as never,
+    certificateRenewal as never,
   );
-  return { handler, prisma, notifications };
+  return { handler, prisma, notifications, certificateRenewal };
 }
 
 describe('AgentMessageHandler ReconcileResult', () => {
@@ -84,5 +86,13 @@ describe('AgentMessageHandler ReconcileResult', () => {
       DeploymentStatus.building,
       DeploymentStatus.deploying,
     ]);
+  });
+});
+
+describe('AgentMessageHandler CertificateRenewal', () => {
+  it('hands the CSR to the renewal service for the authenticated server', async () => {
+    const { handler, certificateRenewal } = build();
+    await handler.handle('srv', { type: 'CertificateRenewal', csr: 'CSR-PEM' });
+    expect(certificateRenewal.issue).toHaveBeenCalledWith('srv', 'CSR-PEM');
   });
 });

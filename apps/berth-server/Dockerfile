@@ -4,21 +4,24 @@ FROM node:22-bookworm-slim AS base
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
-ENV PNPM_HOME=/pnpm
-ENV PATH=/pnpm:$PATH
-RUN corepack enable
+COPY --from=oven/bun:1.4.3 /usr/local/bin/bun /usr/local/bin/bun
+RUN ln -s /usr/local/bin/bun /usr/local/bin/bunx
 
 FROM base AS build
 WORKDIR /repo
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY package.json bun.lock ./
 COPY packages/protocol/package.json packages/protocol/
 COPY apps/berth-server/package.json apps/berth-server/
-RUN pnpm install --frozen-lockfile
+COPY apps/berth-ui/package.json apps/berth-ui/
+COPY apps/berth-landing-page/package.json apps/berth-landing-page/
+COPY apps/berth-docs/package.json apps/berth-docs/
+COPY packages/cli/package.json packages/cli/
+RUN bun install --frozen-lockfile
 COPY packages/protocol packages/protocol
 COPY apps/berth-server apps/berth-server
-RUN pnpm --filter @berth/protocol build \
- && pnpm --filter @berth/server prisma:generate \
- && pnpm --filter @berth/server build
+RUN bun --filter @berth/protocol build \
+ && bun --filter @berth/server prisma:generate \
+ && bun --filter @berth/server build
 
 FROM base AS runtime
 ARG BERTH_COMMIT=""

@@ -16,6 +16,10 @@ import { EnrollmentService } from '../pki/enrollment.service';
 import { AgentRegistry } from '../registry/agent-registry.service';
 import { AgentMessageHandler } from '../handlers/agent-message.handler';
 import { AgentMessageValidator } from '../validators/agent-message.validator';
+import { CertificateRenewalService } from '../pki/certificate-renewal.service';
+import { CertificateRenewalValidator } from '../validators/certificate-renewal.validator';
+import { AgentIdentityValidator } from '../validators/agent-identity.validator';
+import { ProtocolVersionValidator } from '../validators/protocol-version.validator';
 
 const MAX_PAYLOAD = 512 * 1024;
 const HEARTBEAT_MS = 30_000;
@@ -34,6 +38,7 @@ export class AgentGatewayService implements OnModuleInit, OnApplicationShutdown 
     private readonly registry: AgentRegistry,
     private readonly handler: AgentMessageHandler,
     private readonly prisma: PrismaService,
+    private readonly certificateRenewal: CertificateRenewalService,
   ) {}
 
   onModuleInit(): void {
@@ -71,6 +76,14 @@ export class AgentGatewayService implements OnModuleInit, OnApplicationShutdown 
       return;
     }
     if (url.pathname === '/agent') {
+      const versionError = ProtocolVersionValidator.check(
+        url.searchParams.get('protocol'),
+      );
+      if (versionError) {
+        this.logger.warn(`agent connection refused: ${versionError}`);
+        ws.close(1008, versionError);
+        return;
+      }
       this.handleAgent(ws, req);
       return;
     }
@@ -118,6 +131,61 @@ export class AgentGatewayService implements OnModuleInit, OnApplicationShutdown 
     }
 
     const remoteAddress = (socket.remoteAddress ?? '').replace(/^::ffff:/, '');
+    const peerCertificate = socket.getPeerCertificate();
+    const presentedSerial = peerCertificate?.serialNumber;
+    const renewalDue = CertificateRenewalValidator.shouldRenew(
+      peerCertificate?.valid_from,
+      peerCertificate?.valid_to,
+      new Date(),
+    );
+    const authorized = this.authorizeAgent(serverId, presentedSerial);
+
+    ws.on('message', (data: RawData) => {
+      const message = AgentMessageValidator.parse(data.toString());
+      if (!message) return;
+      void authorized.then((ok) => {
+        if (!ok) return;
+        return this.handler.handle(serverId, message);
+      }).catch((error) => this.logger.error('handler error', error));
+    });
+
+    void authorized.then((ok) => {
+      if (!ok) {
+        ws.close(1008, 'certificate not accepted');
+        return;
+      }
+      this.startAgentSession(ws, serverId, remoteAddress);
+      if (renewalDue) this.certificateRenewal.request(serverId);
+    });
+  }
+
+  private async authorizeAgent(
+    serverId: string,
+    presentedSerial: string | undefined,
+  ): Promise<boolean> {
+    const server = await this.prisma.server
+      .findUnique({
+        where: { id: serverId },
+        select: { certSerial: true, pendingCertSerial: true, bootstrapToken: true },
+      })
+      .catch(() => undefined);
+    if (server === undefined) return false;
+    const rejection = AgentIdentityValidator.check(server, presentedSerial);
+    if (!rejection) {
+      if (server && AgentIdentityValidator.matchesPending(server, presentedSerial)) {
+        await this.certificateRenewal.promote(serverId).catch(() => undefined);
+      }
+      return true;
+    }
+    this.logger.warn(`agent ${serverId} refused: ${rejection}`);
+    return false;
+  }
+
+  private startAgentSession(
+    ws: WebSocket,
+    serverId: string,
+    remoteAddress: string,
+  ): void {
     this.registry.register(serverId, ws);
     void this.markStatus(serverId, AgentStatus.online, remoteAddress || undefined);
     void this.registry
@@ -136,14 +204,6 @@ export class AgentGatewayService implements OnModuleInit, OnApplicationShutdown 
       alive = false;
       ws.ping();
     }, HEARTBEAT_MS);
-
-    ws.on('message', (data: RawData) => {
-      const message = AgentMessageValidator.parse(data.toString());
-      if (!message) return;
-      void this.handler
-        .handle(serverId, message)
-        .catch((error) => this.logger.error('handler error', error));
-    });
 
     const cleanup = () => {
       clearInterval(heartbeat);

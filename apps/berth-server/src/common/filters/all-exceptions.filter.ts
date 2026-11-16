@@ -15,6 +15,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
+    const requestId = response.locals?.requestId as string | undefined;
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
@@ -22,10 +23,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return;
     }
 
-    this.logger.error('Unhandled exception', exception as Error);
+    this.logger.error(
+      `[${requestId ?? 'no-request-id'}] Unhandled exception`,
+      exception as Error,
+    );
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       error: 'Internal Server Error',
+      requestId,
       message: this.isProd
         ? 'Something went wrong'
         : String((exception as Error)?.message ?? exception),

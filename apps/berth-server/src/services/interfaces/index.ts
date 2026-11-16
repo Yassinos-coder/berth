@@ -1,5 +1,9 @@
 import type { ServiceKind, ServiceState } from '@prisma/client';
-import type { ResourceLimits, ServiceSource } from '@berth/protocol';
+import type {
+  ReplicaPolicy,
+  ResourceLimits,
+  ServiceSource,
+} from '@berth/protocol';
 
 export type LogStream = 'stdout' | 'stderr' | 'build' | 'system';
 
@@ -45,6 +49,7 @@ export interface ServiceDto {
   environmentId?: string;
   environmentName?: string;
   alertsMuted: boolean;
+  replicaPolicy?: ReplicaPolicy;
   previewOfId?: string;
   prNumber?: number;
   usage: { cpuPct: number; memMb: number };

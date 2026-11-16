@@ -121,16 +121,12 @@ resolve_source_dir() {
     return 0
   fi
 
-  if [[ -n "${BERTH_REPO_URL:-}" ]]; then
-    log "cloning berth repo from BERTH_REPO_URL into ${SOURCE_DIR_DEFAULT}"
-    rm -rf "$SOURCE_DIR_DEFAULT"
-    install -d "$INSTALL_ROOT"
-    git clone --depth 1 "$BERTH_REPO_URL" "$SOURCE_DIR_DEFAULT"
-    printf '%s\n' "$SOURCE_DIR_DEFAULT"
-    return 0
-  fi
-
-  fail "set BERTH_AGENT_SOURCE_DIR or BERTH_REPO_URL when running this script outside a berth repo checkout"
+  local repo_url="${BERTH_REPO_URL:-https://github.com/Yassinos-coder/berth.git}"
+  log "cloning berth repo from ${repo_url} into ${SOURCE_DIR_DEFAULT}"
+  rm -rf "$SOURCE_DIR_DEFAULT"
+  install -d "$INSTALL_ROOT"
+  git clone --depth 1 "$repo_url" "$SOURCE_DIR_DEFAULT"
+  printf '%s\n' "$SOURCE_DIR_DEFAULT"
 }
 
 build_agent() {

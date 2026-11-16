@@ -14,6 +14,8 @@ interface CaMaterial {
 
 type AltName = { type: number; value?: string; ip?: string };
 
+export const CLIENT_CERT_LIFETIME_DAYS = 365;
+
 export interface SignedCert {
   certPem: string;
   serial: string;
@@ -58,7 +60,11 @@ export class CaService implements OnModuleInit {
     return md.digest().toHex();
   }
 
-  signCsr(csrPem: string, commonName: string): SignedCert {
+  signCsr(
+    csrPem: string,
+    commonName: string,
+    lifetimeDays: number = CLIENT_CERT_LIFETIME_DAYS,
+  ): SignedCert {
     const csr = forge.pki.certificationRequestFromPem(csrPem);
     if (!csr.verify()) {
       throw new Error('CSR signature is invalid');
@@ -69,9 +75,8 @@ export class CaService implements OnModuleInit {
     cert.serialNumber = `00${serial}`;
     cert.publicKey = csr.publicKey as forge.pki.PublicKey;
     cert.validity.notBefore = new Date();
-    cert.validity.notAfter = new Date();
-    cert.validity.notAfter.setFullYear(
-      cert.validity.notBefore.getFullYear() + 5,
+    cert.validity.notAfter = new Date(
+      cert.validity.notBefore.getTime() + lifetimeDays * 24 * 60 * 60 * 1000,
     );
     cert.setSubject([{ name: 'commonName', value: commonName }]);
     cert.setIssuer(this.ca.cert.subject.attributes);

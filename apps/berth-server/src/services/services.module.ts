@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ServicesController } from './controllers/services.controller';
 import { ServicesService } from './services/services.service';
 import { ConnectionService } from './services/connection.service';
+import { ReplicaEngineService } from './services/replica-engine.service';
+import { ReplicaAutoscalerService } from './services/replica-autoscaler.service';
 import { ServiceRepository } from './repositories/service.repository';
 import { ServersModule } from '../servers/servers.module';
 import { DeploymentsModule } from '../deployments/deployments.module';
@@ -18,7 +20,13 @@ import { RegistryCredentialsModule } from '../registry-credentials/registry-cred
     RegistryCredentialsModule,
   ],
   controllers: [ServicesController],
-  providers: [ServicesService, ConnectionService, ServiceRepository],
-  exports: [ServicesService, ServiceRepository],
+  providers: [
+    ServicesService,
+    ConnectionService,
+    ReplicaEngineService,
+    ReplicaAutoscalerService,
+    ServiceRepository,
+  ],
+  exports: [ServicesService, ServiceRepository, ReplicaEngineService],
 })
 export class ServicesModule {}

@@ -1,6 +1,7 @@
 import { Server, Service } from '@prisma/client';
 import type { ServiceSource } from '@berth/protocol';
 import type { ServiceDto } from '../interfaces';
+import { ReplicaPolicyValidator } from '../validators/replica-policy.validator';
 
 type ServiceWithServer = Service & {
   server: Pick<Server, 'name'>;
@@ -28,6 +29,7 @@ export class ServiceMapper {
       diskGb: service.diskGb ?? undefined,
       volumePath: service.volumePath ?? undefined,
       replicas: service.replicas,
+      replicaPolicy: ReplicaPolicyValidator.fromStored(service.replicaPolicy),
       domain: service.domain ?? undefined,
       templateKind: service.templateKind ?? undefined,
       containerPort: service.containerPort ?? undefined,

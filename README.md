@@ -5,10 +5,12 @@
 Install a panel on your VPS, connect GitHub, and deploy apps, databases, and services with per-container resource limits, role-based team access, and CI/CD on push without giving up ownership of your servers.
 
 ```bash
-curl -sSL berth.sh | sudo bash
+curl -fsSL https://yassinos-coder.github.io/berth/install.sh | sudo bash
 ```
 
 Then open `http://<your-server-ip>:3000`, create your admin account, connect GitHub, and berth your first service.
+
+Documentation: https://yassinos-coder.github.io/berth/
 
 ---
 
@@ -71,9 +73,36 @@ berth/
 | Builds | Dockerfile if present, else Nixpacks |
 | Transport | WebSocket over mTLS, agent-initiated |
 
+## V1 scope
+
+Berth is currently in **alpha**, with a working platform architecture and real deployment workflows already in place. The immediate goal is not feature breadth; it is shipping a dependable, self-hosted deployment core that a user can trust in production.
+
+### In scope for v1
+- One-click deploys from GitHub and Docker images
+- TLS + reverse proxy management for public domains
+- Server onboarding and agent enrollment over mTLS
+- RBAC for owners/admins/deployers/viewers
+- Build logs, metrics, deploy history, and rollback-safe deploy flow
+- Secret handling, environment variables, and service lifecycle management
+
+### Explicitly out of scope for v1
+- Multi-tenant SaaS hosting model
+- Marketplace or plugin ecosystem
+- Complex function runtime / serverless abstraction
+- Broad feature sprawl beyond the self-hosted deployment core
+
+### Release gates
+Before calling the project production ready, we need:
+- hardened rollback and recovery procedures
+- explicit security rotation docs and runbooks
+- practical migration/upgrade testing for agents and panel versions
+- end-to-end smoke tests for deploy, proxy, and rollback flows
+
+See [docs/roadmap-v1.md](docs/roadmap-v1.md), [docs/operations.md](docs/operations.md), and [SECURITY.md](SECURITY.md).
+
 ## Status
 
-**Pre-alpha.** The backend, UI, and agent scaffolding are in active development.
+**Alpha — the product core is live and evolving.** The team is treating the next milestone as a hard production-readiness pass: reliable operations, safer deployments, and clearer supportability are as important as feature breadth.
 
 ## License
 

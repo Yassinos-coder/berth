@@ -8,10 +8,13 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
+  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
 import { ServiceKind } from '@prisma/client';
+import { ReplicaPolicyDto } from './replica-policy.dto';
 
 class BuildConfigDto {
   @IsIn(['auto', 'nixpacks', 'dockerfile'])
@@ -140,6 +143,17 @@ export class CreateServiceDto {
   @IsOptional()
   @IsString()
   volumePath?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(32)
+  replicas?: number;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ReplicaPolicyDto)
+  replicaPolicy?: ReplicaPolicyDto;
 
   @IsOptional()
   @ValidateNested({ each: true })

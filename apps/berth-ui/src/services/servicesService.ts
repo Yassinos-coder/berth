@@ -36,6 +36,7 @@ export interface UpdateServicePayload {
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
   previewsEnabled?: boolean;
   alertsMuted?: boolean;
+  resources?: Pick<Service['resources'], 'cpuCores' | 'memoryMb'>;
   volumePath?: string;
 }
 

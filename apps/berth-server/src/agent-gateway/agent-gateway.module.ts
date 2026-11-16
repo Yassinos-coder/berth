@@ -3,6 +3,7 @@ import { GithubAppModule } from '../github-app/github-app.module';
 import { ActivityModule } from '../activity/activity.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CaService } from './pki/ca.service';
+import { CertificateRenewalService } from './pki/certificate-renewal.service';
 import { EnrollmentService } from './pki/enrollment.service';
 import { AgentGatewayService } from './gateway/agent-gateway.service';
 import { AgentRegistry } from './registry/agent-registry.service';
@@ -22,6 +23,7 @@ import { MetricsModule } from '../metrics/metrics.module';
   providers: [
     CaService,
     EnrollmentService,
+    CertificateRenewalService,
     AgentGatewayService,
     AgentRegistry,
     AgentMessageHandler,

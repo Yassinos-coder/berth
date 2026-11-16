@@ -25,6 +25,7 @@ import { BuildSettings } from '@/features/services/BuildSettings';
 import { PreviewSettings } from '@/features/services/PreviewSettings';
 import { AlertMuteSettings } from '@/features/services/AlertMuteSettings';
 import { VolumeSettings } from '@/features/services/VolumeSettings';
+import { ResourceSettings } from '@/features/services/ResourceSettings';
 import { ResourcePressure } from '@/features/services/utils/resourcePressure';
 import { EnvironmentPicker } from '@/features/services/EnvironmentPicker';
 import { RegistryCredentialPicker } from '@/features/services/RegistryCredentialPicker';
@@ -466,6 +467,7 @@ export function ServiceDetailPage() {
                   volumePath={svc.volumePath}
                   managedByTemplate={Boolean(svc.templateKind)}
                 />
+                <ResourceSettings serviceId={svc.id} resources={svc.resources} />
                 <AlertMuteSettings serviceId={svc.id} muted={svc.alertsMuted} />
                 <RegistryCredentialPicker
                   serviceId={svc.id}

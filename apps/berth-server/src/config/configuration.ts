@@ -4,8 +4,10 @@ export interface AppConfig {
   databaseUrl: string;
   publicPanelUrl: string;
   agentRepoUrl: string;
+  agentInstallUrl: string;
   jwtSecret: string;
   masterKey: string;
+  previousMasterKeys: string[];
   corsOrigin: string;
   localBootstrapToken: string;
   localHostname: string;
@@ -34,8 +36,15 @@ export default (): AppConfig => ({
   databaseUrl: process.env.DATABASE_URL ?? '',
   publicPanelUrl: process.env.BERTH_PUBLIC_PANEL_URL ?? '',
   agentRepoUrl: process.env.BERTH_AGENT_REPO_URL ?? '',
+  agentInstallUrl:
+    process.env.BERTH_AGENT_INSTALL_URL ??
+    'https://yassinos-coder.github.io/berth/agent-install.sh',
   jwtSecret: process.env.JWT_SECRET ?? 'dev-only-insecure-change-me',
   masterKey: process.env.BERTH_MASTER_KEY ?? 'dev-only-insecure-change-me',
+  previousMasterKeys: (process.env.BERTH_MASTER_KEY_PREVIOUS ?? '')
+    .split(',')
+    .map((key) => key.trim())
+    .filter(Boolean),
   corsOrigin: process.env.BERTH_CORS_ORIGIN ?? 'http://localhost:3000',
   localBootstrapToken: process.env.BERTH_LOCAL_BOOTSTRAP ?? '',
   localHostname: process.env.BERTH_LOCAL_HOSTNAME ?? '',

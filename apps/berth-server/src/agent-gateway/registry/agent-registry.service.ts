@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { RequestContext } from '../../common/utils/request-context.util';
 import type { WebSocket } from 'ws';
 import type { PanelToAgent } from '@berth/protocol';
 import { ReconcilePlanner } from '../reconcile/reconcile-planner.service';
@@ -52,12 +53,17 @@ export class AgentRegistry {
       this.planner.proxyRoutesForServer(serverId),
       this.planner.panelRouteForServer(serverId),
     ]);
+    const correlationId = RequestContext.requestId();
+    this.logger.log(
+      `reconcile -> ${serverId} (${services.length} services)${correlationId ? ` [${correlationId}]` : ''}`,
+    );
     this.send(serverId, {
       type: 'Reconcile',
       services,
       proxies,
       panel,
       forceServiceIds,
+      correlationId,
     });
   }
 

@@ -27,6 +27,9 @@ import { SecretCipher } from '../../common/crypto/secret-cipher.service';
 import { RegistryCredentialRepository } from '../../registry-credentials/repositories/registry-credential.repository';
 import { CreateServiceDto } from '../dto/create-service.dto';
 import { UpdateServiceDto } from '../dto/update-service.dto';
+import { ScaleServiceDto } from '../dto/scale-service.dto';
+import { ReplicaPolicyValidator } from '../validators/replica-policy.validator';
+import { ReplicaEngineService } from './replica-engine.service';
 import type { AuthenticatedUser } from '../../common/interfaces';
 import { InternalDomainUtil } from '../../common/utils/internal-domain.util';
 import type { LogLine, MetricPeak, MetricPoint, ServiceDto } from '../interfaces';
@@ -58,6 +61,7 @@ export class ServicesService {
     private readonly telemetry: TelemetryBuffer,
     private readonly cipher: SecretCipher,
     private readonly registryCredentials: RegistryCredentialRepository,
+    private readonly replicaEngine: ReplicaEngineService,
   ) {}
 
   async list(orgId: string): Promise<ServiceDto[]> {
@@ -111,11 +115,26 @@ export class ServicesService {
       ? this.buildFromTemplate(user, dto)
       : this.buildFromSource(user, dto);
 
-    const service = await this.repository.create({
+    const creation = await this.repository.create({
       ...input,
+      replicas: dto.replicas ?? input.replicas ?? 1,
+      replicaPolicy: dto.replicaPolicy
+        ? ReplicaPolicyValidator.toJson(
+            this.replicaEngine.normalizePolicy(dto.replicaPolicy),
+          )
+        : undefined,
       environmentId: dto.environmentId,
       internalDomains: [InternalDomainUtil.generate(dto.name)],
     });
+    if (creation.status === 'capacity') {
+      throw new BadRequestException(
+        'Service CPU or memory limits exceed the target server capacity',
+      );
+    }
+    if (creation.status === 'not-found') {
+      throw new BadRequestException('Target server not found');
+    }
+    const service = creation.value;
 
     if (service.sourceKind === SourceKind.git) {
       await this.deployments.create({
@@ -179,7 +198,12 @@ export class ServicesService {
     }
 
     const name = dto.name?.trim();
-    const updated = await this.repository.updateBuildConfig(user.orgId, id, {
+    if (dto.replicas !== undefined && (dto.replicas < 1 || dto.replicas > 32)) {
+      throw new BadRequestException('Replica count must be between 1 and 32');
+    }
+    const touchesResources = dto.resources !== undefined;
+
+    const update = await this.repository.updateBuildConfig(user.orgId, id, {
       name: name && name.length > 0 ? name : undefined,
       rootDirectory: emptyToNull(dto.rootDirectory),
       buildCommand: emptyToNull(dto.buildCommand),
@@ -190,19 +214,85 @@ export class ServicesService {
       targetPlatform: dto.targetPlatform,
       previewsEnabled: dto.previewsEnabled,
       alertsMuted: dto.alertsMuted,
+      replicas: dto.replicas,
+      replicaPolicy: dto.replicaPolicy
+        ? ReplicaPolicyValidator.toJson(
+            this.replicaEngine.normalizePolicy(dto.replicaPolicy),
+          )
+        : undefined,
+      cpuCores: dto.resources?.cpuCores,
+      memoryMb: dto.resources?.memoryMb,
+      cpuShares: dto.resources?.cpuShares,
       ...volumeChange,
     });
-    if (!updated) throw new NotFoundException('Service not found');
+    if (update.status === 'capacity') {
+      throw new BadRequestException(
+        'Replica CPU or memory limits exceed the target server capacity',
+      );
+    }
+    if (update.status === 'not-found') {
+      throw new NotFoundException('Service not found');
+    }
+    const updated = update.value;
 
+    if (touchesResources) {
+      await this.registry.reconcileServer(service.serverId, [id]);
+    }
     await this.activityService.record(user.orgId, {
       kind: ActivityKind.deploy,
       title: `${updated.name} updated`,
       detail:
-        touchesBuild || volumeChange
+        touchesResources
+          ? 'Resource limits updated and live reconciliation requested.'
+          : touchesBuild || volumeChange
           ? 'Redeploy to apply the new configuration.'
           : 'Service settings updated.',
       actor: user.id,
     });
+    return ServiceMapper.toDto(updated, this.usageFor(updated.id));
+  }
+
+  async scale(
+    user: AuthenticatedUser,
+    id: string,
+    dto: ScaleServiceDto,
+  ): Promise<ServiceDto> {
+    const service = await this.repository.findById(user.orgId, id);
+    if (!service) throw new NotFoundException('Service not found');
+
+    const nextReplicas = dto.replicas ?? service.replicas;
+    if (nextReplicas < 1 || nextReplicas > 32) {
+      throw new BadRequestException('Replica count must be between 1 and 32');
+    }
+
+    const update = await this.repository.updateReplicas(
+      user.orgId,
+      id,
+      nextReplicas,
+      dto.replicaPolicy
+        ? ReplicaPolicyValidator.toJson(
+            this.replicaEngine.normalizePolicy(dto.replicaPolicy),
+          )
+        : undefined,
+    );
+    if (update.status === 'capacity') {
+      throw new BadRequestException(
+        'Replica CPU or memory limits exceed the target server capacity',
+      );
+    }
+    if (update.status === 'not-found') {
+      throw new NotFoundException('Service not found');
+    }
+    const updated = update.value;
+
+    await this.registry.reconcileServer(service.serverId, [id]);
+    await this.activityService.record(user.orgId, {
+      kind: ActivityKind.deploy,
+      title: `${updated.name} scaled`,
+      detail: `Replica count ${service.replicas} -> ${updated.replicas}.`,
+      actor: user.id,
+    });
+
     return ServiceMapper.toDto(updated, this.usageFor(updated.id));
   }
 
@@ -305,9 +395,22 @@ export class ServicesService {
     const service = await this.repository.findById(user.orgId, id);
     if (!service) throw new NotFoundException('Service not found');
 
-    await this.repository.updateState(user.orgId, id, ACTION_STATE[action]);
+    const stateUpdate = await this.repository.updateStateWithCapacity(
+      user.orgId,
+      id,
+      ACTION_STATE[action],
+    );
+    if (stateUpdate.status === 'capacity') {
+      throw new BadRequestException(
+        'Service CPU or memory limits exceed the target server capacity',
+      );
+    }
+    if (stateUpdate.status === 'not-found') {
+      throw new NotFoundException('Service not found');
+    }
 
     if (action === 'redeploy') {
+      await this.deployments.clearServiceCommitPin(user.orgId, id);
       await this.deployments.create({
         orgId: user.orgId,
         serviceId: id,
@@ -370,6 +473,7 @@ export class ServicesService {
       memoryMb: dto.resources.memoryMb,
       cpuShares: dto.resources.cpuShares,
       diskGb: dto.diskGb,
+      replicas: dto.replicas ?? 1,
       templateKind: generated.templateKind,
       containerPort: generated.containerPort,
       publicNetworking: dto.publicNetworking ?? false,
@@ -398,6 +502,7 @@ export class ServicesService {
       memoryMb: dto.resources.memoryMb,
       cpuShares: dto.resources.cpuShares,
       diskGb: dto.diskGb,
+      replicas: dto.replicas ?? 1,
       templateKind: generated.templateKind,
       containerPort: generated.containerPort,
       publicNetworking: dto.publicNetworking ?? false,

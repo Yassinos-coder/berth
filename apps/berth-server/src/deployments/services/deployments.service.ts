@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   ActivityKind,
   DeploymentStatus,
@@ -38,6 +42,22 @@ export class DeploymentsService {
   ): Promise<{ ok: boolean }> {
     const deployment = await this.repository.findById(user.orgId, deploymentId);
     if (!deployment) throw new NotFoundException('Deployment not found');
+    if (deployment.status !== DeploymentStatus.live) {
+      throw new BadRequestException(
+        'Only a deployment that went live can be rolled back to',
+      );
+    }
+    if (!deployment.commitSha) {
+      throw new BadRequestException(
+        'This deployment has no commit to roll back to',
+      );
+    }
+    const pinned = await this.repository.pinServiceCommit(
+      user.orgId,
+      deployment.serviceId,
+      deployment.commitSha,
+    );
+    if (!pinned) throw new NotFoundException('Service not found');
 
     await this.repository.create({
       orgId: user.orgId,
@@ -56,7 +76,7 @@ export class DeploymentsService {
       actor: user.id,
     });
 
-    await this.registry.reconcileForService(deployment.serviceId);
+    await this.registry.reconcileForService(deployment.serviceId, true);
     return { ok: true };
   }
 }

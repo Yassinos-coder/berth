@@ -5,6 +5,7 @@ import {
   DeploymentTrigger,
   Prisma,
   Service,
+  ServiceState,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -40,6 +41,25 @@ export class DeploymentRepository {
 
   findById(orgId: string, id: string): Promise<Deployment | null> {
     return this.prisma.deployment.findFirst({ where: { id, orgId } });
+  }
+
+  async pinServiceCommit(
+    orgId: string,
+    serviceId: string,
+    commitSha: string,
+  ): Promise<boolean> {
+    const result = await this.prisma.service.updateMany({
+      where: { id: serviceId, orgId },
+      data: { rollbackCommitSha: commitSha, state: ServiceState.building },
+    });
+    return result.count > 0;
+  }
+
+  clearServiceCommitPin(orgId: string, serviceId: string): Promise<unknown> {
+    return this.prisma.service.updateMany({
+      where: { id: serviceId, orgId, rollbackCommitSha: { not: null } },
+      data: { rollbackCommitSha: null },
+    });
   }
 
   create(data: {

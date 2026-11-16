@@ -43,17 +43,7 @@ pub async fn enroll(config: &AgentConfig) -> AgentResult<()> {
         .clone()
         .ok_or("BERTH_BOOTSTRAP is required to enroll")?;
 
-    let mut rng = rand::thread_rng();
-    let private_key = RsaPrivateKey::new(&mut rng, 2048)
-        .map_err(|error| format!("failed to generate RSA key: {error}"))?;
-    let key_pem = private_key.to_pkcs8_pem(LineEnding::LF)?.to_string();
-    let key_pair = KeyPair::from_pem_and_sign_algo(&key_pem, &PKCS_RSA_SHA256)?;
-
-    let mut params = CertificateParams::new(Vec::<String>::new())?;
-    let mut dn = DistinguishedName::new();
-    dn.push(DnType::CommonName, config.agent_id.clone());
-    params.distinguished_name = dn;
-    let csr_pem = params.serialize_request(&key_pair)?.pem()?;
+    let (key_pem, csr_pem) = generate_identity_request(&config.agent_id)?;
 
     let connector = Connector::Rustls(tls::enrollment_config(&config.ca_cert_path)?);
     let url = format!("{}/enroll?bootstrap={}", base.trim_end_matches('/'), token);
@@ -108,4 +98,118 @@ fn write_secure(path: &str, data: &[u8]) -> AgentResult<()> {
         fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
     }
     Ok(())
+}
+
+fn generate_identity_request(agent_id: &str) -> AgentResult<(String, String)> {
+    let mut rng = rand::thread_rng();
+    let private_key = RsaPrivateKey::new(&mut rng, 2048)
+        .map_err(|error| format!("failed to generate RSA key: {error}"))?;
+    let key_pem = private_key.to_pkcs8_pem(LineEnding::LF)?.to_string();
+    let key_pair = KeyPair::from_pem_and_sign_algo(&key_pem, &PKCS_RSA_SHA256)?;
+
+    let mut params = CertificateParams::new(Vec::<String>::new())?;
+    let mut dn = DistinguishedName::new();
+    dn.push(DnType::CommonName, agent_id.to_string());
+    params.distinguished_name = dn;
+    let csr_pem = params.serialize_request(&key_pair)?.pem()?;
+    Ok((key_pem, csr_pem))
+}
+
+fn pending_key_path(client_key_path: &str) -> String {
+    format!("{client_key_path}.pending")
+}
+
+pub async fn prepare_renewal(config: &AgentConfig) -> AgentResult<String> {
+    let agent_id = config.agent_id.clone();
+    let generated = tokio::task::spawn_blocking(move || {
+        generate_identity_request(&agent_id).map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| format!("key generation task failed: {error}"))??;
+    let (key_pem, csr_pem) = generated;
+    write_secure(&pending_key_path(&config.client_key_path), key_pem.as_bytes())?;
+    Ok(csr_pem)
+}
+
+pub fn install_renewed_certificate(config: &AgentConfig, cert_pem: &str) -> AgentResult<()> {
+    install_renewed_identity(&config.client_key_path, &config.client_cert_path, cert_pem)
+}
+
+fn install_renewed_identity(
+    client_key_path: &str,
+    client_cert_path: &str,
+    cert_pem: &str,
+) -> AgentResult<()> {
+    let pending_key = pending_key_path(client_key_path);
+    if !Path::new(&pending_key).exists() {
+        return Err("no pending key for the renewed certificate".into());
+    }
+    if !cert_pem.contains("BEGIN CERTIFICATE") {
+        return Err("panel sent an invalid renewed certificate".into());
+    }
+
+    let staged_cert = format!("{client_cert_path}.new");
+    write_secure(&staged_cert, cert_pem.as_bytes())?;
+    fs::rename(&pending_key, client_key_path)?;
+    fs::rename(&staged_cert, client_cert_path)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod renewal_tests {
+    use super::*;
+
+    #[test]
+    fn installs_the_pending_key_with_the_new_certificate() {
+        let dir = std::env::temp_dir().join(format!("berth-renew-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let key = dir.join("client.key").to_string_lossy().to_string();
+        let cert = dir.join("client.crt").to_string_lossy().to_string();
+        fs::write(&key, "OLD KEY").unwrap();
+        fs::write(&cert, "OLD CERT").unwrap();
+        fs::write(pending_key_path(&key), "NEW KEY").unwrap();
+
+        install_renewed_identity(&key, &cert, "-----BEGIN CERTIFICATE-----\nNEW\n").unwrap();
+
+        assert_eq!(fs::read_to_string(&key).unwrap(), "NEW KEY");
+        assert!(fs::read_to_string(&cert).unwrap().contains("NEW"));
+        assert!(!Path::new(&pending_key_path(&key)).exists());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn leaves_the_current_identity_untouched_without_a_pending_key() {
+        let dir = std::env::temp_dir().join(format!("berth-renew-none-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let key = dir.join("client.key").to_string_lossy().to_string();
+        let cert = dir.join("client.crt").to_string_lossy().to_string();
+        fs::write(&key, "OLD KEY").unwrap();
+        fs::write(&cert, "OLD CERT").unwrap();
+
+        assert!(install_renewed_identity(&key, &cert, "-----BEGIN CERTIFICATE-----").is_err());
+        assert_eq!(fs::read_to_string(&key).unwrap(), "OLD KEY");
+        assert_eq!(fs::read_to_string(&cert).unwrap(), "OLD CERT");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn rejects_a_non_certificate_payload_and_keeps_the_pending_key() {
+        let dir = std::env::temp_dir().join(format!("berth-renew-bad-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let key = dir.join("client.key").to_string_lossy().to_string();
+        let cert = dir.join("client.crt").to_string_lossy().to_string();
+        fs::write(&key, "OLD KEY").unwrap();
+        fs::write(pending_key_path(&key), "NEW KEY").unwrap();
+
+        assert!(install_renewed_identity(&key, &cert, "garbage").is_err());
+        assert_eq!(fs::read_to_string(&key).unwrap(), "OLD KEY");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn generated_requests_are_valid_csrs() {
+        let (key, csr) = generate_identity_request("agent-1").unwrap();
+        assert!(key.contains("PRIVATE KEY"));
+        assert!(csr.contains("CERTIFICATE REQUEST"));
+    }
 }

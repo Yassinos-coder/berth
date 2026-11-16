@@ -87,7 +87,11 @@ async fn connect_and_serve(
         &config.client_cert_path,
         &config.client_key_path,
     )?);
-    let url = format!("{}/agent", base.trim_end_matches('/'));
+    let url = format!(
+        "{}/agent?protocol={}",
+        base.trim_end_matches('/'),
+        crate::protocol::PROTOCOL_VERSION
+    );
 
     let ws_config = WebSocketConfig {
         max_message_size: Some(MAX_MESSAGE_BYTES),
@@ -141,6 +145,7 @@ async fn connect_and_serve(
                     let next = queue.remove(0);
                     if let Err(error) = handle_message(
                         next,
+                        config,
                         reconciler,
                         &mut sink,
                         &mut stream,
@@ -170,6 +175,7 @@ async fn connect_and_serve(
 #[allow(clippy::too_many_arguments)]
 async fn handle_message(
     inbound: PanelToAgent,
+    config: &AgentConfig,
     reconciler: &DockerReconciler,
     sink: &mut WsSink,
     stream: &mut WsStream,
@@ -184,7 +190,16 @@ async fn handle_message(
             proxies,
             panel,
             force_service_ids,
+            correlation_id,
         } => {
+            eprintln!(
+                "[berth-agent] reconcile requested ({} services){}",
+                services.len(),
+                correlation_id
+                    .as_deref()
+                    .map(|id| format!(" [request {id}]"))
+                    .unwrap_or_default()
+            );
             let (log_tx, mut log_rx) = mpsc::unbounded_channel::<(String, String)>();
             let reconcile = reconciler.reconcile(
                 &services,
@@ -287,6 +302,14 @@ async fn handle_message(
         }
         PanelToAgent::SelfUpdate => {
             launch_self_update();
+        }
+        PanelToAgent::RenewCertificate => {
+            let csr = enroll::prepare_renewal(config).await?;
+            send_json(sink, &AgentToPanel::CertificateRenewal { csr }).await?;
+        }
+        PanelToAgent::CertificateIssued { cert_pem } => {
+            enroll::install_renewed_certificate(config, &cert_pem)?;
+            eprintln!("[berth-agent] client certificate renewed; it is used from the next reconnect");
         }
         PanelToAgent::RunBackup {
             backup_id,

@@ -74,6 +74,7 @@ export class ServersService {
   private buildEnrollment(token: string, expiresAt: Date): EnrollmentDto {
     const panelUrl = this.configService.get('publicPanelUrl');
     const agentRepoUrl = this.configService.get('agentRepoUrl');
+    const installUrl = this.configService.get('agentInstallUrl');
     const envParts = [`BERTH_BOOTSTRAP='${token}'`];
 
     if (panelUrl) {
@@ -86,7 +87,7 @@ export class ServersService {
 
     return {
       token,
-      installCommand: `curl -fsSL https://berth.sh/install | ${envParts.join(' ')} sudo bash`,
+      installCommand: `curl -fsSL ${installUrl} | ${envParts.join(' ')} sudo bash`,
       expiresAt: expiresAt.toISOString(),
     };
   }

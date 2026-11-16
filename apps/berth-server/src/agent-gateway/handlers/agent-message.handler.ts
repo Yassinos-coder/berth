@@ -16,6 +16,7 @@ import { ActivityService } from '../../activity/activity.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { ExecSessionService } from '../exec/exec-session.service';
 import { MetricsRecorderService } from '../../metrics/services/metrics-recorder.service';
+import { CertificateRenewalService } from '../pki/certificate-renewal.service';
 
 @Injectable()
 export class AgentMessageHandler {
@@ -30,12 +31,16 @@ export class AgentMessageHandler {
     private readonly notifications: NotificationsService,
     private readonly exec: ExecSessionService,
     private readonly metricsRecorder: MetricsRecorderService,
+    private readonly certificateRenewal: CertificateRenewalService,
   ) {}
 
   async handle(serverId: string, message: AgentToPanel): Promise<void> {
     switch (message.type) {
       case 'Enrolled':
         await this.onEnrolled(serverId, message.serverSpecs);
+        return;
+      case 'CertificateRenewal':
+        await this.certificateRenewal.issue(serverId, message.csr);
         return;
       case 'ServiceStatus':
         await this.onServiceStatus(serverId, message.serviceId, message.state, message.deployed);

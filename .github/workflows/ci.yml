@@ -10,31 +10,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @berth/server prisma:generate
-      - run: pnpm --filter @berth/protocol build
-      - run: pnpm type-check
-      - run: pnpm test
-      - run: pnpm build
+      - run: bun install --frozen-lockfile
+      - run: bun --filter @berth/server prisma:generate
+      - run: bun --filter @berth/protocol build
+      - run: bun run type-check
+      - run: bun run test
+      - run: bun run build
 
   e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @berth/protocol build
-      - run: pnpm --filter @berth/ui exec playwright install --with-deps chromium
-      - run: pnpm --filter @berth/ui test:e2e
+      - run: bun install --frozen-lockfile
+      - run: bun --filter @berth/protocol build
+      - run: bun --filter @berth/ui exec playwright install --with-deps chromium
+      - run: bun --filter @berth/ui test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -56,3 +58,100 @@ jobs:
           workspaces: apps/berth-agent
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: berth
+          POSTGRES_PASSWORD: berth
+          POSTGRES_DB: berth
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U berth"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://berth:berth@localhost:5432/berth
+      SHADOW_DATABASE_URL: postgresql://berth:berth@localhost:5432/berth_shadow
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-only-jwt-secret-not-for-production-use
+      BERTH_MASTER_KEY: ci-only-master-key-not-for-production
+      BERTH_CA_CERT_PATH: ./ci-certs/ca.pem
+      BERTH_CA_KEY_PATH: ./ci-certs/ca-key.pem
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+      - run: bun --filter @berth/protocol build
+      - run: bun --filter @berth/server prisma:generate
+      - name: Apply migrations to an empty database
+        working-directory: apps/berth-server
+        run: bun run migrate
+      - name: Fail on schema drift
+        working-directory: apps/berth-server
+        run: |
+          PGPASSWORD=berth psql -h localhost -U berth -d berth -c 'CREATE DATABASE berth_shadow'
+          bunx prisma migrate diff             --from-migrations prisma/migrations             --to-schema-datamodel prisma/schema.prisma             --shadow-database-url "$SHADOW_DATABASE_URL"             --exit-code
+      - run: bun --filter @berth/server build
+      - run: mkdir -p apps/berth-server/ci-certs
+      - name: Panel smoke test (database and Redis backed)
+        run: ./scripts/smoke-panel.sh
+
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - name: Audit production JavaScript dependencies (blocks on critical)
+        run: bun audit --prod --audit-level=critical
+      - name: Audit all JavaScript dependencies (report only)
+        continue-on-error: true
+        run: bun audit --audit-level=high
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Audit Rust dependencies
+        run: |
+          cargo install cargo-audit --locked
+          cargo audit
+        working-directory: apps/berth-agent
+      - name: Lint Dockerfiles
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: apps/berth-server/Dockerfile
+          failure-threshold: error
+      - name: Lint UI Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: apps/berth-ui/Dockerfile
+          failure-threshold: error
+
+  agent-protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/berth-agent
+      - name: Agent and panel agree on the protocol version
+        run: cargo test matches_the_typescript_protocol_package
+        working-directory: apps/berth-agent

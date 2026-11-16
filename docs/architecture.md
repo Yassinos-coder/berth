@@ -103,7 +103,7 @@ Containers labeled `berth.service_id` + `berth.spec_hash`. Unlabeled containers 
 ## Enrollment
 
 1. User clicks "Add Server" → panel mints one-time, short-TTL bootstrap token.
-2. UI shows `curl -sSL berth.sh/install | BOOTSTRAP=xxx sudo sh`.
+2. UI shows `curl -fsSL https://yassinos-coder.github.io/berth/agent-install.sh | BERTH_BOOTSTRAP=xxx sudo bash`.
 3. Script installs agent binary + systemd unit.
 4. Agent dials panel, presents bootstrap token.
 5. Panel verifies → issues long-lived client cert + agent ID. Token burned.
@@ -125,6 +125,19 @@ GitHub push → webhook to Nest (verify HMAC) → which app/agent?
 - Secrets: envelope encryption in Postgres (per-secret data key wrapped by master key). Decrypted only when sent to agent.
 - Agent gets short-lived scoped tokens for git clone — never raw GitHub credentials. Blast-radius control.
 - Panel is unprivileged; only the native agent has host power.
+
+## Production-readiness expectations
+
+The system is intentionally built as a self-hosted platform, so operational correctness matters as much as code quality. The project should be treated as a critical infrastructure tool, not a simple demo app.
+
+Before a major release, the platform should prove:
+- agent certificate renewal and revocation work without manual cleanup
+- deploy rollback remains safe and fast when a new image fails healthchecks
+- a panel or agent update can be completed with known rollback steps
+- secrets rotate without downtime and are logged only as metadata, never in plain text
+- failed deploys show a clear root cause and retain the last known-good service state
+
+See [Operations](operations.md) and the [security policy](security.md) for the operational runbooks and security baseline.
 
 ## Build-first order (de-risk)
 

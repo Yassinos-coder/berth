@@ -1,12 +1,12 @@
 # Berth — Project Context for Claude
 
-This file is your memory of what Berth is and every architectural decision made so far. Read it fully before working. Global preferences in `~/.claude/CLAUDE.md` still apply (TypeScript conventions, no self-attribution in commits, never push without explicit approval, run `/changelog` before push, gitignore `package-lock.json`, etc.).
+This file is your memory of what Berth is and every architectural decision made so far. Read it fully before working. Global preferences in `~/.claude/CLAUDE.md` still apply (TypeScript conventions, no self-attribution in commits, never push without explicit approval, run `/changelog` before push, gitignore `package-lock.json`, etc.). **Package manager is Bun, not pnpm** (`bun install`, `bun --filter @berth/x <script>`, `bunx`); `bun.lock` is committed..
 
 ## What Berth is
 
 A **self-hosted, open-source deployment panel** for your own VPS — the manageability of Railway/Render/Hostinger, but on infrastructure the user owns (OVH, Hetzner, any Ubuntu box). Install a panel on your VPS, connect GitHub, deploy apps/databases/services with per-container resource limits, RBAC teams, and CI/CD on push.
 
-Onboarding: user buys a cheap VPS → `curl -sSL berth.sh | sudo bash` → opens `http://<server-ip>:3000` → creates admin account → connects GitHub → deploys.
+Onboarding: user buys a cheap VPS → `curl -fsSL https://yassinos-coder.github.io/berth/install.sh | sudo bash` (served from GitHub Pages; the workflow copies `install.sh` and `apps/berth-agent/install.sh` into the site as `/install.sh` and `/agent-install.sh`) → opens `http://<server-ip>:3000` → creates admin account → connects GitHub → deploys.
 
 ## Settled decisions (do not relitigate without reason)
 
@@ -48,7 +48,7 @@ Docker labels `berth.service_id` + `berth.spec_hash` let the agent know what it 
 |---|---|
 | Product / panel | **Berth** |
 | Rust agent | `berth-agent` |
-| Install domain | `berth.sh` (available; `.io`/`.com`/`.dev` taken) |
+| Install URL | GitHub Pages `https://yassinos-coder.github.io/berth/` (`berth.sh` not registered) |
 | A deployed service | a **berth** ("spin up a new berth") |
 | Container labels | `berth.service_id`, `berth.spec_hash` |
 | CLI | `berth` (`berth deploy`, `berth logs`, `berth mcp`) |
@@ -104,5 +104,5 @@ Sessions are **httpOnly + Secure + SameSite=strict cookies** (not localStorage).
 
 ## Open questions to resolve before/while building
 
-- Monorepo tooling — using Turborepo + pnpm workspaces (settled in practice).
+- Monorepo tooling — using Turborepo + Bun workspaces (settled in practice).
 - License choice (Apache-2.0 vs AGPL-3.0).

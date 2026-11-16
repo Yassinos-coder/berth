@@ -1,6 +1,6 @@
 [Unit]
 Description=Berth agent
-Documentation=https://berth.sh
+Documentation=https://yassinos-coder.github.io/berth/
 After=network-online.target docker.service
 Wants=network-online.target
 Requires=docker.service

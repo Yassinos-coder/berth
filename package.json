@@ -3,26 +3,54 @@
   "version": "0.15.0",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
-  "packageManager": "pnpm@11.20.0",
+  "packageManager": "bun@1.4.3",
   "engines": {
-    "node": ">=20"
+    "node": ">=20",
+    "bun": ">=1.2"
   },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "dev:ui": "pnpm --filter @berth/ui dev",
-    "dev:server": "pnpm --filter @berth/server dev",
-    "dev:landing": "pnpm --filter @berth/landing dev",
+    "dev:ui": "bun --filter @berth/ui dev",
+    "dev:server": "bun --filter @berth/server dev",
+    "dev:landing": "bun --filter @berth/landing dev",
+    "dev:docs": "bun --filter @berth/docs dev",
     "dev:agent": "cargo run --manifest-path apps/berth-agent/Cargo.toml",
-    "build:ui": "pnpm --filter @berth/ui build",
-    "build:server": "pnpm --filter @berth/server build",
-    "build:landing": "pnpm --filter @berth/landing build",
+    "build:ui": "bun --filter @berth/ui build",
+    "build:server": "bun --filter @berth/server build",
+    "build:landing": "bun --filter @berth/landing build",
+    "build:docs": "bun --filter @berth/docs build",
+    "docs:dev": "bun --filter @berth/docs dev",
+    "docs:build": "bun --filter @berth/docs build",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "type-check": "turbo run type-check"
   },
   "devDependencies": {
     "turbo": "^2.10.9",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vue": "^3.5.45"
+  },
+  "workspaces": [
+    "apps/berth-server",
+    "apps/berth-ui",
+    "apps/berth-landing-page",
+    "apps/berth-docs",
+    "packages/*"
+  ],
+  "trustedDependencies": [
+    "@prisma/client",
+    "@prisma/engines",
+    "argon2",
+    "esbuild",
+    "prisma",
+    "sharp"
+  ],
+  "overrides": {
+    "proxy-addr": "2.0.8",
+    "body-parser": "2.4.0",
+    "multer": "2.5.0",
+    "browserslist": "4.29.6",
+    "fast-uri": "3.1.7"
   }
 }

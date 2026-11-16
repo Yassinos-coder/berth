@@ -86,7 +86,10 @@ impl DockerReconciler {
         let mut current_by_service = HashMap::new();
 
         for container in current.drain(..) {
-            current_by_service.insert(container.service_id.clone(), container);
+            current_by_service
+                .entry(container.service_id.clone())
+                .or_insert_with(Vec::new)
+                .push(container);
         }
 
         let mut applied = Vec::new();
@@ -114,15 +117,13 @@ impl DockerReconciler {
 
             match &spec.source {
                 ServiceSource::Image { image, tag } => {
-                    let existing = current_by_service.remove(&spec.id);
-                    if let Some(container) = existing.as_ref() {
-                        if let Err(error) = self.update_resources(&container.name, spec).await {
-                            eprintln!(
-                                "[berth-agent] resource update failed for {}: {error}",
-                                spec.id
-                            );
-                        }
-                    }
+                    let existing = current_by_service.remove(&spec.id).and_then(|replicas| {
+                        replicas
+                            .iter()
+                            .find(|container| container.name == container_name(&spec.id))
+                            .cloned()
+                            .or_else(|| replicas.into_iter().next())
+                    });
                     let should_replace = existing
                         .as_ref()
                         .map(|container| {
@@ -190,6 +191,17 @@ impl DockerReconciler {
                             }
                         }
                     } else if let Some(container) = existing {
+                        if let Err(error) = self.update_resources(&container.name, spec).await {
+                            record_failure(
+                                &mut failed,
+                                &mut statuses,
+                                build_log,
+                                &spec.id,
+                                &error.to_string(),
+                                Some(&container),
+                            );
+                            continue;
+                        }
                         applied.push(spec.id.clone());
                         statuses.push(ServiceStatusEvent {
                             service_id: spec.id.clone(),
@@ -200,15 +212,13 @@ impl DockerReconciler {
                     }
                 }
                 ServiceSource::Git { .. } => {
-                    let existing = current_by_service.remove(&spec.id);
-                    if let Some(container) = existing.as_ref() {
-                        if let Err(error) = self.update_resources(&container.name, spec).await {
-                            eprintln!(
-                                "[berth-agent] resource update failed for {}: {error}",
-                                spec.id
-                            );
-                        }
-                    }
+                    let existing = current_by_service.remove(&spec.id).and_then(|replicas| {
+                        replicas
+                            .iter()
+                            .find(|container| container.name == container_name(&spec.id))
+                            .cloned()
+                            .or_else(|| replicas.into_iter().next())
+                    });
                     let forced = force_service_ids.iter().any(|id| id == &spec.id);
                     let should_replace = existing
                         .as_ref()
@@ -219,6 +229,18 @@ impl DockerReconciler {
                         .unwrap_or(true)
                         || forced;
                     if !should_replace {
+                        let container = existing.as_ref().expect("existing container");
+                        if let Err(error) = self.update_resources(&container.name, spec).await {
+                            record_failure(
+                                &mut failed,
+                                &mut statuses,
+                                build_log,
+                                &spec.id,
+                                &error.to_string(),
+                                Some(container),
+                            );
+                            continue;
+                        }
                         let container = existing.expect("existing container");
                         applied.push(spec.id.clone());
                         statuses.push(ServiceStatusEvent {
@@ -298,17 +320,43 @@ impl DockerReconciler {
             }
         }
 
-        for (service_id, container) in current_by_service {
+        let failed_ids: HashSet<String> = failed
+            .iter()
+            .map(|failure| failure.service_id.clone())
+            .collect();
+        for spec in desired {
+            if !applied.iter().any(|id| id == &spec.id) || failed_ids.contains(&spec.id) {
+                continue;
+            }
+            if let Err(error) = self.sync_replica_count(spec, build_log).await {
+                failed.push(FailedApply {
+                    service_id: spec.id.clone(),
+                    reason: redact_credentials(&error.to_string()),
+                });
+                applied.retain(|id| id != &spec.id);
+                if let Some(status) = statuses
+                    .iter_mut()
+                    .rev()
+                    .find(|status| status.service_id == spec.id)
+                {
+                    status.deployed = false;
+                }
+            }
+        }
+
+        for (service_id, containers) in current_by_service {
             if desired_ids.contains(&service_id) {
                 continue;
             }
 
-            if let Err(error) = self.remove_container(&container.name).await {
-                eprintln!(
-                    "[berth-agent] failed to remove orphaned {}: {error}",
-                    container.name
-                );
-                continue;
+            for container in containers {
+                if let Err(error) = self.remove_container(&container.name).await {
+                    eprintln!(
+                        "[berth-agent] failed to remove orphaned {}: {error}",
+                        container.name
+                    );
+                    continue;
+                }
             }
             statuses.push(ServiceStatusEvent {
                 service_id,
@@ -444,7 +492,10 @@ impl DockerReconciler {
                 "-e",
                 "SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN=true",
                 "-e",
-                &format!("SFTPGO_DEFAULT_ADMIN_USERNAME={}", crate::sftpgo::ADMIN_USERNAME),
+                &format!(
+                    "SFTPGO_DEFAULT_ADMIN_USERNAME={}",
+                    crate::sftpgo::ADMIN_USERNAME
+                ),
                 "-e",
                 &format!("SFTPGO_DEFAULT_ADMIN_PASSWORD={admin_password}"),
                 "drakkan/sftpgo:latest",
@@ -559,15 +610,89 @@ impl DockerReconciler {
 
     pub async fn remove_service(&self, service_id: &str) -> AgentResult<bool> {
         let containers = self.list_managed_containers().await?;
+        let mut removed = false;
 
         for container in containers {
             if container.service_id == service_id {
                 self.remove_container(&container.name).await?;
-                return Ok(true);
+                removed = true;
             }
         }
 
-        Ok(false)
+        Ok(removed)
+    }
+
+    async fn sync_replica_count(
+        &self,
+        spec: &ServiceSpec,
+        build_log: Option<&BuildLogSink>,
+    ) -> AgentResult<()> {
+        if spec.replicas <= 1 {
+            let containers = self.list_managed_containers().await?;
+            for container in containers
+                .iter()
+                .filter(|container| container.service_id == spec.id)
+            {
+                if container.name != container_name(&spec.id) {
+                    self.remove_container(&container.name).await?;
+                }
+            }
+            return Ok(());
+        }
+
+        let image = match &spec.source {
+            ServiceSource::Image { image, tag } => format!("{image}:{tag}"),
+            ServiceSource::Git { .. } => self
+                .docker(&[
+                    "inspect",
+                    "-f",
+                    "{{.Config.Image}}",
+                    &container_name(&spec.id),
+                ])
+                .await?
+                .trim()
+                .to_string(),
+        };
+        let desired_hash = spec_hash(spec)?;
+        let containers = self.list_managed_containers().await?;
+        let service_containers: Vec<ManagedContainer> = containers
+            .into_iter()
+            .filter(|container| container.service_id == spec.id)
+            .collect();
+
+        for index in 1..spec.replicas {
+            let name = replica_container_name(&spec.id, index);
+            let existing = service_containers
+                .iter()
+                .find(|container| container.name == name)
+                .cloned();
+            if existing.as_ref().is_some_and(|container| {
+                container.spec_hash.as_deref() == Some(desired_hash.as_str())
+                    && matches!(container.state, ServiceState::Running)
+            }) {
+                self.update_resources(&name, spec).await?;
+                continue;
+            }
+
+            let (state, _) = self
+                .cutover_named(spec, &desired_hash, &image, existing, &name, build_log)
+                .await?;
+            if !matches!(state, ServiceState::Running) {
+                return Err(
+                    format!("replica {index} for {} did not become healthy", spec.id).into(),
+                );
+            }
+        }
+
+        for container in &service_containers {
+            if let Some(index) = replica_index(&spec.id, &container.name) {
+                if index >= spec.replicas {
+                    self.remove_container(&container.name).await?;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     async fn list_managed_containers(&self) -> AgentResult<Vec<ManagedContainer>> {
@@ -674,6 +799,7 @@ impl DockerReconciler {
         spec_hash: &str,
         built_image: Option<&str>,
         name: &str,
+        attach_aliases: bool,
     ) -> AgentResult<String> {
         let image_ref = match (&spec.source, built_image) {
             (_, Some(image)) => image.to_string(),
@@ -706,11 +832,12 @@ impl DockerReconciler {
             format!("{}m", spec.resources.memory_mb),
             "--network".to_string(),
             BERTH_NETWORK.to_string(),
-            "--network-alias".to_string(),
-            spec.name.clone(),
         ];
         if let Some(platform) = &spec.target_platform {
             args.splice(1..1, ["--platform".to_string(), platform.clone()]);
+        }
+        if attach_aliases {
+            append_network_aliases(&mut args, spec);
         }
 
         if let Some(cpu_shares) = spec.resources.cpu_shares {
@@ -721,11 +848,6 @@ impl DockerReconciler {
         if let Some(pids_limit) = spec.resources.pids_limit {
             args.push("--pids-limit".to_string());
             args.push(pids_limit.to_string());
-        }
-
-        for alias in &spec.aliases {
-            args.push("--network-alias".to_string());
-            args.push(alias.clone());
         }
 
         for env_var in &spec.env {
@@ -771,6 +893,26 @@ impl DockerReconciler {
         existing: Option<ManagedContainer>,
         build_log: Option<&BuildLogSink>,
     ) -> AgentResult<(ServiceState, Option<String>)> {
+        self.cutover_named(
+            spec,
+            spec_hash,
+            image,
+            existing,
+            &container_name(&spec.id),
+            build_log,
+        )
+        .await
+    }
+
+    async fn cutover_named(
+        &self,
+        spec: &ServiceSpec,
+        spec_hash: &str,
+        image: &str,
+        existing: Option<ManagedContainer>,
+        target_name: &str,
+        build_log: Option<&BuildLogSink>,
+    ) -> AgentResult<(ServiceState, Option<String>)> {
         emit_build_line(build_log, &spec.id, "==> Starting container");
         let publishes_host_port = spec
             .ports
@@ -782,7 +924,7 @@ impl DockerReconciler {
                 self.remove_container(&old.name).await?;
             }
             let container_id = self
-                .run_service(spec, spec_hash, Some(image), &container_name(&spec.id))
+                .run_service(spec, spec_hash, Some(image), target_name, true)
                 .await?;
             emit_build_line(build_log, &spec.id, "==> Container started");
             return Ok((ServiceState::Running, Some(container_id)));
@@ -790,25 +932,42 @@ impl DockerReconciler {
 
         let Some(old) = existing else {
             let container_id = self
-                .run_service(spec, spec_hash, Some(image), &container_name(&spec.id))
+                .run_service(
+                    spec,
+                    spec_hash,
+                    Some(image),
+                    target_name,
+                    target_name == container_name(&spec.id),
+                )
                 .await?;
+            if target_name != container_name(&spec.id) {
+                if let Err(error) = self.wait_until_healthy(target_name, spec).await {
+                    self.remove_container(target_name).await?;
+                    return Err(error);
+                }
+                self.connect_service_aliases(target_name, spec).await?;
+            }
             emit_build_line(build_log, &spec.id, "==> Container started");
             return Ok((ServiceState::Running, Some(container_id)));
         };
 
-        let next_name = container_name_next(&spec.id);
+        let next_name = if target_name == container_name(&spec.id) {
+            container_name_next(&spec.id)
+        } else {
+            format!("{target_name}-next")
+        };
         let _ = self.remove_container(&next_name).await;
         let container_id = self
-            .run_service(spec, spec_hash, Some(image), &next_name)
+            .run_service(spec, spec_hash, Some(image), &next_name, false)
             .await?;
 
         emit_build_line(build_log, &spec.id, "==> Waiting for health check");
         match self.wait_until_healthy(&next_name, spec).await {
             Ok(()) => {
                 emit_build_line(build_log, &spec.id, "==> Container healthy");
+                self.connect_service_aliases(&next_name, spec).await?;
                 self.remove_container(&old.name).await?;
-                self.docker(&["rename", &next_name, &container_name(&spec.id)])
-                    .await?;
+                self.docker(&["rename", &next_name, target_name]).await?;
                 Ok((ServiceState::Running, Some(container_id)))
             }
             Err(error) => {
@@ -821,6 +980,26 @@ impl DockerReconciler {
                 Err(error)
             }
         }
+    }
+
+    async fn connect_service_aliases(
+        &self,
+        container: &str,
+        spec: &ServiceSpec,
+    ) -> AgentResult<()> {
+        self.docker(&["network", "disconnect", BERTH_NETWORK, container])
+            .await?;
+        let aliases = service_network_aliases(spec);
+        let mut args = vec!["network".to_string(), "connect".to_string()];
+        for alias in aliases {
+            args.push("--alias".to_string());
+            args.push(alias);
+        }
+        args.push(BERTH_NETWORK.to_string());
+        args.push(container.to_string());
+        let owned_args: Vec<&str> = args.iter().map(String::as_str).collect();
+        self.docker(&owned_args).await?;
+        Ok(())
     }
 
     /// Polls a freshly started container until it counts as healthy: an HTTP
@@ -923,26 +1102,56 @@ impl DockerReconciler {
         if work.exists() {
             tokio::fs::remove_dir_all(&work).await?;
         }
-        emit_build_line(build_log, &spec.id, &format!("==> Cloning branch {branch}"));
-        let clone = Command::new("git")
-            .args([
-                "clone",
-                "--depth",
-                "1",
-                "--single-branch",
-                "--branch",
-                branch,
-                repo,
-            ])
-            .arg(&work)
-            .output()
-            .await?;
-        if !clone.status.success() {
-            return Err(format!(
-                "git clone failed: {}",
-                redact_clone_error(&String::from_utf8_lossy(&clone.stderr))
-            )
-            .into());
+        let mut checked_out = false;
+        if let Some(revision) = commit_to_check_out(build) {
+            emit_build_line(
+                build_log,
+                &spec.id,
+                &format!("==> Checking out commit {}", &revision[..revision.len().min(12)]),
+            );
+            match checkout_commit(&work, repo, revision).await {
+                Ok(()) => checked_out = true,
+                Err(error) if build.pinned => {
+                    return Err(format!(
+                        "could not check out pinned commit {}: {error}",
+                        &revision[..revision.len().min(12)]
+                    )
+                    .into());
+                }
+                Err(error) => {
+                    emit_build_line(
+                        build_log,
+                        &spec.id,
+                        &format!("==> Commit unavailable ({error}); building the branch head"),
+                    );
+                    if work.exists() {
+                        tokio::fs::remove_dir_all(&work).await?;
+                    }
+                }
+            }
+        }
+        if !checked_out {
+            emit_build_line(build_log, &spec.id, &format!("==> Cloning branch {branch}"));
+            let clone = Command::new("git")
+                .args([
+                    "clone",
+                    "--depth",
+                    "1",
+                    "--single-branch",
+                    "--branch",
+                    branch,
+                    repo,
+                ])
+                .arg(&work)
+                .output()
+                .await?;
+            if !clone.status.success() {
+                return Err(format!(
+                    "git clone failed: {}",
+                    redact_clone_error(&String::from_utf8_lossy(&clone.stderr))
+                )
+                .into());
+            }
         }
         // The agent's own systemd unit hardens file creation with UMask=0077,
         // so a fresh clone is owner-only (600/700). That's invisible to a
@@ -1131,6 +1340,33 @@ fn container_name_next(service_id: &str) -> String {
     format!("berth-{service_id}-next")
 }
 
+fn replica_container_name(service_id: &str, index: u32) -> String {
+    format!("berth-{service_id}-replica-{index}")
+}
+
+fn replica_index(service_id: &str, name: &str) -> Option<u32> {
+    if name == container_name(service_id) {
+        return Some(0);
+    }
+
+    name.strip_prefix(&format!("berth-{service_id}-replica-"))?
+        .parse()
+        .ok()
+}
+
+fn service_network_aliases(spec: &ServiceSpec) -> Vec<String> {
+    let mut aliases = HashSet::from([spec.name.clone(), container_name(&spec.id)]);
+    aliases.extend(spec.aliases.iter().cloned());
+    aliases.into_iter().collect()
+}
+
+fn append_network_aliases(args: &mut Vec<String>, spec: &ServiceSpec) {
+    for alias in service_network_aliases(spec) {
+        args.push("--network-alias".to_string());
+        args.push(alias);
+    }
+}
+
 fn env_value(spec: &ServiceSpec, key: &str) -> Option<String> {
     spec.env
         .iter()
@@ -1213,6 +1449,8 @@ fn docker_status_to_state(status: &str) -> ServiceState {
 
 fn spec_hash(spec: &ServiceSpec) -> AgentResult<String> {
     let mut stable = spec.clone();
+    stable.replicas = 1;
+    stable.replica_policy = None;
     // Resource limits are applied live with `docker update`; changing them
     // must not rebuild images or recreate otherwise healthy containers.
     stable.resources.cpu_cores = 0.0;
@@ -1239,6 +1477,41 @@ fn emit_build_line(sink: Option<&BuildLogSink>, service_id: &str, line: &str) {
     if let Some(sink) = sink {
         let _ = sink.send((service_id.to_string(), line.to_string()));
     }
+}
+
+fn looks_like_commit_sha(value: &str) -> bool {
+    (7..=64).contains(&value.len()) && value.chars().all(|c| c.is_ascii_hexdigit())
+}
+
+fn commit_to_check_out(build: &crate::protocol::BuildConfig) -> Option<&str> {
+    build
+        .revision
+        .as_deref()
+        .filter(|revision| looks_like_commit_sha(revision))
+}
+
+async fn run_git(args: &[&str], dir: Option<&std::path::Path>) -> Result<(), String> {
+    let mut command = Command::new("git");
+    if let Some(dir) = dir {
+        command.arg("-C").arg(dir);
+    }
+    let output = command
+        .args(args)
+        .output()
+        .await
+        .map_err(|error| error.to_string())?;
+    if output.status.success() {
+        return Ok(());
+    }
+    Err(redact_clone_error(&String::from_utf8_lossy(&output.stderr)))
+}
+
+async fn checkout_commit(work: &std::path::Path, repo: &str, revision: &str) -> Result<(), String> {
+    let work_str = work.to_string_lossy().to_string();
+    run_git(&["init", "--quiet", &work_str], None).await?;
+    run_git(&["remote", "add", "origin", repo], Some(work)).await?;
+    run_git(&["fetch", "--quiet", "--depth", "1", "origin", revision], Some(work)).await?;
+    run_git(&["checkout", "--quiet", "--detach", "FETCH_HEAD"], Some(work)).await
 }
 
 fn redact_clone_error(stderr: &str) -> String {
@@ -1303,10 +1576,7 @@ fn truncate_build_log(log: &str) -> String {
     )
 }
 
-fn build_caddy_config(
-    proxies: &[ProxyRoute],
-    panel: Option<&PanelRoute>,
-) -> serde_json::Value {
+fn build_caddy_config(proxies: &[ProxyRoute], panel: Option<&PanelRoute>) -> serde_json::Value {
     use serde_json::json;
 
     let mut sorted: Vec<&ProxyRoute> = proxies.iter().collect();
@@ -1384,7 +1654,8 @@ mod build_log_tests {
 
     #[test]
     fn redacts_credentials_in_clone_urls() {
-        let raw = "fatal: unable to access 'https://x-access-token:ghs_abc@github.com/o/r.git/': 403";
+        let raw =
+            "fatal: unable to access 'https://x-access-token:ghs_abc@github.com/o/r.git/': 403";
         let out = redact_clone_error(raw);
         assert!(!out.contains("ghs_abc"));
         assert!(out.contains("https://***@github.com/o/r.git/"));
@@ -1392,7 +1663,10 @@ mod build_log_tests {
 
     #[test]
     fn leaves_plain_lines_alone() {
-        assert_eq!(redact_clone_error("fatal: repository not found"), "fatal: repository not found");
+        assert_eq!(
+            redact_clone_error("fatal: repository not found"),
+            "fatal: repository not found"
+        );
         assert_eq!(
             redact_clone_error("see https://github.com/o/r for help"),
             "see https://github.com/o/r for help"
@@ -1438,8 +1712,9 @@ mod spec_hash_tests {
 
     #[test]
     fn identical_specs_hash_identically_across_deserializations() {
-        let hashes: std::collections::HashSet<String> =
-            (0..50).map(|_| spec_hash(&spec(json!({}))).unwrap()).collect();
+        let hashes: std::collections::HashSet<String> = (0..50)
+            .map(|_| spec_hash(&spec(json!({}))).unwrap())
+            .collect();
         assert_eq!(hashes.len(), 1);
     }
 
@@ -1463,8 +1738,100 @@ mod spec_hash_tests {
     #[test]
     fn resource_limit_changes_do_not_force_a_rebuild() {
         let a = spec(json!({}));
-        let b = spec(json!({ "resources": { "cpuCores": 4.0, "memoryMb": 4096, "cpuShares": 2048 } }));
+        let b =
+            spec(json!({ "resources": { "cpuCores": 4.0, "memoryMb": 4096, "cpuShares": 2048 } }));
         assert_eq!(spec_hash(&a).unwrap(), spec_hash(&b).unwrap());
+    }
+
+    #[test]
+    fn replica_count_changes_do_not_force_a_redeployment() {
+        let single = spec(json!({ "replicas": 1 }));
+        let scaled = spec(json!({ "replicas": 4 }));
+        assert_eq!(spec_hash(&single).unwrap(), spec_hash(&scaled).unwrap());
+    }
+
+    #[test]
+    fn replica_policy_changes_do_not_force_a_redeployment() {
+        let manual = spec(json!({
+            "replicaPolicy": {
+                "minReplicas": 1,
+                "maxReplicas": 4,
+                "targetCpuPct": 70,
+                "targetMemoryPct": 70,
+                "strategy": "manual",
+                "cooldownSeconds": 60
+            }
+        }));
+        let automatic = spec(json!({
+            "replicaPolicy": {
+                "minReplicas": 1,
+                "maxReplicas": 8,
+                "targetCpuPct": 60,
+                "targetMemoryPct": 75,
+                "strategy": "balanced",
+                "cooldownSeconds": 120
+            }
+        }));
+        assert_eq!(spec_hash(&manual).unwrap(), spec_hash(&automatic).unwrap());
+    }
+
+    #[test]
+    fn replica_names_map_back_to_their_service_index() {
+        assert_eq!(replica_index("svc1", "berth-svc1"), Some(0));
+        assert_eq!(replica_index("svc1", "berth-svc1-replica-3"), Some(3));
+        assert_eq!(replica_index("svc1", "berth-other-replica-3"), None);
+    }
+
+    #[test]
+    fn existing_services_keep_their_hash_when_unpinned() {
+        let base = spec(json!({}));
+        let unpinned = spec(json!({
+            "source": {
+                "kind": "git",
+                "repo": "https://x-access-token:tok1@github.com/o/r.git",
+                "branch": "main",
+                "build": {
+                    "builder": "auto",
+                    "buildArgs": { "VITE_A": "1", "VITE_B": "2", "VITE_C": "3" },
+                    "pinned": false
+                }
+            }
+        }));
+        assert_eq!(spec_hash(&base).unwrap(), spec_hash(&unpinned).unwrap());
+    }
+
+    #[test]
+    fn pinning_a_commit_changes_the_hash() {
+        let at = |pinned: bool, revision: &str| {
+            spec(json!({
+                "source": {
+                    "kind": "git",
+                    "repo": "https://x-access-token:tok1@github.com/o/r.git",
+                    "branch": "main",
+                    "build": { "builder": "auto", "revision": revision, "pinned": pinned }
+                }
+            }))
+        };
+        let first = "a".repeat(40);
+        let second = "b".repeat(40);
+        assert_ne!(
+            spec_hash(&at(false, &first)).unwrap(),
+            spec_hash(&at(true, &first)).unwrap()
+        );
+        assert_ne!(
+            spec_hash(&at(true, &first)).unwrap(),
+            spec_hash(&at(true, &second)).unwrap()
+        );
+    }
+
+    #[test]
+    fn only_commit_shas_are_checked_out() {
+        assert!(looks_like_commit_sha(&"a".repeat(40)));
+        assert!(looks_like_commit_sha("0123abc"));
+        assert!(!looks_like_commit_sha("main"));
+        assert!(!looks_like_commit_sha("abc12"));
+        assert!(!looks_like_commit_sha(&format!("{}g", "a".repeat(39))));
+        assert!(!looks_like_commit_sha("--upload-pack=evil"));
     }
 
     #[test]
@@ -1503,7 +1870,14 @@ mod failure_tests {
         let mut failed = Vec::new();
         let mut statuses = Vec::new();
 
-        record_failure(&mut failed, &mut statuses, None, "svc", "pull access denied", None);
+        record_failure(
+            &mut failed,
+            &mut statuses,
+            None,
+            "svc",
+            "pull access denied",
+            None,
+        );
 
         assert_eq!(failed.len(), 1);
         assert_eq!(failed[0].service_id, "svc");
@@ -1518,7 +1892,14 @@ mod failure_tests {
         let mut statuses = Vec::new();
         let existing = running_container();
 
-        record_failure(&mut failed, &mut statuses, None, "svc", "build failed", Some(&existing));
+        record_failure(
+            &mut failed,
+            &mut statuses,
+            None,
+            "svc",
+            "build failed",
+            Some(&existing),
+        );
 
         assert!(matches!(statuses[0].state, ServiceState::Running));
         assert_eq!(statuses[0].container_id.as_deref(), Some("abc123"));
@@ -1531,7 +1912,14 @@ mod failure_tests {
         let mut failed = Vec::new();
         let mut statuses = Vec::new();
 
-        record_failure(&mut failed, &mut statuses, Some(&tx), "svc", "image not found", None);
+        record_failure(
+            &mut failed,
+            &mut statuses,
+            Some(&tx),
+            "svc",
+            "image not found",
+            None,
+        );
 
         let (service_id, line) = rx.try_recv().expect("a build log line");
         assert_eq!(service_id, "svc");

@@ -267,6 +267,7 @@ model Server {
   bootstrapToken    String?     @unique
   bootstrapExpires  DateTime?
   certSerial        String?
+  pendingCertSerial String?
   lastSeenAt        DateTime    @default(now())
   createdAt         DateTime    @default(now())
 
@@ -300,6 +301,8 @@ model Service {
   cpuShares        Int?
   diskGb           Int?
   replicas         Int        @default(1)
+  replicaPolicy    Json?
+  lastReplicaScaleAt DateTime?
   domain           String?
   templateKind     String?
   containerPort    Int?
@@ -307,6 +310,7 @@ model Service {
   volumeName       String?
   volumePath       String?
   specHash         String?
+  rollbackCommitSha String?
   lastDeployedAt   DateTime?
   lastSmartResourceAt DateTime?
   registryCredentialId String?

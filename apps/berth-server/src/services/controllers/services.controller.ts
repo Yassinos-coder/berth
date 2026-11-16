@@ -18,6 +18,7 @@ import {
 import { ConnectionService } from '../services/connection.service';
 import { CreateServiceDto } from '../dto/create-service.dto';
 import { UpdateServiceDto } from '../dto/update-service.dto';
+import { ScaleServiceDto } from '../dto/scale-service.dto';
 import { SetEnvDto } from '../dto/set-env.dto';
 import { AddInternalDomainDto } from '../dto/add-internal-domain.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -122,6 +123,16 @@ export class ServicesController {
     @Body() dto: UpdateServiceDto,
   ): Promise<ServiceDto> {
     return this.servicesService.updateSettings(user, id, dto);
+  }
+
+  @Roles(Role.owner, Role.admin, Role.deployer)
+  @Post(':id/scale')
+  scale(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: ScaleServiceDto,
+  ): Promise<ServiceDto> {
+    return this.servicesService.scale(user, id, dto);
   }
 
   @Roles(Role.owner, Role.admin, Role.deployer)

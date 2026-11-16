@@ -12,6 +12,7 @@ import { ReconcileRepository, ServiceWithEnv } from './reconcile.repository';
 import { SecretCipher } from '../../common/crypto/secret-cipher.service';
 import { GithubAppService } from '../../github-app/github-app.service';
 import { SourceIntegrationsService } from '../../source-integrations/source-integrations.service';
+import { ReplicaPolicyValidator } from '../../services/validators/replica-policy.validator';
 
 interface ResolvedEnv {
   key: string;
@@ -82,6 +83,7 @@ export class ReconcilePlanner {
       },
       restartPolicy: 'unless-stopped',
       replicas: service.replicas,
+      replicaPolicy: ReplicaPolicyValidator.fromStored(service.replicaPolicy),
       templateKind: service.templateKind ?? undefined,
       registryAuth: service.registryCredential
         ? {
@@ -149,7 +151,8 @@ export class ReconcilePlanner {
           rootDirectory: service.rootDirectory ?? undefined,
           buildCommand: service.buildCommand ?? undefined,
           startCommand: service.startCommand ?? undefined,
-          revision: service.specHash ?? undefined,
+          revision: service.rollbackCommitSha ?? service.specHash ?? undefined,
+          pinned: service.rollbackCommitSha ? true : undefined,
         },
       };
     }
