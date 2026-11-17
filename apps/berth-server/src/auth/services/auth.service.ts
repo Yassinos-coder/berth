@@ -8,7 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
-import { authenticator } from 'otplib';
+import { TotpUtil } from '../utils/totp.util';
 import * as QRCode from 'qrcode';
 import { AgentStatus, User } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -147,7 +147,7 @@ export class AuthService {
       await this.consumeRecoveryCode(user, dto.recoveryCode);
     } else if (dto.code) {
       const secret = this.secretCipher.decrypt(user.totpSecret);
-      if (!authenticator.check(dto.code, secret)) {
+      if (!TotpUtil.check(dto.code, secret)) {
         throw new UnauthorizedException('Invalid verification code');
       }
     } else {
@@ -295,12 +295,12 @@ export class AuthService {
 
     const secret = user.totpSecret
       ? this.secretCipher.decrypt(user.totpSecret)
-      : authenticator.generateSecret();
+      : TotpUtil.generateSecret();
     if (!user.totpSecret) {
       await this.users.setTotpSecret(userId, this.secretCipher.encrypt(secret));
     }
 
-    const otpauthUrl = authenticator.keyuri(user.email, 'Berth', secret);
+    const otpauthUrl = TotpUtil.keyUri(user.email, 'Berth', secret);
     const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
     return { otpauthUrl, qrCodeDataUrl };
   }
@@ -317,7 +317,7 @@ export class AuthService {
     }
 
     const secret = this.secretCipher.decrypt(user.totpSecret);
-    if (!authenticator.check(code, secret)) {
+    if (!TotpUtil.check(code, secret)) {
       throw new UnauthorizedException('Invalid verification code');
     }
 

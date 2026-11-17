@@ -8,7 +8,7 @@ import {
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient(PrismaClientFactory.options());
 
 async function main(): Promise<void> {
   const org = await prisma.organization.findFirst({

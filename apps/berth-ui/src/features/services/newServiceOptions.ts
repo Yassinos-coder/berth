@@ -1,12 +1,12 @@
 import {
   Boxes,
   Database,
-  Github,
   HardDrive,
   LayoutTemplate,
   SquareDashed,
   type LucideIcon,
 } from 'lucide-react';
+import { GithubIcon } from '@/components/shared/GithubIcon';
 import type { ServiceKind } from '@/interfaces';
 
 export type SourceChoice =
@@ -30,7 +30,7 @@ export const SOURCE_OPTIONS: SourceOption[] = [
     id: 'git',
     title: 'GitHub Repository',
     description: 'Build & deploy on push. Dockerfile or Nixpacks, CI/CD included.',
-    icon: Github,
+    icon: GithubIcon,
     kind: 'git',
   },
   {

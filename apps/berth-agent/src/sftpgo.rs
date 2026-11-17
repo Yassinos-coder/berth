@@ -41,9 +41,9 @@ pub async fn ensure_admin_secret() -> AgentResult<String> {
 }
 
 fn random_secret(len: usize) -> String {
-    use rand::distributions::Alphanumeric;
-    use rand::Rng;
-    rand::thread_rng()
+    use rand::distr::Alphanumeric;
+    use rand::RngExt;
+    rand::rng()
         .sample_iter(&Alphanumeric)
         .take(len)
         .map(char::from)

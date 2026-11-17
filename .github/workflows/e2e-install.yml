@@ -17,7 +17,7 @@ jobs:
       - name: Install the panel with the real installer
         run: sudo bash install.sh
       - name: Deploy, redeploy and rescale an image service
-        run: ./scripts/smoke-install.sh
+        run: bash scripts/smoke-install.sh
       - name: Collect logs on failure
         if: failure()
         run: |

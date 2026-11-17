@@ -1,4 +1,5 @@
-﻿import { Github, GitCommitHorizontal, RotateCcw } from 'lucide-react';
+﻿import { GitCommitHorizontal, RotateCcw } from 'lucide-react';
+import { GithubIcon } from '@/components/shared/GithubIcon';
 import {
   Table,
   TableBody,
@@ -73,7 +74,7 @@ export function DeploymentsTable({
             </TableCell>
             <TableCell>
               <Badge variant="outline" className="gap-1">
-                {dep.trigger === 'push' ? <Github className="size-3" aria-hidden="true" /> : null}
+                {dep.trigger === 'push' ? <GithubIcon className="size-3" aria-hidden="true" /> : null}
                 {TRIGGER_LABEL[dep.trigger] ?? dep.trigger}
               </Badge>
             </TableCell>

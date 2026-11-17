@@ -1,7 +1,7 @@
 use std::fs;
-use std::io::BufReader;
 use std::sync::Arc;
 
+use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::{ClientConfig, RootCertStore};
 
@@ -46,14 +46,12 @@ fn load_roots(path: &str) -> AgentResult<RootCertStore> {
 
 fn load_certs(path: &str) -> AgentResult<Vec<CertificateDer<'static>>> {
     let data = fs::read(path)?;
-    let mut reader = BufReader::new(&data[..]);
-    let certs = rustls_pemfile::certs(&mut reader).collect::<Result<Vec<_>, _>>()?;
+    let certs = CertificateDer::pem_slice_iter(&data).collect::<Result<Vec<_>, _>>()?;
     Ok(certs)
 }
 
 fn load_key(path: &str) -> AgentResult<PrivateKeyDer<'static>> {
     let data = fs::read(path)?;
-    let mut reader = BufReader::new(&data[..]);
-    rustls_pemfile::private_key(&mut reader)?
-        .ok_or_else(|| "no private key found in client key file".into())
+    PrivateKeyDer::from_pem_slice(&data)
+        .map_err(|error| format!("no private key found in client key file: {error}").into())
 }

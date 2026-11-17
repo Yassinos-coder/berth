@@ -4,7 +4,6 @@ use std::path::Path;
 use futures_util::{SinkExt, StreamExt};
 use rcgen::{CertificateParams, DistinguishedName, DnType, KeyPair, PKCS_RSA_SHA256};
 use rsa::pkcs8::{EncodePrivateKey, LineEnding};
-use rsa::RsaPrivateKey;
 use serde::{Deserialize, Serialize};
 use tokio_tungstenite::{
     connect_async_tls_with_config, tungstenite::Message, Connector,
@@ -51,7 +50,7 @@ pub async fn enroll(config: &AgentConfig) -> AgentResult<()> {
         connect_async_tls_with_config(url, None, false, Some(connector)).await?;
 
     let request = serde_json::to_string(&CsrRequest { csr: csr_pem })?;
-    socket.send(Message::Text(request)).await?;
+    socket.send(Message::Text(request.into())).await?;
 
     let response = read_response(&mut socket).await?;
     let _ = socket.close(None).await;
@@ -101,8 +100,8 @@ fn write_secure(path: &str, data: &[u8]) -> AgentResult<()> {
 }
 
 fn generate_identity_request(agent_id: &str) -> AgentResult<(String, String)> {
-    let mut rng = rand::thread_rng();
-    let private_key = RsaPrivateKey::new(&mut rng, 2048)
+    let mut rng = rand::rngs::SysRng;
+    let private_key = rsa::PrivateKey::new(&mut rng, 2048)
         .map_err(|error| format!("failed to generate RSA key: {error}"))?;
     let key_pem = private_key.to_pkcs8_pem(LineEnding::LF)?.to_string();
     let key_pair = KeyPair::from_pem_and_sign_algo(&key_pem, &PKCS_RSA_SHA256)?;

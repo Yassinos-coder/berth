@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Gauge, Github, Globe2, Moon, Sun } from 'lucide-react';
+import { Gauge, Globe2, Moon, Sun } from 'lucide-react';
+import { GithubIcon } from '@/components/shared/GithubIcon';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -205,7 +206,7 @@ export function SettingsPage() {
             <CardContent className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="bg-foreground text-background flex size-10 items-center justify-center rounded-lg">
-                  <Github className="size-5" aria-hidden="true" />
+                  <GithubIcon className="size-5" aria-hidden="true" />
                 </span>
                 <div>
                   <p className="text-sm font-medium">GitHub App</p>

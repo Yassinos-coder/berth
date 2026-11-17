@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ConfigService } from '@nestjs/config';
+import { PrismaClientFactory } from '../src/prisma/prisma-client.factory';
 import { SecretCipher } from '../src/common/crypto/secret-cipher.service';
 
 interface Delegate {
@@ -38,7 +39,7 @@ const values: Record<string, unknown> = {
   previousMasterKeys: previous,
 };
 const cipher = new SecretCipher({ get: (key: string) => values[key] } as ConfigService);
-const prisma = new PrismaClient();
+const prisma = new PrismaClient(PrismaClientFactory.options());
 
 async function rotateTable(target: Target): Promise<number> {
   const delegate = (prisma as unknown as Record<string, Delegate>)[target.model];

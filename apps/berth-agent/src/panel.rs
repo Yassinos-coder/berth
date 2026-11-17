@@ -93,11 +93,9 @@ async fn connect_and_serve(
         crate::protocol::PROTOCOL_VERSION
     );
 
-    let ws_config = WebSocketConfig {
-        max_message_size: Some(MAX_MESSAGE_BYTES),
-        max_frame_size: Some(MAX_MESSAGE_BYTES),
-        ..Default::default()
-    };
+    let ws_config = WebSocketConfig::default()
+        .max_message_size(Some(MAX_MESSAGE_BYTES))
+        .max_frame_size(Some(MAX_MESSAGE_BYTES));
 
     let (socket, _) =
         connect_async_tls_with_config(url, Some(ws_config), false, Some(connector)).await?;
@@ -427,7 +425,7 @@ async fn send_build_progress(
 
 async fn send_json(sink: &mut WsSink, message: &AgentToPanel) -> AgentResult<()> {
     let payload = serde_json::to_string(message)?;
-    sink.send(Message::Text(payload)).await?;
+    sink.send(Message::Text(payload.into())).await?;
     Ok(())
 }
 

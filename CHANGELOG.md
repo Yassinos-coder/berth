@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-17
+
+### Changed
+- **All dependencies upgraded to their latest releases.** Backend: NestJS 12, Prisma 7 (with the `pg` driver adapter), class-validator 0.15, argon2 0.45, otplib 13, nodemailer 10. Frontend: Vite 8, Vitest 5, zod 4, react-router 8, lucide-react 1, sonner 2, React 19.3. Tooling: TypeScript 7 for the UI, CLI and protocol (the server stays on TypeScript 6 until the Nest CLI supports 7.1), commander 15, Turborepo 2.11.
+- **Rust agent dependencies upgraded**, including rsa 0.10, rand 0.10, tokio-tungstenite 0.30, rcgen 0.14 and reqwest 0.13. The unmaintained `rustls-pemfile` is replaced by the built-in PEM support in rustls.
+- Prisma configuration now lives in `prisma.config.ts` (database URL, shadow database URL, `.env` loading). Generating the client no longer needs a database URL, and running migrations without one fails with a clear message.
+- GitHub brand icon is now a local component, since lucide-react 1 removed brand icons.
+
+### Fixed
+- Production CI: the end-to-end job used an invalid Playwright install command, and the panel smoke test was not executable when run from CI.
+- The `database` CI drift check now uses the Prisma 7 command syntax.
+
+### Security
+- Resolved all Rust advisories in the agent (`rsa` timing side channel, `rustls-webpki`, `webpki-roots`, `tokio`, `rustix`). `cargo audit` now reports nothing.
+- JavaScript audit findings reduced from 110 to 23, with nothing above moderate in production dependencies.
+
 ## [0.16.0] - 2026-11-16
 
 ### Added
