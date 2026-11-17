@@ -81,7 +81,7 @@ export default defineConfig({
     outline: { level: [2, 3], label: 'On this page' },
     docFooter: { prev: 'Previous', next: 'Next' },
     footer: {
-      message: 'Berth is in alpha. Source-available under the Berth Personal Use License.',
+      message: 'Berth is in alpha. Free for non-commercial use under the PolyForm Noncommercial License 1.0.0.',
     },
   },
 });

@@ -106,4 +106,4 @@ See [docs/roadmap-v1.md](docs/roadmap-v1.md), [docs/operations.md](docs/operatio
 
 ## License
 
-Source-available under the [Berth Personal Use License](LICENSE). Personal, non-commercial use only.
+Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). You can read, run, modify and share Berth for any non-commercial purpose: personal and hobby projects, research, education, and non-profit or government use. Commercial use, including running it for a business, is not permitted without a separate license from the author.

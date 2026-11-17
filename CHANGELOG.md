@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.3] - 2026-11-17
+
+### Changed
+- **Berth is now licensed under the PolyForm Noncommercial License 1.0.0.** Anyone can read, run, modify and share it for non-commercial purposes (personal projects, research, education, and non-profit or government use). Commercial use needs a separate license from the author. This replaces the earlier home-made "Berth Personal Use License", which allowed personal use only.
+- The project is described as source-available and free for non-commercial use, not "open source", in the README, landing page and docs, because the OSI definition of open source requires allowing commercial use.
+
+### Added
+- A License section in the documentation explaining who may use Berth and who needs a commercial license.
+
 ## [0.17.2] - 2026-11-17
 
 ### Fixed

@@ -4,13 +4,13 @@ This file is your memory of what Berth is and every architectural decision made 
 
 ## What Berth is
 
-A **self-hosted, open-source deployment panel** for your own VPS — the manageability of Railway/Render/Hostinger, but on infrastructure the user owns (OVH, Hetzner, any Ubuntu box). Install a panel on your VPS, connect GitHub, deploy apps/databases/services with per-container resource limits, RBAC teams, and CI/CD on push.
+A **self-hosted, source-available deployment panel** for your own VPS — the manageability of Railway/Render/Hostinger, but on infrastructure the user owns (OVH, Hetzner, any Ubuntu box). Install a panel on your VPS, connect GitHub, deploy apps/databases/services with per-container resource limits, RBAC teams, and CI/CD on push.
 
 Onboarding: user buys a cheap VPS → `curl -fsSL https://yassinos-coder.github.io/berth/install.sh | sudo bash` (served from GitHub Pages; the workflow copies `install.sh` and `apps/berth-agent/install.sh` into the site as `/install.sh` and `/agent-install.sh`) → opens `http://<server-ip>:3000` → creates admin account → connects GitHub → deploys.
 
 ## Settled decisions (do not relitigate without reason)
 
-1. **Open source.** No license server, no phone-home, no license-key system. (Monetize later via managed cloud / team features — Coolify playbook. Business model deferred.)
+1. **Source-available, free for non-commercial use.** Licensed under PolyForm Noncommercial 1.0.0 (`LICENSE`): anyone may read, run, modify and share it for non-commercial purposes; commercial use needs a separate license from the author. It is deliberately not OSI "open source". No license server, no phone-home, no license-key system. Business model deferred (commercial licenses / managed cloud).
 2. **Self-hosted topology.** The panel runs on the *customer's* VPS, not hosted by us. One panel per customer manages many of *their* servers.
 3. **Language split (pragmatic, not emotional):**
    - **Agent = Rust.** This is where Rust earns its keep: tiny static binary, safety for root-level Docker/cgroup access, great streaming.
@@ -105,4 +105,4 @@ Sessions are **httpOnly + Secure + SameSite=strict cookies** (not localStorage).
 ## Open questions to resolve before/while building
 
 - Monorepo tooling — using Turborepo + Bun workspaces (settled in practice).
-- License choice (Apache-2.0 vs AGPL-3.0).
+- License: decided, PolyForm Noncommercial 1.0.0 (2026-11-17).
