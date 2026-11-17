@@ -60,17 +60,30 @@ export class ProxyHostsService {
 
     const domain = dto.domain?.trim().toLowerCase();
     if (domain) await this.assertNotPanelDomain(domain);
+
+    const movesToService = dto.serviceId && dto.serviceId !== existing.serviceId;
+    const target = movesToService
+      ? await this.repository.serviceForOrg(user.orgId, dto.serviceId!)
+      : null;
+    if (movesToService && !target) {
+      throw new BadRequestException('Target service not found');
+    }
+
     const updated = await this.persist(() =>
       this.repository.update(user.orgId, id, {
         domain,
         path: dto.path === undefined ? undefined : this.normalizePath(dto.path),
+        serviceId: target?.id,
         targetPort: dto.targetPort,
         ssl: dto.ssl,
-        forceHttps: dto.forceHttps,
+        forceHttps: dto.ssl === false ? false : dto.forceHttps,
       }),
     );
     if (!updated) throw new NotFoundException('Proxy host not found');
-    await this.registry.reconcileServer(existing.service.serverId);
+
+    const servers = new Set([existing.service.serverId]);
+    if (target) servers.add(target.serverId);
+    await Promise.all([...servers].map((serverId) => this.registry.reconcileServer(serverId)));
     return ProxyHostMapper.toDto(updated);
   }
 

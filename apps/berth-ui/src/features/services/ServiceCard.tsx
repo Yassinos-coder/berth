@@ -1,30 +1,41 @@
 ﻿import { Link } from 'react-router-dom';
-import { Cpu, GitPullRequest, Gauge, Globe, MemoryStick, Server } from 'lucide-react';
+import { Cpu, ExternalLink, GitPullRequest, Gauge, Globe, MemoryStick, Server } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { ServiceStateBadge } from '@/components/shared/StatusBadge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { KIND_META, sourceSummary } from '@/features/services/serviceMeta';
 import { Format } from '@/lib/format';
-import type { Service } from '@/interfaces';
+import { ProxyHostUrl } from '@/features/proxy-hosts/utils/proxyHostUrl';
+import type { ProxyHost, Service } from '@/interfaces';
 
 export function ServiceCard({
   service,
-  domains,
+  hosts,
 }: {
   service: Service;
-  domains?: string[];
+  hosts?: ProxyHost[];
 }) {
   const { icon: Icon, label } = KIND_META[service.kind];
-  const shownDomains =
-    domains && domains.length > 0
-      ? domains
+  const shownDomains: { key: string; label: string; href: string }[] =
+    hosts && hosts.length > 0
+      ? hosts.map((host) => ({
+          key: host.id,
+          label: ProxyHostUrl.label(host),
+          href: ProxyHostUrl.href(host),
+        }))
       : service.domain
-        ? [service.domain]
+        ? [
+            {
+              key: service.domain,
+              label: service.domain,
+              href: ProxyHostUrl.legacyHref(service.domain),
+            },
+          ]
         : [];
 
   return (
-    <Link to={`/services/${service.id}`} className="group block">
-      <Card className="hover:border-primary/40 gap-4 p-5 transition-colors">
+    <div className="group block">
+      <Card className="hover:border-primary/40 relative gap-4 p-5 transition-colors">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
@@ -32,7 +43,12 @@ export function ServiceCard({
             </span>
             <div className="min-w-0">
               <p className="group-hover:text-primary truncate font-medium transition-colors">
-                {service.name}
+                <Link
+                  to={`/services/${service.id}`}
+                  className="focus-visible:after:ring-ring/50 outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-[3px]"
+                >
+                  {service.name}
+                </Link>
               </p>
               <p className="text-muted-foreground flex items-center gap-1 truncate text-xs">
                 {service.prNumber ? (
@@ -56,13 +72,19 @@ export function ServiceCard({
         {shownDomains.length > 0 ? (
           <div className="flex flex-col gap-0.5">
             {shownDomains.slice(0, 2).map((domain) => (
-              <span
-                key={domain}
-                className="text-primary inline-flex items-center gap-1 truncate text-xs"
+              <a
+                key={domain.key}
+                href={domain.href}
+                target="_blank"
+                rel="noreferrer"
+                translate="no"
+                className="text-primary relative z-10 inline-flex w-fit max-w-full items-center gap-1 text-xs hover:underline"
               >
                 <Globe className="size-3 shrink-0" aria-hidden="true" />
-                {domain}
-              </span>
+                <span className="truncate">{domain.label}</span>
+                <ExternalLink className="size-3 shrink-0 opacity-60" aria-hidden="true" />
+                <span className="sr-only">(opens in a new tab)</span>
+              </a>
             ))}
             {shownDomains.length > 2 ? (
               <span className="text-muted-foreground text-xs">
@@ -102,6 +124,6 @@ export function ServiceCard({
           </span>
         </div>
       </Card>
-    </Link>
+    </div>
   );
 }

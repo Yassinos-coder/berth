@@ -1,12 +1,12 @@
 ﻿import { useState } from 'react';
-import { ExternalLink, Loader2, Lock, Network, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Network, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CopyButton } from '@/components/shared/CopyButton';
 import { AddProxyHostDialog } from '@/features/proxy-hosts/AddProxyHostDialog';
+import { ProxyHostCard } from '@/features/proxy-hosts/ProxyHostCard';
 import { useProxyHosts } from '@/hooks/useProxyHostsQueries';
-import { useRemoveProxyHost } from '@/hooks/useProxyHostsMutations';
 import {
   useAddInternalDomain,
   useRemoveInternalDomain,
@@ -15,7 +15,6 @@ import type { Service } from '@/interfaces';
 
 export function ServiceDomains({ service }: { service: Service }) {
   const proxyHosts = useProxyHosts();
-  const removeHost = useRemoveProxyHost();
   const addInternal = useAddInternalDomain(service.id);
   const removeInternal = useRemoveInternalDomain(service.id);
   const [customDomain, setCustomDomain] = useState('');
@@ -39,39 +38,16 @@ export function ServiceDomains({ service }: { service: Service }) {
           </div>
 
           {publicHosts.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No public domains yet.</p>
+            <p className="text-muted-foreground text-sm">
+              No public domains yet. Add one to reach this service from the
+              internet over HTTPS.
+            </p>
           ) : (
-            publicHosts.map((host) => (
-              <div
-                key={host.id}
-                className="flex items-center justify-between rounded-lg border p-3"
-              >
-                <a
-                  href={`${host.ssl ? 'https' : 'http'}://${host.domain}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary inline-flex items-center gap-1.5 text-sm font-medium"
-                >
-                  {host.domain}
-                  <ExternalLink className="size-3.5" aria-hidden="true" />
-                </a>
-                <div className="flex items-center gap-2">
-                  {host.ssl ? (
-                    <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-                      <Lock className="size-3" aria-hidden="true" /> HTTPS
-                    </span>
-                  ) : null}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => removeHost.mutate(host.id)}
-                  >
-                    <Trash2 className="size-4" aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-            ))
+            <div className="space-y-2">
+              {publicHosts.map((host) => (
+                <ProxyHostCard key={host.id} host={host} showService={false} />
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

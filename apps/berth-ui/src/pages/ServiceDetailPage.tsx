@@ -2,7 +2,6 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
-  ExternalLink,
   Loader2,
   Play,
   RotateCw,
@@ -26,6 +25,8 @@ import { PreviewSettings } from '@/features/services/PreviewSettings';
 import { AlertMuteSettings } from '@/features/services/AlertMuteSettings';
 import { VolumeSettings } from '@/features/services/VolumeSettings';
 import { ResourceSettings } from '@/features/services/ResourceSettings';
+import { useProxyHosts } from '@/hooks/useProxyHostsQueries';
+import { ServiceDomainLinks } from '@/features/services/ServiceDomainLinks';
 import { ResourcePressure } from '@/features/services/utils/resourcePressure';
 import { EnvironmentPicker } from '@/features/services/EnvironmentPicker';
 import { RegistryCredentialPicker } from '@/features/services/RegistryCredentialPicker';
@@ -123,6 +124,8 @@ export function ServiceDetailPage() {
   const action = useServiceAction(id);
   const removeService = useRemoveService();
   const rollback = useRollback();
+  const proxyHosts = useProxyHosts();
+  const serviceHosts = (proxyHosts.data ?? []).filter((host) => host.serviceId === id);
 
   const svc = service.data;
   const isRunning = svc?.state === 'running';
@@ -190,6 +193,12 @@ export function ServiceDetailPage() {
                   )}
                 </div>
               }
+            />
+
+            <ServiceDomainLinks
+              hosts={serviceHosts}
+              legacyDomain={svc.domain}
+              canExposePublicly={svc.kind === 'git' || svc.kind === 'image'}
             />
 
             <Tabs
@@ -276,9 +285,6 @@ export function ServiceDetailPage() {
                       ) : null}
                       <DetailRow label="Server" value={svc.serverName} />
                       <DetailRow label="Replicas" value={String(svc.replicas)} />
-                      {svc.domain ? (
-                        <DetailRow label="Domain" value={svc.domain} />
-                      ) : null}
                     </CardContent>
                   </Card>
                   <Card>
@@ -320,17 +326,6 @@ export function ServiceDetailPage() {
                     </CardContent>
                   </Card>
                 </div>
-                {svc.domain ? (
-                  <a
-                    href={`https://${svc.domain}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-primary mt-4 inline-flex items-center gap-1.5 text-sm"
-                  >
-                    <ExternalLink className="size-4" aria-hidden="true" />
-                    https://{svc.domain}
-                  </a>
-                ) : null}
               </TabsContent>
 
               <TabsContent value="deployments" className="mt-4 space-y-4">

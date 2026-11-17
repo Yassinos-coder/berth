@@ -23,6 +23,10 @@ export class UpdateProxyHostDto {
   path?: string;
 
   @IsOptional()
+  @IsString()
+  serviceId?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(65535)

@@ -21,10 +21,12 @@ export function CopyButton({
   value,
   className,
   label,
+  ariaLabel,
 }: {
   value: string;
   className?: string;
   label?: string;
+  ariaLabel?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -48,7 +50,7 @@ export function CopyButton({
       variant="outline"
       size={label ? 'sm' : 'icon'}
       onClick={copy}
-      aria-label={label ?? 'Copy to clipboard'}
+      aria-label={label ?? ariaLabel ?? 'Copy to clipboard'}
       className={cn(className)}
     >
       {copied ? (

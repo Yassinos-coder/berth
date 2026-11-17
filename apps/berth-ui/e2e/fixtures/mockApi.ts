@@ -156,6 +156,9 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Ap
     if (path === '/deployments') return json(route, deployments);
     if (path === '/proxy-hosts/dns-check') return json(route, { domain: url.searchParams.get('domain'), resolved: [], ...dns });
     if (path === '/proxy-hosts') return json(route, proxyHosts);
+    const proxyHost = (proxyHosts as { id: string }[]).find((item) => path === `/proxy-hosts/${item.id}`);
+    if (proxyHost && method === 'PATCH') return json(route, { ...proxyHost, ...(body as object) });
+    if (proxyHost && method === 'DELETE') return route.fulfill({ status: 204 });
 
     if (method === 'GET') return json(route, []);
     return json(route, {});
@@ -163,3 +166,15 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Ap
 
   return calls;
 }
+
+export const PROXY_HOST = {
+  id: 'ph-1',
+  domain: 'shop.example.com',
+  path: '/',
+  serviceId: 'svc-web',
+  serviceName: 'storefront',
+  targetPort: 3000,
+  ssl: true,
+  forceHttps: true,
+  createdAt: new Date().toISOString(),
+};

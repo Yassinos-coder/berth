@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-17
+
+### Added
+- **Proxy hosts are now editable.** Each host has an edit button on the Proxy Hosts page and on a service's Domains tab. You can change the domain, path, container port, HTTPS and force-HTTPS, and you can move a domain to a different service. Only the fields you changed are sent, and the proxy applies the change on the next reconcile.
+- The add and edit forms validate as you type (domain, path, port), and show a live preview of the address visitors will open, for example `https://shop.example.com/api`.
+- Domains are clickable. The services list shows each service's domains as links that open in a new tab, and the service page shows them under its title with a "Manage domains" link. A web service with no domain offers an "Add a domain" shortcut.
+- The services search box also matches domains.
+- Each proxy host has a copy-link button and a link to its target service.
+
+### Changed
+- The proxy host forms use React Hook Form with a zod schema, and share one form between adding and editing.
+- Turning HTTPS off for a proxy host now also turns off the HTTP-to-HTTPS redirect on the server, so the two can no longer disagree.
+- Proxy host rows on the Domains tab wrap long domains and stack their actions on narrow screens instead of truncating the domain.
+
+### Fixed
+- Deleting a domain from a service's Domains tab removed it immediately; it now asks for confirmation.
+- The service page only showed the legacy single `domain` field. It now shows the service's actual proxy hosts.
+
 ## [0.17.4] - 2026-11-17
 
 ### Fixed

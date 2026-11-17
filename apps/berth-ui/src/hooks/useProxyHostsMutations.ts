@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   proxyHostsService,
   type CreateProxyHostPayload,
+  type UpdateProxyHostPayload,
 } from '@/services/proxyHostsService';
 import { queryKeys } from '@/lib/queryClient';
 import { notify } from '@/lib/toast';
@@ -20,6 +21,25 @@ export function useCreateProxyHost() {
     },
     onError: (error) =>
       notify.error('Could not add proxy host', { description: error.message }),
+  });
+}
+
+export function useUpdateProxyHost(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateProxyHostPayload) =>
+      proxyHostsService.update(id, payload),
+    onSuccess: (host) => {
+      qc.invalidateQueries({ queryKey: queryKeys.proxyHosts });
+      qc.invalidateQueries({ queryKey: queryKeys.services });
+      notify.success(`${host.domain} updated`, {
+        description: 'The proxy applies the change within a few seconds.',
+      });
+    },
+    onError: (error) =>
+      notify.error('Could not update proxy host', {
+        description: error.message,
+      }),
   });
 }
 

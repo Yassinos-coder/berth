@@ -11,6 +11,7 @@ export interface CreateProxyHostPayload {
 }
 
 export interface UpdateProxyHostPayload {
+  serviceId?: string;
   domain?: string;
   path?: string;
   targetPort?: number;

@@ -21,7 +21,7 @@ import { useProxyHosts } from '@/hooks/useProxyHostsQueries';
 import { useEnvironments } from '@/hooks/useEnvironments';
 import { Badge } from '@/components/ui/badge';
 import { ServiceGroups } from '@/features/environments/utils/serviceGroups';
-import type { ServiceKind } from '@/interfaces';
+import type { ProxyHost, ServiceKind } from '@/interfaces';
 import { ComposeImportDialog } from '@/features/services/ComposeImportDialog';
 
 export function ServicesPage() {
@@ -45,11 +45,11 @@ export function ServicesPage() {
       { replace: true },
     );
 
-  const domainsByService = useMemo(() => {
-    const map = new Map<string, string[]>();
+  const hostsByService = useMemo(() => {
+    const map = new Map<string, ProxyHost[]>();
     for (const host of proxyHosts.data ?? []) {
       const list = map.get(host.serviceId) ?? [];
-      list.push(host.domain);
+      list.push(host);
       map.set(host.serviceId, list);
     }
     return map;
@@ -63,10 +63,17 @@ export function ServicesPage() {
       if (environmentFilter !== 'all' && environmentFilter !== 'none' && svc.environmentId !== environmentFilter) {
         return false;
       }
-      if (needle && !svc.name.toLowerCase().includes(needle)) return false;
+      if (needle) {
+        const domains = (hostsByService.get(svc.id) ?? []).map((host) => host.domain.toLowerCase());
+        const matches =
+          svc.name.toLowerCase().includes(needle) ||
+          domains.some((domain) => domain.includes(needle)) ||
+          (svc.domain ?? '').toLowerCase().includes(needle);
+        if (!matches) return false;
+      }
       return true;
     });
-  }, [data, query, kind, environmentFilter]);
+  }, [data, query, kind, environmentFilter, hostsByService]);
 
   const environmentList = environments.data ?? [];
   const canGroup = ServiceGroups.hasAssignments(data ?? [], environmentList);
@@ -80,7 +87,7 @@ export function ServicesPage() {
   const renderCards = (items: typeof filtered) => (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {items.map((svc) => (
-        <ServiceCard key={svc.id} service={svc} domains={domainsByService.get(svc.id)} />
+        <ServiceCard key={svc.id} service={svc} hosts={hostsByService.get(svc.id)} />
       ))}
     </div>
   );
@@ -102,7 +109,7 @@ export function ServicesPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Label htmlFor="service-search" className="sr-only">
-          Search services by name
+          Search services by name or domain
         </Label>
         <Input
           id="service-search"
@@ -110,7 +117,7 @@ export function ServicesPage() {
           type="search"
           autoComplete="off"
           spellCheck={false}
-          placeholder="Search services…"
+          placeholder="Search by name or domain…"
           value={query}
           onChange={(e) => setParam('q', e.target.value)}
           className="sm:max-w-xs"

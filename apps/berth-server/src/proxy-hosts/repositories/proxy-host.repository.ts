@@ -54,6 +54,7 @@ export class ProxyHostRepository {
     data: {
       domain?: string;
       path?: string;
+      serviceId?: string;
       targetPort?: number;
       ssl?: boolean;
       forceHttps?: boolean;
