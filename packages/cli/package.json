@@ -1,6 +1,6 @@
 {
   "name": "@berth/cli",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "private": false,
   "description": "Berth command line and MCP server.",
   "type": "module",

@@ -485,7 +485,7 @@ export class ServiceRepository {
     transaction: Prisma.TransactionClient,
     serverId: string,
   ): Promise<void> {
-    await transaction.$queryRaw`
+    await transaction.$executeRaw`
       SELECT pg_advisory_xact_lock(
         hashtext('berth-autoscale'),
         hashtext(${serverId})

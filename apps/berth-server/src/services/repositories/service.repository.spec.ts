@@ -24,7 +24,7 @@ function build(
   }[],
 ) {
   const transaction = {
-    $queryRaw: vi.fn().mockResolvedValue([]),
+    $executeRaw: vi.fn().mockResolvedValue(0),
     server: { findUnique: vi.fn().mockResolvedValue(server) },
     service: {
       findFirst: vi.fn(async ({ where }: { where: { id: string } }) =>
@@ -101,7 +101,7 @@ describe('ServiceRepository autoscale claims', () => {
     );
 
     await expect(repository.claimReplicaScale(input)).resolves.toBe('claimed');
-    expect(transaction.$queryRaw).toHaveBeenCalledOnce();
+    expect(transaction.$executeRaw).toHaveBeenCalledOnce();
     expect(transaction.service.updateMany).toHaveBeenCalledOnce();
   });
 
@@ -141,7 +141,7 @@ describe('ServiceRepository autoscale claims', () => {
         memoryMb: 1024,
       }),
     ).resolves.toEqual({ status: 'capacity' });
-    expect(transaction.$queryRaw).toHaveBeenCalledOnce();
+    expect(transaction.$executeRaw).toHaveBeenCalledOnce();
     expect(transaction.service.create).not.toHaveBeenCalled();
   });
 
@@ -210,7 +210,7 @@ describe('ServiceRepository autoscale claims', () => {
         ServiceState.starting,
       ),
     ).resolves.toEqual({ status: 'saved', value: true });
-    expect(transaction.$queryRaw).toHaveBeenCalledOnce();
+    expect(transaction.$executeRaw).toHaveBeenCalledOnce();
     expect(transaction.service.updateMany).toHaveBeenCalledOnce();
   });
 });
@@ -248,7 +248,7 @@ describe('ServiceRepository vertical scaling', () => {
     });
 
     expect(result.status).toBe('saved');
-    expect(transaction.$queryRaw).toHaveBeenCalledOnce();
+    expect(transaction.$executeRaw).toHaveBeenCalledOnce();
     expect(transaction.service.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -293,6 +293,6 @@ describe('ServiceRepository vertical scaling', () => {
 
     await repository.updateBuildConfig('org-1', 'svc-1', { alertsMuted: true });
 
-    expect(transaction.$queryRaw).not.toHaveBeenCalled();
+    expect(transaction.$executeRaw).not.toHaveBeenCalled();
   });
 });

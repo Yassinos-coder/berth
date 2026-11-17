@@ -28,4 +28,31 @@ echo "$BODY" | grep -q 'needsSetup\|setup' || { echo "unexpected setup-state: $B
 STATUS="$(curl -s -o /dev/null -w '%{http_code}' "$BASE/services")"
 [ "$STATUS" = "401" ] || { echo "unauthenticated /services returned $STATUS, expected 401"; exit 1; }
 
+json() { node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const v=JSON.parse(d);const r=eval("v"+process.argv[1]);console.log(r===undefined?"":r)})' "$1"; }
+JAR="$(mktemp)"
+trap 'kill "$SERVER_PID" 2>/dev/null || true; rm -f "$LOG" "$JAR"' EXIT
+call() {
+  local method="$1" path="$2" body="${3:-}"
+  if [ -n "$body" ]; then
+    curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -c "$JAR" -H 'Content-Type: application/json' -H 'X-Berth-Client: smoke' -X "$method" "$BASE$path" -d "$body"
+  else
+    curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -c "$JAR" -H 'X-Berth-Client: smoke' -X "$method" "$BASE$path"
+  fi
+}
+expect() { [ "$1" = "$2" ] || { echo "FAIL $3: expected $2, got $1"; cat "$LOG" | tail -20; exit 1; }; }
+
+curl -fsS -c "$JAR" -H 'Content-Type: application/json' -H 'X-Berth-Client: smoke'   -d '{"name":"Smoke Admin","email":"smoke@example.com","password":"smoke-test-password"}' "$BASE/auth/register" >/dev/null
+SERVER_ID="$(curl -fsS -b "$JAR" -H 'X-Berth-Client: smoke' -H 'Content-Type: application/json' -X POST "$BASE/servers/enroll" -d '{"name":"smoke"}' >/dev/null; curl -fsS -b "$JAR" "$BASE/servers" | json '[0].id')"
+
+SERVICE_BODY="{\"name\":\"smoke-app\",\"kind\":\"image\",\"serverId\":\"$SERVER_ID\",\"source\":{\"kind\":\"image\",\"image\":\"traefik/whoami\",\"tag\":\"latest\"},\"containerPort\":80,\"resources\":{\"cpuCores\":0.25,\"memoryMb\":64}}"
+CREATE_BODY="$(curl -s -w '
+%{http_code}' -b "$JAR" -H 'Content-Type: application/json' -H 'X-Berth-Client: smoke' -X POST "$BASE/services" -d "$SERVICE_BODY")"
+expect "$(echo "$CREATE_BODY" | tail -n1)" 201 "create service (capacity lock)"
+SERVICE_ID="$(echo "$CREATE_BODY" | head -n1 | json '.id')"
+
+expect "$(call PATCH "/services/$SERVICE_ID" '{"resources":{"cpuCores":0.5,"memoryMb":128}}')" 200 "raise limits"
+expect "$(call PATCH "/services/$SERVICE_ID" '{"resources":{"cpuCores":0.5,"memoryMb":65536}}')" 400 "reject limits beyond the server"
+expect "$(call POST "/services/$SERVICE_ID/scale" '{"replicas":2}')" 201 "scale replicas"
+expect "$(call DELETE "/services/$SERVICE_ID")" 204 "delete service"
+
 echo "panel smoke test passed"

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-11-17
+
+### Fixed
+- **Creating, scaling and starting services failed with a 500 error after the Prisma 7 upgrade.** The per-server capacity lock used a query whose `void` result the new database driver cannot read. It now runs as a statement with no result. Version 0.17.0 has this bug, so skip it and use 0.17.1.
+
+### Added
+- The panel smoke test now creates a service, raises and over-raises its limits, scales it, and deletes it against a real database, so this class of bug fails CI instead of reaching users.
+
 ## [0.17.0] - 2026-11-17
 
 ### Changed
