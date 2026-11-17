@@ -59,4 +59,30 @@ wait_for "memory limit raised live on the running container" 40 memory_limit_app
 wait_for "service still running after resource change" 12 service_running
 
 api DELETE "/services/$SERVICE_ID" >/dev/null
+
+echo "--- storage limits through the whole stack"
+api PATCH "/servers/$SERVER_ID/storage" -d '{"storageBudgetGb":20}' >/dev/null
+VOLUME_SERVICE_ID="$(api POST /services -d "$(jq -n --arg server "$SERVER_ID" '{
+  name: "smoke-volume", kind: "image", serverId: $server,
+  source: { kind: "image", image: "alpine", tag: "3.20" },
+  command: ["sleep", "infinity"],
+  volumePath: "/data", diskGb: 1,
+  resources: { cpuCores: 0.25, memoryMb: 64 }
+}')" | jq -r '.id')"
+
+volume_container() { docker ps --filter "label=berth.service_id=$VOLUME_SERVICE_ID" --format '{{.Names}}' | head -n1; }
+volume_running() { [ -n "$(volume_container)" ]; }
+wait_for "limited-volume service running" 60 volume_running
+
+WRITE="$(docker exec "$(volume_container)" sh -c 'dd if=/dev/zero of=/data/big bs=1M count=1200 2>&1; true')"
+echo "$WRITE" | grep -q "No space left on device" || { echo "a 1 GB volume accepted 1.2 GB of data:"; echo "$WRITE"; exit 1; }
+echo "ok: writing past the 1 GB limit is refused"
+
+docker exec "$(volume_container)" sh -c 'rm -f /data/big; echo precious > /data/keep.txt; sync'
+api PATCH "/services/$VOLUME_SERVICE_ID" -d '{"diskGb":2}' >/dev/null
+volume_resized() { [ "$(docker exec "$(volume_container)" sh -c "df -m /data | tail -1 | awk '{print \$2}'" 2>/dev/null)" -ge 1900 ] 2>/dev/null; }
+wait_for "volume grown to 2 GB" 60 volume_resized
+[ "$(docker exec "$(volume_container)" cat /data/keep.txt)" = "precious" ] || { echo "data lost while resizing"; exit 1; }
+echo "ok: grew the volume, data kept"
+api DELETE "/services/$VOLUME_SERVICE_ID" >/dev/null
 echo "install smoke test passed"

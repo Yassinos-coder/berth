@@ -23,11 +23,34 @@ export class ServerRepository {
     });
   }
 
+  async allocatedDiskByServer(orgId: string): Promise<Map<string, number>> {
+    const rows = await this.prisma.service.groupBy({
+      by: ['serverId'],
+      where: { orgId, volumePath: { not: null }, diskGb: { not: null } },
+      _sum: { diskGb: true },
+    });
+    return new Map(rows.map((row) => [row.serverId, row._sum.diskGb ?? 0]));
+  }
+
+  async updateStorageBudget(
+    orgId: string,
+    id: string,
+    storageBudgetGb: number,
+  ): Promise<ServerWithCount | null> {
+    const result = await this.prisma.server.updateMany({
+      where: { id, orgId },
+      data: { storageBudgetGb },
+    });
+    if (result.count === 0) return null;
+    return this.findById(orgId, id);
+  }
+
   createEnrolling(data: {
     orgId: string;
     name: string;
     bootstrapToken: string;
     bootstrapExpires: Date;
+    storageBudgetGb?: number;
   }): Promise<Server> {
     return this.prisma.server.create({
       data: {
@@ -35,6 +58,7 @@ export class ServerRepository {
         name: data.name,
         bootstrapToken: data.bootstrapToken,
         bootstrapExpires: data.bootstrapExpires,
+        storageBudgetGb: data.storageBudgetGb ?? null,
       },
     });
   }

@@ -17,6 +17,7 @@ import { ServiceStateBadge } from '@/components/shared/StatusBadge';
 import { DeploymentsTable } from '@/features/deployments/DeploymentsTable';
 import { DeployStepper } from '@/features/deployments/DeployStepper';
 import { LogViewer } from '@/features/services/LogViewer';
+import { TrafficCard } from '@/features/services/TrafficCard';
 import { MetricsPanel, type MetricsRange } from '@/features/services/MetricsPanel';
 import { EnvironmentEditor } from '@/features/services/EnvironmentEditor';
 import { ConnectionPanel } from '@/features/services/ConnectionPanel';
@@ -25,6 +26,9 @@ import { PreviewSettings } from '@/features/services/PreviewSettings';
 import { AlertMuteSettings } from '@/features/services/AlertMuteSettings';
 import { VolumeSettings } from '@/features/services/VolumeSettings';
 import { ResourceSettings } from '@/features/services/ResourceSettings';
+import { DeployStrategySettings } from '@/features/services/DeployStrategySettings';
+import { StorageSettings } from '@/features/services/StorageSettings';
+import { useServers } from '@/hooks/useServersQueries';
 import { useProxyHosts } from '@/hooks/useProxyHostsQueries';
 import { ServiceDomainLinks } from '@/features/services/ServiceDomainLinks';
 import { ResourcePressure } from '@/features/services/utils/resourcePressure';
@@ -34,6 +38,8 @@ import { BackupsPanel } from '@/features/services/BackupsPanel';
 import { EditableServiceName } from '@/features/services/EditableServiceName';
 import { ServiceDomains } from '@/features/services/ServiceDomains';
 import { PlatformPicker } from '@/features/services/PlatformPicker';
+import { MoveServiceCard } from '@/features/services/MoveServiceCard';
+import { ReleaseCommandSettings } from '@/features/services/ReleaseCommandSettings';
 import {
   KIND_META,
   builderLabel,
@@ -59,6 +65,7 @@ import {
   useServiceMetrics,
   useServiceMetricsHistory,
   useServiceMetricsPeak,
+  useServiceTraffic,
 } from '@/hooks/useServicesQueries';
 import {
   useServiceAction,
@@ -120,11 +127,13 @@ export function ServiceDetailPage() {
   const metrics = useServiceMetrics(id);
   const metricsHistory = useServiceMetricsHistory(id, metricsRange, metricsRange !== 'live');
   const metricsPeak = useServiceMetricsPeak(id);
+  const traffic = useServiceTraffic(id, metricsRange === 'live' ? '1h' : metricsRange);
   const deployments = useServiceDeployments(id);
   const action = useServiceAction(id);
   const removeService = useRemoveService();
   const rollback = useRollback();
   const proxyHosts = useProxyHosts();
+  const servers = useServers();
   const serviceHosts = (proxyHosts.data ?? []).filter((host) => host.serviceId === id);
 
   const svc = service.data;
@@ -430,6 +439,7 @@ export function ServiceDetailPage() {
                     onRangeChange={setMetricsRange}
                   />
                 </QueryBoundary>
+                {traffic.data ? <TrafficCard traffic={traffic.data} /> : null}
               </TabsContent>
 
               <TabsContent value="env" className="mt-4">
@@ -462,13 +472,17 @@ export function ServiceDetailPage() {
                   volumePath={svc.volumePath}
                   managedByTemplate={Boolean(svc.templateKind)}
                 />
+                <DeployStrategySettings service={svc} />
+                <StorageSettings service={svc} server={servers.data?.find((item) => item.id === svc.serverId)} />
                 <ResourceSettings serviceId={svc.id} resources={svc.resources} />
                 <AlertMuteSettings serviceId={svc.id} muted={svc.alertsMuted} />
                 <RegistryCredentialPicker
                   serviceId={svc.id}
                   registryCredentialId={svc.registryCredentialId}
                 />
+                <ReleaseCommandSettings serviceId={svc.id} value={svc.releaseCommand} />
                 <PlatformPicker serviceId={svc.id} value={svc.targetPlatform} />
+                <MoveServiceCard service={svc} servers={servers.data ?? []} hasDomains={Boolean(svc.domain)} />
                 <Card className="border-destructive/30">
                   <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>

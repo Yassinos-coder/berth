@@ -54,10 +54,10 @@ install_base_packages() {
       apt-get update -y
       apt-get install -y --no-install-recommends \
         ca-certificates curl git build-essential pkg-config libssl-dev \
-        software-properties-common apt-transport-https gnupg
+        software-properties-common apt-transport-https gnupg e2fsprogs util-linux
       ;;
     dnf | yum)
-      "$PKG" install -y ca-certificates curl git gcc gcc-c++ make
+      "$PKG" install -y ca-certificates curl git gcc gcc-c++ make e2fsprogs util-linux openssl
       ;;
   esac
 }
@@ -137,6 +137,46 @@ build_agent() {
   cargo build --release --manifest-path "$repo_root/apps/berth-agent/Cargo.toml"
 
   install -m 0755 "$repo_root/apps/berth-agent/target/release/berth-agent" "$BIN_PATH"
+}
+
+fetch_ca_cert() {
+  local target="$ENV_DIR/ca.crt"
+  local expected
+  expected="$(printf '%s' "${BERTH_CA_SHA256:-}" | tr 'A-F' 'a-f' | tr -d ':[:space:]')"
+  install -d "$ENV_DIR"
+
+  if [[ -f "$target" ]]; then
+    local current
+    current="$(openssl x509 -in "$target" -outform DER 2>/dev/null | sha256sum | cut -d' ' -f1)"
+    if [[ -z "$expected" || "$current" == "$expected" ]]; then
+      log "using the existing panel CA certificate"
+      return 0
+    fi
+    log "the panel CA changed (panel reinstalled?); replacing the old CA and agent identity"
+    rm -f "$target" "$ENV_DIR/agent.crt" "$ENV_DIR/agent.key"
+  fi
+
+  [[ -n "${BERTH_PANEL_URL:-}" ]] || fail "BERTH_PANEL_URL is required"
+  [[ -n "$expected" ]] || fail "BERTH_CA_SHA256 is required so this server can verify your panel. Copy the full command from Servers -> Add server."
+  command -v openssl >/dev/null 2>&1 || fail "openssl is required to verify the panel certificate"
+
+  local host_port="${BERTH_PANEL_URL#*://}"
+  host_port="${host_port%%/*}"
+  local tmp
+  tmp="$(mktemp)"
+  log "downloading the panel CA certificate from ${host_port}"
+  curl -fsSk --max-time 20 "https://${host_port}/ca.pem" -o "$tmp"     || { rm -f "$tmp"; fail "could not reach https://${host_port}/ca.pem. Is port 4443 open on the panel server?"; }
+
+  local actual
+  actual="$(openssl x509 -in "$tmp" -outform DER 2>/dev/null | sha256sum | cut -d' ' -f1)"
+  if [[ "$actual" != "$expected" ]]; then
+    rm -f "$tmp"
+    fail "the certificate served at ${host_port} does not match the fingerprint in your command. Refusing to trust it."
+  fi
+
+  install -m 0644 "$tmp" "$target"
+  rm -f "$tmp"
+  log "panel CA verified (sha256 ${actual:0:16}...)"
 }
 
 write_env_file() {
@@ -223,6 +263,7 @@ main() {
   repo_root="$(resolve_source_dir)"
 
   build_agent "$repo_root"
+  fetch_ca_cert
   write_env_file
   write_systemd_unit "$repo_root"
   enable_service

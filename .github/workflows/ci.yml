@@ -118,6 +118,8 @@ jobs:
       - run: mkdir -p apps/berth-server/ci-certs
       - name: Panel smoke test (database and Redis backed)
         run: bash scripts/smoke-panel.sh
+      - name: AI advisor smoke test (stub provider)
+        run: BERTH_HTTP_PORT=4001 bash scripts/smoke-advisor.sh
 
   supply-chain:
     runs-on: ubuntu-latest
@@ -148,6 +150,21 @@ jobs:
         with:
           dockerfile: apps/berth-ui/Dockerfile
           failure-threshold: error
+
+
+  agent-volumes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/berth-agent
+      - name: Install filesystem tools
+        run: sudo apt-get update -y && sudo apt-get install -y e2fsprogs util-linux
+      - name: Storage limits are a hard wall on real Linux
+        working-directory: apps/berth-agent
+        run: sudo -E env "PATH=$PATH" BERTH_VOLUME_E2E=1 BERTH_FSTAB=/tmp/fstab-ci cargo test volumes_e2e -- --ignored --nocapture
 
   agent-protocol:
     runs-on: ubuntu-latest

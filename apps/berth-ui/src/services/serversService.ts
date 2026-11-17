@@ -20,6 +20,10 @@ class ServersService extends BaseApiClient {
     return this.post<Enrollment>(`/${id}/reenroll`, {});
   }
 
+  updateStorage(id: string, storageBudgetGb: number): Promise<Server> {
+    return this.patch<Server>(`/${id}/storage`, { storageBudgetGb });
+  }
+
   remove(id: string): Promise<void> {
     return this.delete<void>(`/${id}`);
   }

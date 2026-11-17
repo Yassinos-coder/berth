@@ -29,6 +29,9 @@ import { CreateServiceDto } from '../dto/create-service.dto';
 import { UpdateServiceDto } from '../dto/update-service.dto';
 import { ScaleServiceDto } from '../dto/scale-service.dto';
 import { ReplicaPolicyValidator } from '../validators/replica-policy.validator';
+import { DeployStrategyValidator } from '../validators/deploy-strategy.validator';
+import { StorageBudgetValidator } from '../../common/validators/storage-budget.validator';
+import { StorageQuotaService } from './storage-quota.service';
 import { ReplicaEngineService } from './replica-engine.service';
 import type { AuthenticatedUser } from '../../common/interfaces';
 import { InternalDomainUtil } from '../../common/utils/internal-domain.util';
@@ -55,6 +58,7 @@ export class ServicesService {
   constructor(
     private readonly repository: ServiceRepository,
     private readonly servers: ServerRepository,
+    private readonly storageQuota: StorageQuotaService,
     private readonly deployments: DeploymentRepository,
     private readonly activityService: ActivityService,
     private readonly registry: AgentRegistry,
@@ -115,8 +119,17 @@ export class ServicesService {
       ? this.buildFromTemplate(user, dto)
       : this.buildFromSource(user, dto);
 
+    const strategyConflict = DeployStrategyValidator.conflict({
+      strategy: dto.deployStrategy ?? 'rolling',
+      replicas: dto.replicas ?? input.replicas ?? 1,
+      autoscaled: DeployStrategyValidator.isAutoscaled(dto.replicaPolicy),
+    });
+    if (strategyConflict) throw new BadRequestException(strategyConflict);
+
     const creation = await this.repository.create({
       ...input,
+      deployStrategy: dto.deployStrategy,
+      volumeLimited: Boolean((input.volumePath ?? dto.volumePath) && (input.diskGb ?? dto.diskGb)),
       replicas: dto.replicas ?? input.replicas ?? 1,
       replicaPolicy: dto.replicaPolicy
         ? ReplicaPolicyValidator.toJson(
@@ -129,6 +142,11 @@ export class ServicesService {
     if (creation.status === 'capacity') {
       throw new BadRequestException(
         'Service CPU or memory limits exceed the target server capacity',
+      );
+    }
+    if (creation.status === 'storage') {
+      throw new BadRequestException(
+        await this.storageQuota.explainShortfall(user.orgId, dto.serverId, dto.diskGb ?? 0),
       );
     }
     if (creation.status === 'not-found') {
@@ -201,7 +219,28 @@ export class ServicesService {
     if (dto.replicas !== undefined && (dto.replicas < 1 || dto.replicas > 32)) {
       throw new BadRequestException('Replica count must be between 1 and 32');
     }
-    const touchesResources = dto.resources !== undefined;
+    const touchesResources = dto.resources !== undefined || dto.diskGb !== undefined;
+    if (dto.enforceDiskLimit && dto.diskGb === undefined && !service.diskGb) {
+      throw new BadRequestException('Choose a storage size to enforce.');
+    }
+    if (dto.diskGb !== undefined) {
+      const sizeError = StorageBudgetValidator.sizeError(dto.diskGb);
+      if (sizeError) throw new BadRequestException(sizeError);
+      if (!volumeChange?.volumePath && !service.volumePath) {
+        throw new BadRequestException(
+          'Add a persistent volume path before choosing a storage size.',
+        );
+      }
+    }
+    const strategyConflict = DeployStrategyValidator.conflict({
+      strategy: dto.deployStrategy ?? service.deployStrategy,
+      replicas: dto.replicas ?? service.replicas,
+      autoscaled: DeployStrategyValidator.isAutoscaled(
+        dto.replicaPolicy ??
+          ReplicaPolicyValidator.fromStored(service.replicaPolicy),
+      ),
+    });
+    if (strategyConflict) throw new BadRequestException(strategyConflict);
 
     const update = await this.repository.updateBuildConfig(user.orgId, id, {
       name: name && name.length > 0 ? name : undefined,
@@ -212,8 +251,13 @@ export class ServicesService {
       builder: dto.builder as Builder | undefined,
       registryCredentialId,
       targetPlatform: dto.targetPlatform,
+      releaseCommand: emptyToNull(dto.releaseCommand),
       previewsEnabled: dto.previewsEnabled,
       alertsMuted: dto.alertsMuted,
+      volumeLimited: dto.enforceDiskLimit === true ? true : undefined,
+      diskGb: dto.diskGb,
+      deployStrategy: dto.deployStrategy,
+      autoRollback: dto.autoRollback,
       replicas: dto.replicas,
       replicaPolicy: dto.replicaPolicy
         ? ReplicaPolicyValidator.toJson(
@@ -228,6 +272,16 @@ export class ServicesService {
     if (update.status === 'capacity') {
       throw new BadRequestException(
         'Replica CPU or memory limits exceed the target server capacity',
+      );
+    }
+    if (update.status === 'storage') {
+      throw new BadRequestException(
+        await this.storageQuota.explainShortfall(
+          user.orgId,
+          service.serverId,
+          dto.diskGb ?? service.diskGb ?? 0,
+          id,
+        ),
       );
     }
     if (update.status === 'not-found') {
@@ -264,6 +318,12 @@ export class ServicesService {
     if (nextReplicas < 1 || nextReplicas > 32) {
       throw new BadRequestException('Replica count must be between 1 and 32');
     }
+    const strategyConflict = DeployStrategyValidator.conflict({
+      strategy: service.deployStrategy,
+      replicas: nextReplicas,
+      autoscaled: DeployStrategyValidator.isAutoscaled(dto.replicaPolicy),
+    });
+    if (strategyConflict) throw new BadRequestException(strategyConflict);
 
     const update = await this.repository.updateReplicas(
       user.orgId,
@@ -280,7 +340,7 @@ export class ServicesService {
         'Replica CPU or memory limits exceed the target server capacity',
       );
     }
-    if (update.status === 'not-found') {
+    if (update.status === 'not-found' || update.status === 'storage') {
       throw new NotFoundException('Service not found');
     }
     const updated = update.value;

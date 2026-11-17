@@ -138,6 +138,8 @@ export class CreateServiceDto {
 
   @IsOptional()
   @IsInt()
+  @Min(1)
+  @Max(2048)
   diskGb?: number;
 
   @IsOptional()
@@ -154,6 +156,10 @@ export class CreateServiceDto {
   @ValidateNested()
   @Type(() => ReplicaPolicyDto)
   replicaPolicy?: ReplicaPolicyDto;
+
+  @IsOptional()
+  @IsIn(['rolling', 'recreate'])
+  deployStrategy?: 'rolling' | 'recreate';
 
   @IsOptional()
   @ValidateNested({ each: true })

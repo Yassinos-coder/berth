@@ -10,6 +10,7 @@ import type * as tls from 'node:tls';
 import type { IncomingMessage } from 'node:http';
 import { WebSocketServer, type WebSocket, type RawData } from 'ws';
 import { AgentStatus } from '@prisma/client';
+import { ServerHealthService } from '../health/server-health.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CaService } from '../pki/ca.service';
 import { EnrollmentService } from '../pki/enrollment.service';
@@ -19,6 +20,7 @@ import { AgentMessageValidator } from '../validators/agent-message.validator';
 import { CertificateRenewalService } from '../pki/certificate-renewal.service';
 import { CertificateRenewalValidator } from '../validators/certificate-renewal.validator';
 import { AgentIdentityValidator } from '../validators/agent-identity.validator';
+import { CaDownloadValidator } from '../validators/ca-download.validator';
 import { ProtocolVersionValidator } from '../validators/protocol-version.validator';
 
 const MAX_PAYLOAD = 512 * 1024;
@@ -39,6 +41,7 @@ export class AgentGatewayService implements OnModuleInit, OnApplicationShutdown 
     private readonly handler: AgentMessageHandler,
     private readonly prisma: PrismaService,
     private readonly certificateRenewal: CertificateRenewalService,
+    private readonly health: ServerHealthService,
   ) {}
 
   onModuleInit(): void {
@@ -50,6 +53,15 @@ export class AgentGatewayService implements OnModuleInit, OnApplicationShutdown 
       requestCert: true,
       rejectUnauthorized: false,
       minVersion: 'TLSv1.2',
+    });
+    this.server.on('request', (req, res) => {
+      const response = CaDownloadValidator.respond(
+        req.method,
+        req.url,
+        this.ca.tlsOptions().ca,
+      );
+      res.writeHead(response.status, { 'Content-Type': response.contentType });
+      res.end(req.method === 'HEAD' ? undefined : response.body);
     });
     this.wss = new WebSocketServer({
       server: this.server,
@@ -187,7 +199,9 @@ export class AgentGatewayService implements OnModuleInit, OnApplicationShutdown 
     remoteAddress: string,
   ): void {
     this.registry.register(serverId, ws);
-    void this.markStatus(serverId, AgentStatus.online, remoteAddress || undefined);
+    void this.markStatus(serverId, AgentStatus.online, remoteAddress || undefined).then(() =>
+      this.health.onConnected(serverId),
+    );
     void this.registry
       .reconcileServer(serverId)
       .catch((error) => this.logger.error(`initial reconcile failed`, error));

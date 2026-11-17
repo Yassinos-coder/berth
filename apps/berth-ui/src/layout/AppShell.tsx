@@ -2,9 +2,12 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from '@/layout/Sidebar';
 import { Topbar } from '@/layout/Topbar';
 import { Footer } from '@/layout/Footer';
+import { NotificationPrompt } from '@/features/browser-notifications/NotificationPrompt';
+import { useBrowserNotifier } from '@/features/browser-notifications/hooks/useBrowserNotifier';
 import { CommandPalette } from '@/features/command-palette/components/CommandPalette';
 
 export function AppShell() {
+  useBrowserNotifier();
   return (
     <div className="bg-background flex min-h-screen">
       <a
@@ -22,6 +25,9 @@ export function AppShell() {
           tabIndex={-1}
           className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 outline-none md:px-8 md:py-8"
         >
+          <div className="mb-6 empty:hidden">
+            <NotificationPrompt />
+          </div>
           <Outlet />
         </main>
         <Footer />

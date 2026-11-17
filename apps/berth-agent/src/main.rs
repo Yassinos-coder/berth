@@ -2,7 +2,9 @@
 
 mod backup;
 mod config;
+mod crash_watch;
 mod docker;
+mod edge_stats;
 mod enroll;
 mod exec;
 mod host;
@@ -12,6 +14,7 @@ mod sftpgo;
 mod telemetry;
 mod tls;
 mod validators;
+mod volumes;
 
 use config::AgentConfig;
 use docker::{AgentResult, DockerReconciler};

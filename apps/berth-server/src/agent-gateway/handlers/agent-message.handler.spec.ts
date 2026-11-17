@@ -20,6 +20,9 @@ function build(options: { service?: object | null; deployment?: object | null } 
   };
   const notifications = { notify: vi.fn().mockResolvedValue(undefined) };
   const certificateRenewal = { issue: vi.fn().mockResolvedValue(undefined) };
+  const autoRollback = { onCrash: vi.fn().mockResolvedValue(false) };
+  const volumeUsage = { record: vi.fn().mockResolvedValue(undefined) };
+  const edgeTraffic = { record: vi.fn().mockResolvedValue(undefined) };
   const handler = new AgentMessageHandler(
     prisma as never,
     {} as never,
@@ -30,8 +33,11 @@ function build(options: { service?: object | null; deployment?: object | null } 
     {} as never,
     {} as never,
     certificateRenewal as never,
+    autoRollback as never,
+    volumeUsage as never,
+    edgeTraffic as never,
   );
-  return { handler, prisma, notifications, certificateRenewal };
+  return { handler, prisma, notifications, certificateRenewal, autoRollback, volumeUsage, edgeTraffic };
 }
 
 describe('AgentMessageHandler ReconcileResult', () => {
@@ -94,5 +100,23 @@ describe('AgentMessageHandler CertificateRenewal', () => {
     const { handler, certificateRenewal } = build();
     await handler.handle('srv', { type: 'CertificateRenewal', csr: 'CSR-PEM' });
     expect(certificateRenewal.issue).toHaveBeenCalledWith('srv', 'CSR-PEM');
+  });
+});
+
+describe('AgentMessageHandler VolumeUsage', () => {
+  it('hands volume readings to the usage service for that server', async () => {
+    const { handler, volumeUsage } = build();
+    const volumes = [{ name: 'data', usedMb: 100, totalMb: 1000 }];
+    await handler.handle('srv-1', { type: 'VolumeUsage', volumes });
+    expect(volumeUsage.record).toHaveBeenCalledWith('srv-1', volumes);
+  });
+});
+
+describe('AgentMessageHandler EdgeStats', () => {
+  it('hands traffic summaries to the edge traffic service for that server', async () => {
+    const { handler, edgeTraffic } = build();
+    const entries = [{ domain: 'a.example.com', requests: 10, status4xx: 1, status5xx: 0, p95Ms: 20 }];
+    await handler.handle('srv-1', { type: 'EdgeStats', entries });
+    expect(edgeTraffic.record).toHaveBeenCalledWith('srv-1', entries);
   });
 });

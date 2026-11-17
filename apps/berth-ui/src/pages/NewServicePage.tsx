@@ -23,7 +23,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ResourceLimitsField } from '@/features/services/ResourceLimitsField';
+import { ResourcePresets } from '@/features/services/new/ResourcePresets';
+import { StorageSection } from '@/features/services/new/StorageSection';
+import { CapacityPanel } from '@/features/services/new/CapacityPanel';
+import { StorageGuidanceRules } from '@/features/services/new/storageGuidance';
+import { ServerCapacity } from '@/features/services/new/serverCapacity';
 import { ImageSearch } from '@/features/services/ImageSearch';
 import {
   SOURCE_OPTIONS,
@@ -32,6 +36,7 @@ import {
 import { useEnvironments } from '@/hooks/useEnvironments';
 import { useServers } from '@/hooks/useServersQueries';
 import { useCreateService } from '@/hooks/useServicesMutations';
+import { useServices } from '@/hooks/useServicesQueries';
 import {
   useGithubBranches,
   useGithubRepos,
@@ -77,6 +82,7 @@ export function NewServicePage() {
     memoryMb: 1024,
   });
   const [diskGb, setDiskGb] = useState(5);
+  const [storageEnabled, setStorageEnabled] = useState(false);
   const [volumePath, setVolumePath] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [rootDirectory, setRootDirectory] = useState('');
@@ -89,12 +95,27 @@ export function NewServicePage() {
   const isImageChoice =
     choice === 'image' || choice === 'database' || choice === 'empty';
   const selectedServer = servers.data?.find((s) => s.id === serverId);
-  const diskHint = selectedServer
-    ? `${Math.max(0, Math.round(selectedServer.usage.diskTotalGb - selectedServer.usage.diskGb))} GB free of ${selectedServer.usage.diskTotalGb} GB on ${selectedServer.name}.`
-    : undefined;
   const selectedTemplate = templates.data?.find((item) => item.kind === templateKind);
   const appTemplate = Boolean(selectedTemplate?.app);
   const managedDb = Boolean(templateKind) && asDatabase && !appTemplate;
+  const allServices = useServices();
+  const guidance = StorageGuidanceRules.forDeployment({
+    choice,
+    templateKind,
+    managedDatabase: managedDb,
+    appTemplate,
+  });
+  const storageActive = guidance.mode === 'managed' || storageEnabled;
+  const capacity = ServerCapacity.compute(selectedServer, allServices.data ?? [], {
+    cpuCores: resources.cpuCores,
+    memoryMb: resources.memoryMb,
+    storageGb: storageActive ? diskGb : 0,
+  });
+
+  useEffect(() => {
+    setDiskGb(guidance.defaultGb);
+    setStorageEnabled(guidance.mode === 'managed');
+  }, [guidance.mode, guidance.defaultGb, choice, templateKind]);
   const github = useGithubStatus();
   const repos = useGithubRepos(isGit && Boolean(github.data?.connected));
   const branches = useGithubBranches(reference);
@@ -141,6 +162,13 @@ export function NewServicePage() {
     if (!option) return;
     if (!name.trim()) return notify.warn('Give your service a name');
     if (!serverId) return notify.warn('Pick a server to deploy on');
+    if (guidance.mode === 'optional' && storageEnabled && !volumePath.trim()) {
+      return notify.warn('Enter the folder inside the container to store files in');
+    }
+    if (storageActive && (!Number.isInteger(diskGb) || diskGb < 1 || diskGb > 2048)) {
+      return notify.warn('Storage must be a whole number from 1 to 2048 GB');
+    }
+    if (capacity && capacity.problems.length > 0) return notify.warn(capacity.problems[0]);
 
     if (appTemplate) {
       createService.mutate(
@@ -202,8 +230,8 @@ export function NewServicePage() {
           },
           resources,
           domain: domain.trim() || undefined,
-          diskGb,
-          volumePath: volumePath.trim() || undefined,
+          diskGb: storageActive ? diskGb : undefined,
+          volumePath: storageActive ? volumePath.trim() || undefined : undefined,
         },
         { onSuccess: () => navigate('/services') },
       );
@@ -223,8 +251,8 @@ export function NewServicePage() {
         resources,
         domain: domain.trim() || undefined,
         publicNetworking,
-        diskGb,
-        volumePath: volumePath.trim() || undefined,
+        diskGb: storageActive ? diskGb : undefined,
+        volumePath: storageActive ? volumePath.trim() || undefined : undefined,
       },
       { onSuccess: () => navigate('/services') },
     );
@@ -555,6 +583,23 @@ export function NewServicePage() {
               </Select>
             </div>
 
+            <section className="space-y-4 border-t pt-5" aria-labelledby="resources-heading">
+              <h2 id="resources-heading" className="text-sm font-semibold">
+                Resources &amp; storage
+              </h2>
+              <ResourcePresets value={resources} onChange={setResources} />
+              <StorageSection
+                guidance={guidance}
+                enabled={storageActive}
+                onEnabledChange={setStorageEnabled}
+                sizeGb={diskGb}
+                onSizeGbChange={setDiskGb}
+                mountPath={volumePath}
+                onMountPathChange={setVolumePath}
+              />
+              <CapacityPanel report={capacity} serverName={selectedServer?.name ?? ''} />
+            </section>
+
             {(environments.data ?? []).length > 0 ? (
               <div className="space-y-2">
                 <Label>Environment (optional)</Label>
@@ -574,21 +619,6 @@ export function NewServicePage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            ) : null}
-
-            {!managedDb && !appTemplate ? (
-              <div className="space-y-2">
-                <Label htmlFor="volume-path">Volume path (optional)</Label>
-                <Input
-                  id="volume-path"
-                  placeholder="/app/data"
-                  value={volumePath}
-                  onChange={(e) => setVolumePath(e.target.value)}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Mount a persistent volume here so files survive redeploys.
-                </p>
               </div>
             ) : null}
 
@@ -642,13 +672,6 @@ export function NewServicePage() {
                       </Button>
                     </div>
                   ) : null}
-                  <ResourceLimitsField
-                    value={resources}
-                    onChange={setResources}
-                    diskGb={diskGb}
-                    onDiskGbChange={setDiskGb}
-                    diskHint={diskHint}
-                  />
                 </div>
               ) : null}
             </div>

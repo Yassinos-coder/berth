@@ -1,5 +1,6 @@
 import type { ServiceKind, ServiceState } from '@prisma/client';
 import type {
+  DeployStrategy,
   ReplicaPolicy,
   ResourceLimits,
   ServiceSource,
@@ -44,12 +45,17 @@ export interface ServiceDto {
   containerPort?: number;
   registryCredentialId?: string;
   targetPlatform?: string;
+  releaseCommand?: string;
   internalDomains: string[];
   previewsEnabled: boolean;
   environmentId?: string;
   environmentName?: string;
   alertsMuted: boolean;
   replicaPolicy?: ReplicaPolicy;
+  deployStrategy: DeployStrategy;
+  autoRollback: boolean;
+  diskLimited: boolean;
+  volumeUsage?: { usedMb: number; totalMb: number; at: string };
   previewOfId?: string;
   prNumber?: number;
   usage: { cpuPct: number; memMb: number };

@@ -17,6 +17,9 @@ git fetch --depth 1 origin production
 # Untracked files (.env, panel-certs/, certs/) are preserved by reset --hard.
 git reset --hard origin/production
 
+log "making sure nightly panel backups are set up"
+bash "$REPO_DIR/scripts/panel-backup.sh" install-timer || log "could not set up nightly backups (continuing)"
+
 log "rebuilding & restarting the panel (deployed services keep running)"
 # Only the changed server/ui images are rebuilt and their containers recreated;
 # postgres, redis and every agent-managed container are left running.

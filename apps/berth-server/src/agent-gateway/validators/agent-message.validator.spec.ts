@@ -10,6 +10,8 @@ describe('AgentMessageValidator', () => {
     { type: 'BuildProgress' },
     { type: 'LogChunk' },
     { type: 'Metrics' },
+    { type: 'VolumeUsage' },
+    { type: 'EdgeStats' },
     { type: 'HostUsage' },
     { type: 'ReconcileResult' },
     { type: 'BackupResult' },

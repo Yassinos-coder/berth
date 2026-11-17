@@ -5,11 +5,13 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { ServersService } from '../services/servers.service';
 import { EnrollServerDto } from '../dto/enroll-server.dto';
+import { UpdateServerStorageDto } from '../dto/update-server-storage.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces';
@@ -33,12 +35,22 @@ export class ServersController {
   }
 
   @Roles(Role.owner, Role.admin)
+  @Patch(':id/storage')
+  updateStorage(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateServerStorageDto,
+  ): Promise<ServerDto> {
+    return this.serversService.updateStorageBudget(user, id, dto.storageBudgetGb);
+  }
+
+  @Roles(Role.owner, Role.admin)
   @Post('enroll')
   enroll(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: EnrollServerDto,
   ): Promise<EnrollmentDto> {
-    return this.serversService.enroll(user, dto.name);
+    return this.serversService.enroll(user, dto.name, dto.storageBudgetGb);
   }
 
   @Roles(Role.owner, Role.admin)

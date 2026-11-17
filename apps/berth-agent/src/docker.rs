@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::process::Stdio;
 
+use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::mpsc;
@@ -422,6 +423,10 @@ impl DockerReconciler {
             &format!("{LABEL_MANAGED}=true"),
             "--label",
             "berth.role=proxy",
+            "--log-opt",
+            LOG_MAX_SIZE,
+            "--log-opt",
+            LOG_MAX_FILES,
             "--restart",
             "unless-stopped",
             "--network",
@@ -479,6 +484,10 @@ impl DockerReconciler {
                 &format!("{LABEL_MANAGED}=true"),
                 "--label",
                 "berth.role=sftpgo",
+                "--log-opt",
+                LOG_MAX_SIZE,
+                "--log-opt",
+                LOG_MAX_FILES,
                 "--restart",
                 "unless-stopped",
                 "--network",
@@ -793,6 +802,53 @@ impl DockerReconciler {
         Ok(())
     }
 
+    async fn run_release_command(
+        &self,
+        spec: &ServiceSpec,
+        image: &str,
+        build_log: Option<&BuildLogSink>,
+    ) -> AgentResult<()> {
+        let Some(command) = spec
+            .release_command
+            .as_deref()
+            .map(str::trim)
+            .filter(|command| !command.is_empty())
+        else {
+            return Ok(());
+        };
+
+        self.ensure_network().await?;
+        emit_build_line(build_log, &spec.id, "==> Running release command");
+        emit_build_line(build_log, &spec.id, &format!("$ {command}"));
+
+        let args = release_command_args(spec, image, command);
+        let mut docker = Command::new(&self.docker_bin);
+        docker.args(&args);
+        let run = run_streamed(docker, &spec.id, build_log);
+        let result = tokio::time::timeout(RELEASE_COMMAND_TIMEOUT, run).await;
+        let _ = self.docker(&["rm", "-f", &release_container_name(&spec.id)]).await;
+
+        match result {
+            Err(_) => {
+                emit_build_line(build_log, &spec.id, "==> Release command timed out");
+                Err(format!(
+                    "release command did not finish within {} minutes; the previous version is still running",
+                    RELEASE_COMMAND_TIMEOUT.as_secs() / 60
+                )
+                .into())
+            }
+            Ok(Err(error)) => Err(format!("release command could not run: {error}").into()),
+            Ok(Ok((true, _))) => {
+                emit_build_line(build_log, &spec.id, "==> Release command finished");
+                Ok(())
+            }
+            Ok(Ok((false, _))) => {
+                emit_build_line(build_log, &spec.id, "==> Release command failed");
+                Err("release command failed; the previous version is still running".into())
+            }
+        }
+    }
+
     async fn run_service(
         &self,
         spec: &ServiceSpec,
@@ -809,8 +865,13 @@ impl DockerReconciler {
 
         self.ensure_network().await?;
 
+        let mut mounted_volumes = Vec::new();
         for volume in &spec.volumes {
-            self.ensure_volume(&volume.name).await?;
+            mounted_volumes.push(
+                crate::volumes::VolumeManager::new(self.docker_bin.clone())
+                    .ensure(volume)
+                    .await?,
+            );
         }
 
         let mut args = vec![
@@ -824,6 +885,10 @@ impl DockerReconciler {
             format!("{LABEL_SERVICE_ID}={}", spec.id),
             "--label".to_string(),
             format!("{LABEL_SPEC_HASH}={spec_hash}"),
+            "--log-opt".to_string(),
+            LOG_MAX_SIZE.to_string(),
+            "--log-opt".to_string(),
+            LOG_MAX_FILES.to_string(),
             "--restart".to_string(),
             restart_policy_flag(&spec.restart_policy).to_string(),
             "--cpus".to_string(),
@@ -855,9 +920,9 @@ impl DockerReconciler {
             args.push(format!("{}={}", env_var.key, env_var.value));
         }
 
-        for volume in &spec.volumes {
+        for (volume, actual_name) in spec.volumes.iter().zip(&mounted_volumes) {
             args.push("-v".to_string());
-            args.push(format!("{}:{}", volume.name, volume.mount_path));
+            args.push(format!("{actual_name}:{}", volume.mount_path));
         }
 
         for port in &spec.ports {
@@ -913,6 +978,7 @@ impl DockerReconciler {
         target_name: &str,
         build_log: Option<&BuildLogSink>,
     ) -> AgentResult<(ServiceState, Option<String>)> {
+        self.run_release_command(spec, image, build_log).await?;
         emit_build_line(build_log, &spec.id, "==> Starting container");
         let publishes_host_port = spec
             .ports
@@ -957,9 +1023,27 @@ impl DockerReconciler {
             format!("{target_name}-next")
         };
         let _ = self.remove_container(&next_name).await;
-        let container_id = self
+        let stopped_old_first = stops_old_before_start(spec);
+        if stopped_old_first {
+            emit_build_line(
+                build_log,
+                &spec.id,
+                "==> Stopping the previous version first (this service must run only once)",
+            );
+            self.docker(&["stop", &old.name]).await?;
+        }
+        let container_id = match self
             .run_service(spec, spec_hash, Some(image), &next_name, false)
-            .await?;
+            .await
+        {
+            Ok(id) => id,
+            Err(error) => {
+                if stopped_old_first {
+                    let _ = self.docker(&["start", &old.name]).await;
+                }
+                return Err(error);
+            }
+        };
 
         emit_build_line(build_log, &spec.id, "==> Waiting for health check");
         match self.wait_until_healthy(&next_name, spec).await {
@@ -977,6 +1061,14 @@ impl DockerReconciler {
                     &format!("==> Health check failed: {error}"),
                 );
                 self.remove_container(&next_name).await?;
+                if stopped_old_first {
+                    emit_build_line(
+                        build_log,
+                        &spec.id,
+                        "==> Restarting the previous version",
+                    );
+                    let _ = self.docker(&["start", &old.name]).await;
+                }
                 Err(error)
             }
         }
@@ -1082,7 +1174,47 @@ impl DockerReconciler {
         Ok(output.trim().to_string())
     }
 
+    // A build is the one thing that can stall every deploy on a server, since
+    // reconciles run one after another. So it gets a disk check up front, a
+    // hard time limit, low CPU priority, and its work directory is always
+    // removed, whatever happens.
     async fn build_git_source(
+        &self,
+        spec: &ServiceSpec,
+        spec_hash: &str,
+        clean: bool,
+        build_log: Option<&BuildLogSink>,
+    ) -> AgentResult<String> {
+        if let Some((used_gb, total_gb)) = crate::host::root_disk_usage_gb() {
+            let free_gb = total_gb - used_gb;
+            if let Err(message) = build_disk_preflight(free_gb, min_build_free_gb()) {
+                emit_build_line(build_log, &spec.id, &format!("==> {message}"));
+                return Err(message.into());
+            }
+        }
+
+        let limit = build_timeout();
+        let result = tokio::time::timeout(
+            limit,
+            self.build_git_source_inner(spec, spec_hash, clean, build_log),
+        )
+        .await;
+        let _ = tokio::fs::remove_dir_all(build_work_dir(&spec.id)).await;
+
+        match result {
+            Ok(outcome) => outcome,
+            Err(_) => {
+                let message = format!(
+                    "the build did not finish within {} minutes and was stopped, so other deploys on this server can continue. The previous version is still running.",
+                    limit.as_secs() / 60
+                );
+                emit_build_line(build_log, &spec.id, &format!("==> {message}"));
+                Err(message.into())
+            }
+        }
+    }
+
+    async fn build_git_source_inner(
         &self,
         spec: &ServiceSpec,
         spec_hash: &str,
@@ -1098,7 +1230,7 @@ impl DockerReconciler {
             return Err("expected git source".into());
         };
         emit_build_line(build_log, &spec.id, "==> Build started");
-        let work = std::env::temp_dir().join(format!("berth-build-{}", spec.id));
+        let work = build_work_dir(&spec.id);
         if work.exists() {
             tokio::fs::remove_dir_all(&work).await?;
         }
@@ -1133,6 +1265,7 @@ impl DockerReconciler {
         if !checked_out {
             emit_build_line(build_log, &spec.id, &format!("==> Cloning branch {branch}"));
             let clone = Command::new("git")
+                .kill_on_drop(true)
                 .args([
                     "clone",
                     "--depth",
@@ -1182,7 +1315,7 @@ impl DockerReconciler {
                 && root.join(dockerfile).exists());
         let mut command = if use_docker {
             emit_build_line(build_log, &spec.id, "==> Building with Dockerfile");
-            let mut command = Command::new(&self.docker_bin);
+            let mut command = niced_command(&self.docker_bin);
             // Layers are keyed by content, so a pushed change always rebuilds
             // the affected layers. --pull keeps base images fresh; an explicit
             // Redeploy additionally drops the layer cache for a clean build.
@@ -1203,7 +1336,7 @@ impl DockerReconciler {
             command
         } else {
             emit_build_line(build_log, &spec.id, "==> Building with Nixpacks");
-            let mut command = Command::new("nixpacks");
+            let mut command = niced_command("nixpacks");
             command.args(["build", ".", "--name", &image]);
             if clean {
                 command.arg("--no-cache");
@@ -1277,21 +1410,6 @@ impl DockerReconciler {
             .await
     }
 
-    async fn ensure_volume(&self, name: &str) -> AgentResult<()> {
-        let inspect = Command::new(&self.docker_bin)
-            .args(["volume", "inspect", name])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .await?;
-
-        if inspect.success() {
-            return Ok(());
-        }
-
-        self.docker_stream(&["volume", "create", name]).await
-    }
-
     async fn remove_container(&self, name: &str) -> AgentResult<()> {
         self.docker_stream(&["rm", "-f", name]).await
     }
@@ -1334,6 +1452,88 @@ impl DockerReconciler {
 
 fn container_name(service_id: &str) -> String {
     format!("berth-{service_id}")
+}
+
+const RELEASE_COMMAND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+
+fn release_container_name(service_id: &str) -> String {
+    format!("berth-{service_id}-release")
+}
+
+fn release_command_args(spec: &ServiceSpec, image: &str, command: &str) -> Vec<String> {
+    let mut args = vec![
+        "run".to_string(),
+        "--rm".to_string(),
+        "--name".to_string(),
+        release_container_name(&spec.id),
+        "--network".to_string(),
+        BERTH_NETWORK.to_string(),
+        "--cpus".to_string(),
+        spec.resources.cpu_cores.to_string(),
+        "--memory".to_string(),
+        format!("{}m", spec.resources.memory_mb),
+        "--entrypoint".to_string(),
+        "sh".to_string(),
+    ];
+    if let Some(platform) = &spec.target_platform {
+        args.splice(1..1, ["--platform".to_string(), platform.clone()]);
+    }
+    for env_var in &spec.env {
+        args.push("-e".to_string());
+        args.push(format!("{}={}", env_var.key, env_var.value));
+    }
+    args.push(image.to_string());
+    args.push("-c".to_string());
+    args.push(command.to_string());
+    args
+}
+
+const DEFAULT_BUILD_TIMEOUT_SECS: u64 = 30 * 60;
+const DEFAULT_MIN_BUILD_FREE_GB: f64 = 3.0;
+
+fn build_work_dir(service_id: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("berth-build-{service_id}"))
+}
+
+fn build_timeout() -> Duration {
+    let seconds = std::env::var("BERTH_BUILD_TIMEOUT_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value >= 60)
+        .unwrap_or(DEFAULT_BUILD_TIMEOUT_SECS);
+    Duration::from_secs(seconds)
+}
+
+fn min_build_free_gb() -> f64 {
+    std::env::var("BERTH_MIN_BUILD_FREE_GB")
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .filter(|value| *value >= 0.0)
+        .unwrap_or(DEFAULT_MIN_BUILD_FREE_GB)
+}
+
+fn build_disk_preflight(free_gb: f64, min_gb: f64) -> Result<(), String> {
+    if free_gb >= min_gb {
+        return Ok(());
+    }
+    Err(format!(
+        "not enough free disk space to build: {free_gb:.1} GB free, at least {min_gb:.1} GB needed. Free some space or remove unused images, then deploy again. The previous version is still running."
+    ))
+}
+
+// Builds run at low CPU priority so a long build cannot slow down the
+// services already running on the same server.
+fn niced_command(program: &str) -> Command {
+    #[cfg(unix)]
+    {
+        let mut command = Command::new("nice");
+        command.args(["-n", "10", program]);
+        command
+    }
+    #[cfg(not(unix))]
+    {
+        Command::new(program)
+    }
 }
 
 fn container_name_next(service_id: &str) -> String {
@@ -1382,6 +1582,12 @@ pub(crate) fn redact_credentials(message: &str) -> String {
     }
     message.to_string()
 }
+
+/// Docker's default `json-file` driver keeps container logs forever, so one
+/// chatty service can fill the disk and take the whole server down. Every
+/// container Berth starts keeps at most MAX_SIZE x MAX_FILES of logs.
+const LOG_MAX_SIZE: &str = "max-size=10m";
+const LOG_MAX_FILES: &str = "max-file=3";
 
 fn restart_policy_flag(policy: &RestartPolicy) -> &'static str {
     match policy {
@@ -1451,6 +1657,8 @@ fn spec_hash(spec: &ServiceSpec) -> AgentResult<String> {
     let mut stable = spec.clone();
     stable.replicas = 1;
     stable.replica_policy = None;
+    stable.deploy_strategy = crate::protocol::DeployStrategy::default();
+    stable.release_command = None;
     // Resource limits are applied live with `docker update`; changing them
     // must not rebuild images or recreate otherwise healthy containers.
     stable.resources.cpu_cores = 0.0;
@@ -1477,6 +1685,10 @@ fn emit_build_line(sink: Option<&BuildLogSink>, service_id: &str, line: &str) {
     if let Some(sink) = sink {
         let _ = sink.send((service_id.to_string(), line.to_string()));
     }
+}
+
+fn stops_old_before_start(spec: &ServiceSpec) -> bool {
+    spec.deploy_strategy == crate::protocol::DeployStrategy::Recreate || !spec.volumes.is_empty()
 }
 
 fn looks_like_commit_sha(value: &str) -> bool {
@@ -1539,6 +1751,7 @@ async fn run_streamed(
     sink: Option<&BuildLogSink>,
 ) -> AgentResult<(bool, String)> {
     let mut child = command
+        .kill_on_drop(true)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()?;
@@ -1576,6 +1789,77 @@ fn truncate_build_log(log: &str) -> String {
     )
 }
 
+const PROXY_DIAL_TIMEOUT: &str = "5s";
+const PROXY_RESPONSE_HEADER_TIMEOUT: &str = "120s";
+const PROXY_RETRY_WINDOW: &str = "8s";
+const PROXY_RETRY_INTERVAL: &str = "250ms";
+const PROXY_DNS_REFRESH: &str = "1s";
+const PROXY_FAIL_WINDOW: &str = "10s";
+const PROXY_MAX_FAILS: u32 = 3;
+
+// Every replica of a service shares one network alias, so a DNS lookup returns
+// all of them. Resolving it per request (instead of once) spreads load across
+// replicas, picks up a scaled-up replica within a second, and keeps working
+// while a container is swapped out: a failed dial is retried on another
+// replica, or for a few seconds until the new one answers.
+fn service_reverse_proxy(service_id: &str, port: u16) -> serde_json::Value {
+    serde_json::json!({
+        "handler": "reverse_proxy",
+        "dynamic_upstreams": {
+            "source": "a",
+            "name": container_name(service_id),
+            "port": port.to_string(),
+            "refresh": PROXY_DNS_REFRESH,
+        },
+        "load_balancing": {
+            "selection_policy": { "policy": "least_conn" },
+            "try_duration": PROXY_RETRY_WINDOW,
+            "try_interval": PROXY_RETRY_INTERVAL,
+        },
+        "health_checks": {
+            "passive": {
+                "fail_duration": PROXY_FAIL_WINDOW,
+                "max_fails": PROXY_MAX_FAILS,
+            }
+        },
+        "transport": {
+            "protocol": "http",
+            "dial_timeout": PROXY_DIAL_TIMEOUT,
+            "response_header_timeout": PROXY_RESPONSE_HEADER_TIMEOUT,
+        },
+    })
+}
+
+// Access logs feed the traffic stats. Everything that identifies a visitor or
+// reveals what they asked for is deleted before the line is written; only the
+// domain, status code and duration remain.
+fn edge_logging() -> serde_json::Value {
+    let delete = serde_json::json!({ "filter": "delete" });
+    let encoder = serde_json::json!({
+        "format": "filter",
+        "wrap": { "format": "json" },
+        "fields": {
+            "request>remote_ip": delete,
+            "request>remote_port": delete,
+            "request>client_ip": delete,
+            "request>uri": delete,
+            "request>headers": delete,
+            "request>tls": delete,
+            "resp_headers": delete
+        }
+    });
+    serde_json::json!({
+        "logs": {
+            "default": { "exclude": ["http.log.access"], "encoder": encoder },
+            "access": {
+                "writer": { "output": "stdout" },
+                "encoder": encoder,
+                "include": ["http.log.access"]
+            }
+        }
+    })
+}
+
 fn build_caddy_config(proxies: &[ProxyRoute], panel: Option<&PanelRoute>) -> serde_json::Value {
     use serde_json::json;
 
@@ -1597,12 +1881,7 @@ fn build_caddy_config(proxies: &[ProxyRoute], panel: Option<&PanelRoute>) -> ser
             }
             json!({
                 "match": [matcher],
-                "handle": [{
-                    "handler": "reverse_proxy",
-                    "upstreams": [{
-                        "dial": format!("berth-{}:{}", route.service_id, route.target_port)
-                    }]
-                }]
+                "handle": [service_reverse_proxy(&route.service_id, route.target_port)]
             })
         })
         .collect();
@@ -1620,6 +1899,7 @@ fn build_caddy_config(proxies: &[ProxyRoute], panel: Option<&PanelRoute>) -> ser
     let mut server = json!({
         "listen": [":80", ":443"],
         "routes": routes,
+        "logs": { "default_logger_name": "access" },
     });
 
     let skip: Vec<&str> = proxies
@@ -1632,6 +1912,7 @@ fn build_caddy_config(proxies: &[ProxyRoute], panel: Option<&PanelRoute>) -> ser
     }
 
     let mut config = json!({
+        "logging": edge_logging(),
         "apps": { "http": { "servers": { "berth": server } } }
     });
 
@@ -1646,6 +1927,207 @@ fn build_caddy_config(proxies: &[ProxyRoute], panel: Option<&PanelRoute>) -> ser
     }
 
     config
+}
+
+#[cfg(test)]
+mod build_isolation_tests {
+    use super::*;
+
+    #[test]
+    fn refuses_to_build_when_the_disk_is_nearly_full() {
+        let message = build_disk_preflight(1.2, 3.0).unwrap_err();
+        assert!(message.contains("1.2 GB free"));
+        assert!(message.contains("previous version is still running"));
+        assert!(build_disk_preflight(3.0, 3.0).is_ok());
+        assert!(build_disk_preflight(40.0, 3.0).is_ok());
+    }
+
+    #[test]
+    fn the_time_limit_has_a_safe_floor() {
+        std::env::remove_var("BERTH_BUILD_TIMEOUT_SECS");
+        assert_eq!(build_timeout(), Duration::from_secs(1800));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn builds_are_started_at_low_priority() {
+        let command = niced_command("docker");
+        let std = command.as_std();
+        assert_eq!(std.get_program(), "nice");
+        let args: Vec<_> = std.get_args().map(|arg| arg.to_string_lossy().to_string()).collect();
+        assert_eq!(args, ["-n", "10", "docker"]);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_build_that_hits_the_time_limit_is_really_killed() {
+        let pid_file = std::env::temp_dir().join(format!("berth-kill-test-{}", std::process::id()));
+        let mut command = Command::new("sh");
+        command.args(["-c", &format!("echo $$ > {}; exec sleep 60", pid_file.display())]);
+
+        let result = tokio::time::timeout(
+            Duration::from_millis(500),
+            run_streamed(command, "svc", None),
+        )
+        .await;
+        assert!(result.is_err(), "the build must be cut off");
+
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let pid = std::fs::read_to_string(&pid_file).unwrap().trim().to_string();
+        let _ = std::fs::remove_file(&pid_file);
+        assert!(
+            !std::path::Path::new(&format!("/proc/{pid}")).exists(),
+            "process {pid} is still running after the timeout"
+        );
+    }
+
+    #[test]
+    fn each_service_builds_in_its_own_directory() {
+        assert_ne!(build_work_dir("a"), build_work_dir("b"));
+        assert!(build_work_dir("a").ends_with("berth-build-a"));
+    }
+}
+
+#[cfg(test)]
+mod release_command_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn spec(extra: serde_json::Value) -> ServiceSpec {
+        let mut base = json!({
+            "id": "svc1", "name": "api", "serverId": "srv1",
+            "source": { "kind": "image", "image": "o/api", "tag": "1" },
+            "env": [{ "key": "DATABASE_URL", "value": "postgres://x", "isSecret": true }],
+            "ports": [], "volumes": [],
+            "resources": { "cpuCores": 1.0, "memoryMb": 512 },
+            "healthCheck": null, "restartPolicy": "always", "replicas": 1, "templateKind": null
+        });
+        for (key, value) in extra.as_object().unwrap() {
+            base[key] = value.clone();
+        }
+        serde_json::from_value(base).expect("valid spec")
+    }
+
+    #[test]
+    fn runs_the_command_in_the_new_image_with_the_service_env() {
+        let args = release_command_args(&spec(json!({})), "o/api:1", "npx prisma migrate deploy");
+        let joined = args.join(" ");
+        assert!(joined.contains("--rm"));
+        assert!(joined.contains("DATABASE_URL=postgres://x"));
+        assert!(joined.contains(&format!("--network {BERTH_NETWORK}")));
+        assert_eq!(args[args.len() - 3], "o/api:1");
+        assert_eq!(args[args.len() - 2], "-c");
+        assert_eq!(args[args.len() - 1], "npx prisma migrate deploy");
+    }
+
+    #[test]
+    fn publishes_no_ports_and_mounts_no_volumes() {
+        let args = release_command_args(&spec(json!({})), "o/api:1", "true");
+        assert!(!args.iter().any(|arg| arg == "-p" || arg == "-v"));
+    }
+
+    #[test]
+    fn the_command_does_not_change_the_spec_hash() {
+        let plain = spec_hash(&spec(json!({}))).unwrap();
+        let with = spec_hash(&spec(json!({ "releaseCommand": "npm run migrate" }))).unwrap();
+        assert_eq!(plain, with);
+    }
+
+    #[test]
+    fn rejects_control_characters_and_absurd_length() {
+        assert!(crate::validators::validate_spec(&spec(json!({ "releaseCommand": "a\u{0}b" }))).is_err());
+        let long = "x".repeat(2001);
+        assert!(crate::validators::validate_spec(&spec(json!({ "releaseCommand": long }))).is_err());
+        assert!(crate::validators::validate_spec(&spec(json!({ "releaseCommand": "npm run migrate" }))).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod caddy_config_tests {
+    use super::*;
+
+    fn route(domain: &str, path: &str, service: &str) -> ProxyRoute {
+        ProxyRoute {
+            domain: domain.into(),
+            path: path.into(),
+            service_id: service.into(),
+            target_port: 3000,
+            tls: true,
+            force_https: true,
+        }
+    }
+
+    fn handler(config: &serde_json::Value, index: usize) -> serde_json::Value {
+        config["apps"]["http"]["servers"]["berth"]["routes"][index]["handle"][0].clone()
+    }
+
+    #[test]
+    fn resolves_every_replica_instead_of_one_fixed_address() {
+        let config = build_caddy_config(&[route("a.example.com", "/", "svc1")], None);
+        let proxy = handler(&config, 0);
+        assert_eq!(proxy["dynamic_upstreams"]["source"], "a");
+        assert_eq!(proxy["dynamic_upstreams"]["name"], "berth-svc1");
+        assert_eq!(proxy["dynamic_upstreams"]["port"], "3000");
+        assert!(proxy.get("upstreams").is_none());
+    }
+
+    #[test]
+    fn retries_instead_of_failing_while_a_container_is_swapped() {
+        let config = build_caddy_config(&[route("a.example.com", "/", "svc1")], None);
+        let proxy = handler(&config, 0);
+        assert_eq!(proxy["load_balancing"]["selection_policy"]["policy"], "least_conn");
+        assert_eq!(proxy["load_balancing"]["try_duration"], PROXY_RETRY_WINDOW);
+    }
+
+    #[test]
+    fn backend_error_responses_never_mark_a_replica_down() {
+        let config = build_caddy_config(&[route("a.example.com", "/", "svc1")], None);
+        let passive = handler(&config, 0)["health_checks"]["passive"].clone();
+        assert_eq!(passive["max_fails"], PROXY_MAX_FAILS);
+        assert!(passive.get("unhealthy_status").is_none());
+    }
+
+    #[test]
+    fn bounds_how_long_a_stuck_backend_can_hold_a_request() {
+        let config = build_caddy_config(&[route("a.example.com", "/", "svc1")], None);
+        let transport = handler(&config, 0)["transport"].clone();
+        assert_eq!(transport["dial_timeout"], PROXY_DIAL_TIMEOUT);
+        assert_eq!(transport["response_header_timeout"], PROXY_RESPONSE_HEADER_TIMEOUT);
+    }
+
+    #[test]
+    fn dump_config_for_external_validation() {
+        let Ok(path) = std::env::var("BERTH_CADDY_DUMP") else { return };
+        let mut a = route("a.example.com", "/", "svc1");
+        a.tls = false;
+        let config = build_caddy_config(&[a], None);
+        std::fs::write(path, serde_json::to_string_pretty(&config).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn access_logs_never_record_who_visited_or_what_they_asked_for() {
+        let config = build_caddy_config(&[route("a.example.com", "/", "svc1")], None);
+        let fields = &config["logging"]["logs"]["access"]["encoder"]["fields"];
+        for key in ["request>remote_ip", "request>client_ip", "request>uri", "request>headers"] {
+            assert_eq!(fields[key]["filter"], "delete", "{key} must be removed");
+        }
+        let default_fields = &config["logging"]["logs"]["default"]["encoder"]["fields"];
+        assert_eq!(default_fields["request>remote_ip"]["filter"], "delete", "error logs must be scrubbed too");
+        assert_eq!(
+            config["apps"]["http"]["servers"]["berth"]["logs"]["default_logger_name"],
+            "access"
+        );
+    }
+
+    #[test]
+    fn scoped_paths_still_come_before_the_catch_all() {
+        let config = build_caddy_config(
+            &[route("a.example.com", "/", "web"), route("a.example.com", "/api", "api")],
+            None,
+        );
+        assert_eq!(handler(&config, 0)["dynamic_upstreams"]["name"], "berth-api");
+        assert_eq!(handler(&config, 1)["dynamic_upstreams"]["name"], "berth-web");
+    }
 }
 
 #[cfg(test)]
@@ -1822,6 +2304,53 @@ mod spec_hash_tests {
             spec_hash(&at(true, &first)).unwrap(),
             spec_hash(&at(true, &second)).unwrap()
         );
+    }
+
+    #[test]
+    fn deploy_strategy_does_not_force_a_redeployment() {
+        let rolling = spec(json!({}));
+        let recreate = spec(json!({ "deployStrategy": "recreate" }));
+        assert_eq!(spec_hash(&rolling).unwrap(), spec_hash(&recreate).unwrap());
+    }
+
+    #[test]
+    fn container_logs_are_capped() {
+        let parse = |value: &str, key: &str| -> u64 {
+            let number = value
+                .strip_prefix(key)
+                .and_then(|rest| rest.strip_prefix('='))
+                .expect("expected key=value");
+            number.trim_end_matches('m').parse().expect("numeric")
+        };
+        let size_mb = parse(LOG_MAX_SIZE, "max-size");
+        let files = parse(LOG_MAX_FILES, "max-file");
+        assert!((1..=100).contains(&size_mb));
+        assert!((1..=10).contains(&files));
+        assert!(size_mb * files <= 100, "a service must never keep more than 100 MB of logs");
+    }
+
+    #[test]
+    fn only_recreate_stops_the_old_version_first() {
+        assert!(!stops_old_before_start(&spec(json!({}))));
+        assert!(!stops_old_before_start(&spec(json!({ "deployStrategy": "rolling" }))));
+        assert!(stops_old_before_start(&spec(json!({ "deployStrategy": "recreate" }))));
+    }
+
+    #[test]
+    fn a_service_with_a_volume_never_overlaps_its_old_version() {
+        let with_volume = spec(json!({ "volumes": [{ "name": "db-data", "mountPath": "/data" }] }));
+        assert!(stops_old_before_start(&with_volume));
+    }
+
+    #[test]
+    fn a_volume_size_changes_the_hash_but_an_unsized_volume_keeps_it() {
+        let plain = spec(json!({ "volumes": [{ "name": "db-data", "mountPath": "/data" }] }));
+        let same = spec(json!({ "volumes": [{ "name": "db-data", "mountPath": "/data", "sizeGb": null }] }));
+        let sized = spec(json!({ "volumes": [{ "name": "db-data", "mountPath": "/data", "sizeGb": 10 }] }));
+        let bigger = spec(json!({ "volumes": [{ "name": "db-data", "mountPath": "/data", "sizeGb": 20 }] }));
+        assert_eq!(spec_hash(&plain).unwrap(), spec_hash(&same).unwrap());
+        assert_ne!(spec_hash(&plain).unwrap(), spec_hash(&sized).unwrap());
+        assert_ne!(spec_hash(&sized).unwrap(), spec_hash(&bigger).unwrap());
     }
 
     #[test]

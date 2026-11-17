@@ -33,6 +33,11 @@ enum ServiceKind {
   bucket
 }
 
+enum DeployStrategy {
+  rolling
+  recreate
+}
+
 enum ServiceState {
   building
   starting
@@ -94,6 +99,19 @@ enum GitProvider {
   bitbucket
 }
 
+enum AdvisorSeverity {
+  info
+  warning
+  critical
+}
+
+enum AdvisorFindingStatus {
+  open
+  applied
+  dismissed
+  superseded
+}
+
 model Organization {
   id                   String   @id @default(cuid())
   name                 String
@@ -104,6 +122,9 @@ model Organization {
   alertDiskPct          Int     @default(90)
   alertMinutes          Int     @default(5)
   panelDomain          String?  @unique
+  advisorSettings      AdvisorSettings?
+  advisorFindings      AdvisorFinding[]
+  advisorRuns          AdvisorRun[]
   createdAt            DateTime @default(now())
 
   users       User[]
@@ -261,6 +282,7 @@ model Server {
   memoryMb          Int         @default(1024)
   diskGb            Int         @default(20)
   diskUsedGb        Float       @default(0)
+  storageBudgetGb   Int?
   status            AgentStatus @default(enrolling)
   isLocal           Boolean     @default(false)
   bootstrapToken    String?     @unique
@@ -268,6 +290,7 @@ model Server {
   certSerial        String?
   pendingCertSerial String?
   lastSeenAt        DateTime    @default(now())
+  offlineAlertedAt  DateTime?
   createdAt         DateTime    @default(now())
 
   org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -301,12 +324,18 @@ model Service {
   diskGb           Int?
   replicas         Int        @default(1)
   replicaPolicy    Json?
+  deployStrategy   DeployStrategy @default(rolling)
+  autoRollback     Boolean    @default(true)
+  volumeLimited    Boolean    @default(false)
   lastReplicaScaleAt DateTime?
   domain           String?
   templateKind     String?
   containerPort    Int?
   publicNetworking Boolean    @default(false)
   volumeName       String?
+  volumeUsedMb     Int?
+  volumeTotalMb    Int?
+  volumeUsageAt    DateTime?
   volumePath       String?
   specHash         String?
   rollbackCommitSha String?
@@ -315,6 +344,7 @@ model Service {
   registryCredentialId String?
   environmentId        String?
   targetPlatform       String?
+  releaseCommand       String?
   previewsEnabled      Boolean    @default(false)
   alertsMuted          Boolean    @default(false)
   previewOfId          String?
@@ -332,6 +362,7 @@ model Service {
   proxyHosts         ProxyHost[]
   backups            Backup[]
   metricSamples      MetricSample[]
+  edgeSamples        EdgeSample[]
 
   @@index([orgId])
   @@index([serverId])
@@ -339,6 +370,21 @@ model Service {
   @@index([environmentId])
   @@index([previewOfId])
   @@unique([previewOfId, prNumber])
+}
+
+model EdgeSample {
+  id        String   @id @default(cuid())
+  serviceId String
+  ts        DateTime
+  requests  Int
+  errors4xx Int      @default(0)
+  errors5xx Int      @default(0)
+  p95Ms     Int      @default(0)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, ts])
+  @@index([ts])
 }
 
 model MetricSample {
@@ -555,4 +601,67 @@ model Activity {
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
+}
+
+model AdvisorSettings {
+  id              String    @id @default(cuid())
+  orgId           String    @unique
+  enabled         Boolean   @default(false)
+  provider        String    @default("anthropic")
+  baseUrl         String    @default("")
+  model           String    @default("")
+  apiKeyEncrypted String?
+  monthlyCapUsd   Float     @default(5)
+  priceInPerMTok  Float     @default(0)
+  priceOutPerMTok Float     @default(0)
+  spentUsd        Float     @default(0)
+  periodStart     DateTime  @default(now())
+  lastRunAt       DateTime?
+  lastError       String?
+  updatedAt       DateTime  @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model AdvisorFinding {
+  id          String               @id @default(cuid())
+  orgId       String
+  fingerprint String
+  kind        String
+  severity    AdvisorSeverity      @default(info)
+  source      String               @default("rules")
+  status      AdvisorFindingStatus @default(open)
+  title       String
+  detail      String
+  evidence    Json                 @default("[]")
+  action      Json?
+  undo        Json?
+  serviceId   String?
+  serverId    String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  resolvedAt  DateTime?
+  resolvedBy  String?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
+  @@index([orgId, fingerprint])
+}
+
+model AdvisorRun {
+  id         String    @id @default(cuid())
+  orgId      String
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  usedAi     Boolean   @default(false)
+  tokensIn   Int       @default(0)
+  tokensOut  Int       @default(0)
+  costUsd    Float     @default(0)
+  findings   Int       @default(0)
+  error      String?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, startedAt])
 }

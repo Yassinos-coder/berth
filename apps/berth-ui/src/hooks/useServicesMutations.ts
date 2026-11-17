@@ -69,6 +69,24 @@ export function useUpdateServiceSettings(id: string) {
   });
 }
 
+export function useMoveService(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { serverId: string; confirmDataLoss?: boolean }) =>
+      servicesService.move(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.service(id) });
+      qc.invalidateQueries({ queryKey: ['services'] });
+      qc.invalidateQueries({ queryKey: ['servers'] });
+      notify.success('Service moved', {
+        description: 'It is starting on the new server. Update your DNS to the new IP.',
+      });
+    },
+    onError: (error) =>
+      notify.error('Could not move the service', { description: error.message }),
+  });
+}
+
 export function useSetServiceEnv(id: string) {
   const qc = useQueryClient();
   return useMutation({

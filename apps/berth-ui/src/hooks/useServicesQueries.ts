@@ -46,6 +46,15 @@ export function useServiceMetrics(id: string) {
   });
 }
 
+export function useServiceTraffic(id: string, range: string) {
+  return useQuery({
+    queryKey: queryKeys.serviceTraffic(id, range),
+    queryFn: () => servicesService.traffic(id, range),
+    enabled: Boolean(id),
+    refetchInterval: 60_000,
+  });
+}
+
 export function useServiceMetricsPeak(id: string) {
   return useQuery({
     queryKey: [...queryKeys.serviceMetrics(id), 'peak'],

@@ -2,7 +2,8 @@ import { forwardRef, Module } from '@nestjs/common';
 import { GithubAppModule } from '../github-app/github-app.module';
 import { ActivityModule } from '../activity/activity.module';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { CaService } from './pki/ca.service';
+import { PkiModule } from './pki/pki.module';
+import { AutoRollbackService } from './rollback/auto-rollback.service';
 import { CertificateRenewalService } from './pki/certificate-renewal.service';
 import { EnrollmentService } from './pki/enrollment.service';
 import { AgentGatewayService } from './gateway/agent-gateway.service';
@@ -12,6 +13,8 @@ import { TelemetryBuffer } from './buffers/telemetry-buffer.service';
 import { ReconcileRepository } from './reconcile/reconcile.repository';
 import { ReconcilePlanner } from './reconcile/reconcile-planner.service';
 import { SmartResourceService } from './resources/smart-resource.service';
+import { ServerHealthService } from './health/server-health.service';
+import { VolumeUsageService } from './volumes/volume-usage.service';
 import { AuthModule } from '../auth/auth.module';
 import { ExecSessionService } from './exec/exec-session.service';
 import { BrowserExecGateway } from './gateway/browser-exec-gateway.service';
@@ -19,11 +22,11 @@ import { SourceIntegrationsModule } from '../source-integrations/source-integrat
 import { MetricsModule } from '../metrics/metrics.module';
 
 @Module({
-  imports: [forwardRef(() => GithubAppModule), AuthModule, ActivityModule, NotificationsModule, SourceIntegrationsModule, MetricsModule],
+  imports: [PkiModule, forwardRef(() => GithubAppModule), AuthModule, ActivityModule, NotificationsModule, SourceIntegrationsModule, MetricsModule],
   providers: [
-    CaService,
     EnrollmentService,
     CertificateRenewalService,
+    AutoRollbackService,
     AgentGatewayService,
     AgentRegistry,
     AgentMessageHandler,
@@ -31,6 +34,8 @@ import { MetricsModule } from '../metrics/metrics.module';
     ReconcileRepository,
     ReconcilePlanner,
     SmartResourceService,
+    VolumeUsageService,
+    ServerHealthService,
     ExecSessionService,
     BrowserExecGateway,
   ],

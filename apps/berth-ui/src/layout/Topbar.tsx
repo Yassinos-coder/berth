@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MobileNav } from '@/layout/MobileNav';
 import { ThemeToggle } from '@/layout/ThemeToggle';
+import { AdvisorBell } from '@/layout/AdvisorBell';
 import { useAuth, useLogout } from '@/hooks/useAuth';
 
 function initials(name: string) {
@@ -74,6 +75,7 @@ export function Topbar() {
             <span className="sr-only sm:hidden">New Service</span>
           </Link>
         </Button>
+        <AdvisorBell />
         <ThemeToggle />
 
         <DropdownMenu>

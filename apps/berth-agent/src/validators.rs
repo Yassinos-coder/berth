@@ -5,6 +5,8 @@ const MAX_PORTS: usize = 50;
 const MAX_VOLUMES: usize = 50;
 const MAX_REPLICAS: u32 = 32;
 
+const MAX_RELEASE_COMMAND: usize = 2000;
+
 pub fn validate_spec(spec: &ServiceSpec) -> Result<(), String> {
     check_token("service id", &spec.id)?;
     check_display_name(&spec.name)?;
@@ -23,6 +25,9 @@ pub fn validate_spec(spec: &ServiceSpec) -> Result<(), String> {
             "replica count must be between 1 and {MAX_REPLICAS}"
         ));
     }
+    if spec.deploy_strategy == crate::protocol::DeployStrategy::Recreate && spec.replicas > 1 {
+        return Err("a service that must run once cannot have more than one replica".to_string());
+    }
     if spec.replicas > 1 && !spec.volumes.is_empty() {
         return Err("multiple replicas cannot share persistent volumes".to_string());
     }
@@ -33,6 +38,15 @@ pub fn validate_spec(spec: &ServiceSpec) -> Result<(), String> {
             .any(|port| port.public && port.domain.is_none())
     {
         return Err("multiple replicas cannot publish the same host port".to_string());
+    }
+
+    if let Some(command) = &spec.release_command {
+        if command.len() > MAX_RELEASE_COMMAND {
+            return Err(format!(
+                "release command is too long (>{MAX_RELEASE_COMMAND} characters)"
+            ));
+        }
+        check_value("release command", command)?;
     }
 
     for env in &spec.env {
@@ -127,6 +141,13 @@ mod tests {
         assert!(validate_spec(&published_port)
             .unwrap_err()
             .contains("cannot publish the same host port"));
+    }
+
+    #[test]
+    fn a_run_once_service_cannot_be_replicated() {
+        assert!(validate_spec(&spec(json!({ "deployStrategy": "recreate", "replicas": 2 }))).is_err());
+        assert!(validate_spec(&spec(json!({ "deployStrategy": "recreate", "replicas": 1 }))).is_ok());
+        assert!(validate_spec(&spec(json!({ "deployStrategy": "rolling", "replicas": 2 }))).is_ok());
     }
 
     #[test]

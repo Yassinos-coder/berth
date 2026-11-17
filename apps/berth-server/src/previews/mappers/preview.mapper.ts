@@ -32,6 +32,7 @@ export class PreviewMapper {
       publicNetworking: parent.publicNetworking,
       registryCredentialId: parent.registryCredentialId,
       targetPlatform: parent.targetPlatform,
+      releaseCommand: parent.releaseCommand,
       environmentId: parent.environmentId,
       internalDomains: [internalDomain],
       specHash: pr.headSha,

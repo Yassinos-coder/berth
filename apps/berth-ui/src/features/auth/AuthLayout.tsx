@@ -6,16 +6,18 @@ export function AuthLayout({
   subtitle,
   children,
   footer,
+  wide = false,
 }: {
   title: string;
   subtitle: string;
   children: ReactNode;
   footer?: ReactNode;
+  wide?: boolean;
 }) {
   return (
     <div className="bg-background relative flex min-h-screen items-center justify-center overflow-hidden px-4">
       <div className="bg-primary/10 pointer-events-none absolute -top-40 left-1/2 size-[520px] -translate-x-1/2 rounded-full blur-3xl" />
-      <div className="relative w-full max-w-sm">
+      <div className={wide ? 'relative w-full max-w-md' : 'relative w-full max-w-sm'}>
         <div className="mb-8 flex flex-col items-center text-center">
           <BrandMark />
           <h1 className="mt-6 text-xl font-semibold tracking-tight">{title}</h1>

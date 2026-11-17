@@ -14,6 +14,7 @@ export const SERVER = {
   memoryMb: 8192,
   diskGb: 80,
   serviceCount: 2,
+  storage: { budgetGb: 25, reservedGb: 4, allocatedGb: 6, allocatableGb: 21, freeGb: 15 },
   usage: { cpuPct: 12, memPct: 30, diskGb: 20, diskTotalGb: 80 },
   lastSeen: new Date().toISOString(),
   createdAt: new Date().toISOString(),
@@ -74,12 +75,18 @@ export interface MockOptions {
   services?: unknown[];
   githubConnected?: boolean;
   proxyHosts?: unknown[];
+  env?: unknown[];
+  server?: Record<string, unknown>;
+  setup?: { needsSetup: boolean; hostDisk?: { totalGb: number; freeGb: number; suggestedBudgetGb: number } | null };
   channels?: unknown[];
   role?: string;
   environments?: unknown[];
   alertSettings?: Record<string, unknown>;
   deployments?: unknown[];
   logs?: unknown[];
+  traffic?: Record<string, unknown>;
+  extraServers?: Record<string, unknown>[];
+  advisor?: { enabled?: boolean; findings?: Record<string, unknown>[] };
   dns?: { status: string; message: string; resolved?: string[]; expectedIp?: string };
 }
 
@@ -92,6 +99,9 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Ap
     services = [GIT_SERVICE, DB_SERVICE],
     githubConnected = false,
     proxyHosts = [],
+    env = [],
+    server = {},
+    setup = { needsSetup: false },
     channels = [],
     role = 'owner',
     environments = [],
@@ -100,7 +110,13 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Ap
     logs = LOGS,
     dns = { status: 'ok', message: 'app.example.com points to this server.', resolved: ['203.0.113.7'], expectedIp: '203.0.113.7' },
   } = options;
+  const traffic = options.traffic ?? { hasTraffic: false, requests: 0, errors4xx: 0, errors5xx: 0, errorRatePct: 0, p95Ms: 0, series: [] };
+  const advisor = {
+    enabled: options.advisor?.enabled ?? false,
+    findings: (options.advisor?.findings ?? []).map((finding) => ({ ...finding })),
+  };
   const calls: ApiCall[] = [];
+  const currentServer = { ...SERVER, ...server };
 
   await page.route('**/api/**', async (route) => {
     const request = route.request();
@@ -118,15 +134,59 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Ap
     if (path === '/auth/me') {
       return authenticated ? json(route, { ...USER, role }) : json(route, { message: 'Unauthorized' }, 401);
     }
-    if (path === '/auth/setup-state') return json(route, { needsSetup: false });
+    if (path === '/auth/setup-state') return json(route, setup);
+    if (path === '/auth/register' && method === 'POST') return json(route, { user: { ...USER, role: 'owner' } });
     if (path === '/environments' && method === 'GET') return json(route, environments);
     if (path === '/environments' && method === 'POST') return json(route, { id: 'env-new', ...(body as object) });
     if (path.startsWith('/environments/assign/') && method === 'PATCH') return json(route, { ok: true });
     if (path === '/alert-settings' && method === 'GET') return json(route, alertSettings);
     if (path === '/alert-settings' && method === 'PATCH') return json(route, { ...alertSettings, ...(body as object) });
+    if (path === '/advisor/summary') {
+      const open = advisor.findings.filter((finding) => finding.status === 'open');
+      return json(route, {
+        enabled: advisor.enabled,
+        openCount: open.length,
+        criticalCount: open.filter((finding) => finding.severity === 'critical').length,
+        spentUsd: 0.42,
+        capUsd: 5,
+      });
+    }
+    if (path === '/advisor/settings' && method === 'GET') {
+      return json(route, {
+        enabled: advisor.enabled, provider: 'anthropic', baseUrl: 'https://api.anthropic.com', model: 'claude-sonnet-5-5',
+        hasKey: true, monthlyCapUsd: 5, spentUsd: 0.42, priceInPerMTok: 3, priceOutPerMTok: 15,
+        periodStart: '2026-11-01T00:00:00.000Z',
+      });
+    }
+    if (path === '/advisor/settings' && method === 'PUT') {
+      advisor.enabled = Boolean((body as { enabled?: boolean }).enabled);
+      return json(route, { enabled: advisor.enabled });
+    }
+    if (path === '/advisor/findings' && method === 'GET') {
+      const history = url.searchParams.get('view') === 'history';
+      return json(route, advisor.findings.filter((finding) => (finding.status === 'open') !== history));
+    }
+    const findingAction = path.match(/^\/advisor\/findings\/([^/]+)\/(apply|dismiss|undo)$/);
+    if (findingAction && method === 'POST') {
+      const finding = advisor.findings.find((item) => item.id === findingAction[1]);
+      if (!finding) return json(route, { message: 'Not found' }, 404);
+      finding.status = findingAction[2] === 'apply' ? 'applied' : findingAction[2] === 'dismiss' ? 'dismissed' : 'dismissed';
+      finding.canUndo = findingAction[2] === 'apply';
+      delete finding.action;
+      return json(route, finding);
+    }
+    if (path === '/advisor/run' && method === 'POST') return json(route, { ran: true, usedAi: false, findings: advisor.findings.length, costUsd: 0 });
+    if (/^\/services\/[^/]+\/move$/.test(path) && method === 'POST') return json(route, { ok: true });
+    if (/^\/services\/[^/]+\/traffic$/.test(path)) return json(route, traffic);
     if (path === '/templates') return json(route, TEMPLATES);
-    if (path === '/servers') return json(route, [SERVER]);
+    if (path === '/servers') return json(route, [currentServer, ...(options.extraServers ?? [])]);
+    if (path === `/servers/${SERVER.id}` && method === 'GET') return json(route, currentServer);
+    if (path === `/servers/${SERVER.id}/storage` && method === 'PATCH') {
+      const budget = (body as { storageBudgetGb: number }).storageBudgetGb;
+      return json(route, { ...currentServer, storage: { ...SERVER.storage, budgetGb: budget } });
+    }
     if (path === '/services' && method === 'GET') return json(route, services);
+    if (path === '/services' && method === 'POST') return json(route, { ...GIT_SERVICE, id: 'svc-new', ...(body as object) }, 201);
 
     const service = (services as { id: string }[]).find((item) => path === `/services/${item.id}`);
     if (service && method === 'GET') return json(route, service);
@@ -142,7 +202,9 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Ap
         { ts: 2_000, cpuPct: 15, memMb: 150, netRxMb: 2, netTxMb: 2 },
       ]);
     }
-    if (/^\/services\/[^/]+\/env$/.test(path)) return json(route, []);
+    if (/^\/services\/[^/]+\/env$/.test(path)) {
+      return method === 'PUT' ? json(route, (body as { env: unknown[] }).env) : json(route, env);
+    }
     if (/^\/services\/[^/]+\/connection$/.test(path)) {
       return json(route, { available: false, publicNetworking: false, variables: [] });
     }

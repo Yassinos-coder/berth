@@ -110,7 +110,10 @@ async fn connect_and_serve(
     let (tx, mut rx) = mpsc::channel::<AgentToPanel>(1024);
     let telemetry = Telemetry::new(config.docker_bin.clone(), tx.clone());
     telemetry.start_metrics();
+    telemetry.start_crash_watch();
     telemetry.start_host_usage();
+    telemetry.start_volume_usage();
+    telemetry.start_edge_stats();
     let exec_manager = ExecManager::new(config.docker_bin.clone(), tx);
 
     loop {

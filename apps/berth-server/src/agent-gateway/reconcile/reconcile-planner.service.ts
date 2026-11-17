@@ -84,6 +84,7 @@ export class ReconcilePlanner {
       restartPolicy: 'unless-stopped',
       replicas: service.replicas,
       replicaPolicy: ReplicaPolicyValidator.fromStored(service.replicaPolicy),
+      deployStrategy: service.deployStrategy,
       templateKind: service.templateKind ?? undefined,
       registryAuth: service.registryCredential
         ? {
@@ -93,6 +94,7 @@ export class ReconcilePlanner {
           }
         : undefined,
       targetPlatform: service.targetPlatform as 'linux/amd64' | 'linux/arm64' | undefined,
+      releaseCommand: service.releaseCommand ?? undefined,
     };
   }
 
@@ -113,7 +115,13 @@ export class ReconcilePlanner {
 
   private toVolumes(service: ServiceWithEnv): VolumeMount[] {
     if (service.volumeName && service.volumePath) {
-      return [{ name: service.volumeName, mountPath: service.volumePath }];
+      return [
+        {
+          name: service.volumeName,
+          mountPath: service.volumePath,
+          ...(service.volumeLimited && service.diskGb ? { sizeGb: service.diskGb } : {}),
+        },
+      ];
     }
     return [];
   }

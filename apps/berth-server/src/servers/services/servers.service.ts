@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,6 +9,8 @@ import { ActivityKind } from '@prisma/client';
 import { ServerRepository } from '../repositories/server.repository';
 import { ServerMapper } from '../mappers/server.mapper';
 import { ActivityService } from '../../activity/activity.service';
+import { StorageBudgetValidator } from '../../common/validators/storage-budget.validator';
+import { CaService } from '../../agent-gateway/pki/ca.service';
 import type { AppConfig } from '../../config/configuration';
 import type { AuthenticatedUser } from '../../common/interfaces';
 import type { EnrollmentDto, ServerDto } from '../interfaces';
@@ -20,20 +23,57 @@ export class ServersService {
     private readonly repository: ServerRepository,
     private readonly activityService: ActivityService,
     private readonly configService: ConfigService<AppConfig, true>,
+    private readonly ca: CaService,
   ) {}
 
   async list(orgId: string): Promise<ServerDto[]> {
-    const servers = await this.repository.listByOrg(orgId);
-    return servers.map(ServerMapper.toDto);
+    const [servers, allocated] = await Promise.all([
+      this.repository.listByOrg(orgId),
+      this.repository.allocatedDiskByServer(orgId),
+    ]);
+    return servers.map((server) =>
+      ServerMapper.toDto(server, allocated.get(server.id) ?? 0),
+    );
   }
 
   async getById(orgId: string, id: string): Promise<ServerDto> {
     const server = await this.repository.findById(orgId, id);
     if (!server) throw new NotFoundException('Server not found');
-    return ServerMapper.toDto(server);
+    const allocated = await this.repository.allocatedDiskByServer(orgId);
+    return ServerMapper.toDto(server, allocated.get(id) ?? 0);
   }
 
-  async enroll(user: AuthenticatedUser, name: string): Promise<EnrollmentDto> {
+  async updateStorageBudget(
+    user: AuthenticatedUser,
+    id: string,
+    storageBudgetGb: number,
+  ): Promise<ServerDto> {
+    const server = await this.repository.findById(user.orgId, id);
+    if (!server) throw new NotFoundException('Server not found');
+
+    const allocated = (await this.repository.allocatedDiskByServer(user.orgId)).get(id) ?? 0;
+    const problem = StorageBudgetValidator.budgetError(
+      storageBudgetGb,
+      allocated,
+      server.os && server.diskGb > 0 ? server.diskGb : null,
+    );
+    if (problem) throw new BadRequestException(problem);
+
+    const updated = await this.repository.updateStorageBudget(user.orgId, id, storageBudgetGb);
+    if (!updated) throw new NotFoundException('Server not found');
+    await this.activityService.record(user.orgId, {
+      kind: ActivityKind.server,
+      title: `${server.name} storage budget set to ${storageBudgetGb} GB`,
+      actor: user.id,
+    });
+    return ServerMapper.toDto(updated, allocated);
+  }
+
+  async enroll(
+    user: AuthenticatedUser,
+    name: string,
+    storageBudgetGb?: number,
+  ): Promise<EnrollmentDto> {
     const token = randomBytes(24).toString('base64url');
     const expiresAt = new Date(Date.now() + BOOTSTRAP_TTL_MS);
 
@@ -42,6 +82,7 @@ export class ServersService {
       name,
       bootstrapToken: token,
       bootstrapExpires: expiresAt,
+      storageBudgetGb,
     });
     await this.activityService.record(user.orgId, {
       kind: ActivityKind.server,
@@ -75,7 +116,7 @@ export class ServersService {
     const panelUrl = this.configService.get('publicPanelUrl');
     const agentRepoUrl = this.configService.get('agentRepoUrl');
     const installUrl = this.configService.get('agentInstallUrl');
-    const envParts = [`BERTH_BOOTSTRAP='${token}'`];
+    const envParts = [`BERTH_BOOTSTRAP='${token}'`, `BERTH_CA_SHA256='${this.ca.caFingerprint()}'`];
 
     if (panelUrl) {
       envParts.push(`BERTH_PANEL_URL='${panelUrl}'`);

@@ -12,7 +12,7 @@
     },
     "apps/berth-docs": {
       "name": "@berth/docs",
-      "version": "0.18.0",
+      "version": "0.19.0",
       "devDependencies": {
         "vitepress": "^1.6.4",
       },
@@ -31,7 +31,7 @@
     },
     "apps/berth-server": {
       "name": "@berth/server",
-      "version": "0.18.0",
+      "version": "0.19.0",
       "dependencies": {
         "@berth/protocol": "workspace:*",
         "@nestjs/common": "^12.5.1",
@@ -79,7 +79,7 @@
     },
     "apps/berth-ui": {
       "name": "@berth/ui",
-      "version": "0.18.0",
+      "version": "0.19.0",
       "dependencies": {
         "@berth/protocol": "workspace:*",
         "@hookform/resolvers": "^7.0.7",
@@ -126,7 +126,7 @@
     },
     "packages/cli": {
       "name": "@berth/cli",
-      "version": "0.18.0",
+      "version": "0.19.0",
       "bin": {
         "berth": "./dist/cli.js",
       },

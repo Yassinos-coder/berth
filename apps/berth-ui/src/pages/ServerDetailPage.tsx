@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { QueryBoundary } from '@/components/shared/QueryBoundary';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { AgentStatusBadge } from '@/components/shared/StatusBadge';
+import { StorageBudgetCard } from '@/features/servers/StorageBudgetCard';
 import { StatTile } from '@/components/shared/StatTile';
 import { ServiceStateBadge } from '@/components/shared/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -150,6 +151,8 @@ export function ServerDetailPage() {
                 accent={diskPct >= 85 ? 'warning' : 'primary'}
               />
             </div>
+
+            <StorageBudgetCard server={srv} />
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Card>

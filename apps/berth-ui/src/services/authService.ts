@@ -3,6 +3,7 @@ import type {
   ActiveSession,
   AuthUser,
   RecoveryCodes,
+  SetupState,
   TotpSetup,
   TotpStatus,
 } from '@/interfaces';
@@ -14,6 +15,7 @@ export interface Credentials {
 
 export interface RegisterPayload extends Credentials {
   name: string;
+  storageBudgetGb?: number;
 }
 
 export interface Session {
@@ -30,8 +32,8 @@ export interface MfaVerifyPayload {
 class AuthService extends BaseApiClient {
   protected resource = 'auth';
 
-  needsSetup(): Promise<{ needsSetup: boolean }> {
-    return this.get<{ needsSetup: boolean }>('/setup-state');
+  needsSetup(): Promise<SetupState> {
+    return this.get<SetupState>('/setup-state');
   }
 
   me(): Promise<AuthUser> {

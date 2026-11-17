@@ -4,7 +4,19 @@ import type {
   ServiceState,
   ResourceLimits,
   ReplicaPolicy,
+  DeployStrategy,
 } from '@berth/protocol';
+
+export interface HostDiskInfo {
+  totalGb: number;
+  freeGb: number;
+  suggestedBudgetGb: number;
+}
+
+export interface SetupState {
+  needsSetup: boolean;
+  hostDisk?: HostDiskInfo | null;
+}
 
 export type Role = 'owner' | 'admin' | 'deployer' | 'viewer';
 
@@ -26,6 +38,14 @@ export interface ServerUsage {
   diskTotalGb: number;
 }
 
+export interface ServerStorage {
+  budgetGb: number | null;
+  reservedGb: number;
+  allocatedGb: number;
+  allocatableGb: number | null;
+  freeGb: number | null;
+}
+
 export interface Server {
   id: string;
   name: string;
@@ -38,6 +58,7 @@ export interface Server {
   memoryMb: number;
   diskGb: number;
   serviceCount: number;
+  storage?: ServerStorage;
   usage: ServerUsage;
   lastSeen: string;
   createdAt: string;
@@ -63,11 +84,16 @@ export interface Service {
   volumePath?: string;
   replicas: number;
   replicaPolicy?: ReplicaPolicy;
+  deployStrategy?: DeployStrategy;
+  autoRollback?: boolean;
+  diskLimited?: boolean;
   domain?: string;
   templateKind?: string;
   containerPort?: number;
   registryCredentialId?: string;
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
+  releaseCommand?: string;
+  volumeUsage?: { usedMb: number; totalMb: number; at: string };
   internalDomains: string[];
   previewsEnabled: boolean;
   environmentId?: string;
@@ -322,3 +348,13 @@ export interface RecoveryCodes {
 }
 
 export type { ServiceSpec, ServiceSource, ServiceState, ResourceLimits };
+
+export interface EdgeTraffic {
+  hasTraffic: boolean;
+  requests: number;
+  errors4xx: number;
+  errors5xx: number;
+  errorRatePct: number;
+  p95Ms: number;
+  series: { ts: number; requests: number; errors5xx: number }[];
+}

@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertSettingsCard } from '@/features/alerts/AlertSettingsCard';
+import { BrowserNotificationsCard } from '@/features/browser-notifications/BrowserNotificationsCard';
+import { AdvisorSettingsCard } from '@/features/advisor/AdvisorSettingsCard';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
@@ -300,6 +302,7 @@ export function SettingsPage() {
             </CardContent>
           </Card>
           <AlertSettingsCard canManage={canManageResources} />
+          <AdvisorSettingsCard canManage={canManageResources} />
         </TabsContent>
 
         <TabsContent value="networking" className="mt-4 space-y-4">
@@ -398,7 +401,8 @@ export function SettingsPage() {
           <BackupTargetsSettings />
         </TabsContent>
 
-        <TabsContent value="notifications" className="mt-4">
+        <TabsContent value="notifications" className="mt-4 space-y-4">
+          <BrowserNotificationsCard />
           <NotificationChannelsSettings />
         </TabsContent>
       </Tabs>

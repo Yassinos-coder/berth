@@ -60,8 +60,8 @@ detect_pkg_manager() {
 
 install_base_packages() {
   case "$PKG" in
-    apt) apt-get update -y && apt-get install -y ca-certificates curl git openssl ;;
-    dnf | yum) "$PKG" install -y ca-certificates curl git openssl ;;
+    apt) apt-get update -y && apt-get install -y ca-certificates curl git openssl e2fsprogs util-linux ;;
+    dnf | yum) "$PKG" install -y ca-certificates curl git openssl e2fsprogs util-linux ;;
   esac
 }
 
@@ -196,6 +196,8 @@ if [[ -n "$remote_sha" && "$local_sha" != "$remote_sha" ]]; then
 fi
 EOF
   chmod 0755 /etc/update-motd.d/99-berth
+
+  bash "$REPO_ROOT/scripts/panel-backup.sh" install-timer
 }
 
 wait_for_ca() {

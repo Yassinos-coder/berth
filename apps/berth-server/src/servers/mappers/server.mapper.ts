@@ -1,10 +1,11 @@
 import { Server } from '@prisma/client';
 import type { ServerDto } from '../interfaces';
+import { StorageBudgetValidator } from '../../common/validators/storage-budget.validator';
 
 type ServerWithCount = Server & { _count?: { services: number } };
 
 export class ServerMapper {
-  static toDto(server: ServerWithCount): ServerDto {
+  static toDto(server: ServerWithCount, allocatedDiskGb = 0): ServerDto {
     return {
       id: server.id,
       name: server.name,
@@ -17,6 +18,7 @@ export class ServerMapper {
       memoryMb: server.memoryMb,
       diskGb: server.diskGb,
       serviceCount: server._count?.services ?? 0,
+      storage: StorageBudgetValidator.summarize(server.storageBudgetGb, allocatedDiskGb),
       usage: {
         cpuPct: 0,
         memMb: 0,

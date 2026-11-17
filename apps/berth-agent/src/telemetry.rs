@@ -8,13 +8,18 @@ use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
+use crate::crash_watch::{parse_listing, parse_restart_counts, CrashWatch, WATCH_INTERVAL};
 use crate::docker::AgentResult;
 use crate::host::root_disk_usage_gb;
+use crate::edge_stats::EdgeAggregator;
 use crate::protocol::AgentToPanel;
 
 const METRICS_INTERVAL: Duration = Duration::from_secs(4);
 const HOST_USAGE_INTERVAL: Duration = Duration::from_secs(60);
 const CONTAINER_PREFIX: &str = "berth-";
+const EDGE_REPORT_INTERVAL: Duration = Duration::from_secs(60);
+const EDGE_RETRY_INTERVAL: Duration = Duration::from_secs(10);
+const CADDY_CONTAINER_NAME: &str = "berth-caddy";
 
 /// Streams live container logs and metrics to the panel over an mpsc channel.
 /// Owns its background tasks and aborts them on drop (session end).
@@ -52,6 +57,85 @@ impl Telemetry {
     /// Reports live root-filesystem disk usage on a slow interval — disk
     /// space doesn't move fast enough to warrant the 4s container-metrics
     /// cadence.
+    pub fn start_crash_watch(&self) {
+        let docker_bin = self.docker_bin.clone();
+        let tx = self.tx.clone();
+        let handle = tokio::spawn(async move {
+            let mut watch = CrashWatch::default();
+            while !tx.is_closed() {
+                match poll_containers(&docker_bin).await {
+                    Ok(observations) => {
+                        for (service_id, state) in watch.observe(std::time::Instant::now(), &observations) {
+                            let event = AgentToPanel::ServiceStatus {
+                                service_id,
+                                state,
+                                container_id: None,
+                                deployed: false,
+                            };
+                            if tx.send(event).await.is_err() {
+                                return;
+                            }
+                        }
+                    }
+                    Err(error) => eprintln!("[berth-agent] container watch failed: {error}"),
+                }
+                tokio::time::sleep(WATCH_INTERVAL).await;
+            }
+        });
+        self.handles.lock().unwrap().push(handle);
+    }
+
+    /// Reads Caddy's access log (client addresses, URLs and headers are removed
+    /// by Caddy before they are written) and reports one summary per domain
+    /// each minute: request count, 4xx and 5xx counts, and p95 latency.
+    pub fn start_edge_stats(&self) {
+        let aggregator = Arc::new(Mutex::new(EdgeAggregator::default()));
+
+        let reader = {
+            let aggregator = Arc::clone(&aggregator);
+            let docker_bin = self.docker_bin.clone();
+            tokio::spawn(async move {
+                loop {
+                    let _ = tail_caddy_access_log(&docker_bin, &aggregator).await;
+                    tokio::time::sleep(EDGE_RETRY_INTERVAL).await;
+                }
+            })
+        };
+
+        let tx = self.tx.clone();
+        let sender = tokio::spawn(async move {
+            while !tx.is_closed() {
+                tokio::time::sleep(EDGE_REPORT_INTERVAL).await;
+                let entries = aggregator.lock().unwrap().drain();
+                if !entries.is_empty()
+                    && tx.send(AgentToPanel::EdgeStats { entries }).await.is_err()
+                {
+                    break;
+                }
+            }
+        });
+
+        let mut handles = self.handles.lock().unwrap();
+        handles.push(reader);
+        handles.push(sender);
+    }
+
+    pub fn start_volume_usage(&self) {
+        let tx = self.tx.clone();
+        let handle = tokio::spawn(async move {
+            while !tx.is_closed() {
+                let volumes = crate::volumes::read_usage(&crate::volumes::data_root()).await;
+                if !volumes.is_empty()
+                    && tx.send(AgentToPanel::VolumeUsage { volumes }).await.is_err()
+                {
+                    break;
+                }
+                tokio::time::sleep(HOST_USAGE_INTERVAL).await;
+            }
+        });
+        self.handles.lock().unwrap().push(handle);
+    }
+
     pub fn start_host_usage(&self) {
         let tx = self.tx.clone();
         let handle = tokio::spawn(async move {
@@ -163,6 +247,46 @@ async fn tail_logs(
     Ok(())
 }
 
+async fn poll_containers(docker_bin: &str) -> AgentResult<Vec<crate::crash_watch::ContainerObservation>> {
+    let listing = Command::new(docker_bin)
+        .args([
+            "ps",
+            "-a",
+            "--filter",
+            "label=berth.managed=true",
+            "--format",
+            "{{.Names}}\t{{.Label \"berth.service_id\"}}\t{{.Status}}",
+        ])
+        .kill_on_drop(true)
+        .output()
+        .await?;
+    if !listing.status.success() {
+        return Ok(Vec::new());
+    }
+    let listing = String::from_utf8_lossy(&listing.stdout).to_string();
+    let names: Vec<&str> = listing
+        .lines()
+        .filter_map(|line| line.split('\t').next())
+        .filter(|name| !name.is_empty())
+        .collect();
+    if names.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut inspect = Command::new(docker_bin);
+    inspect
+        .args(["inspect", "--format", "{{.Name}}\t{{.RestartCount}}"])
+        .args(&names)
+        .kill_on_drop(true);
+    let counts = match inspect.output().await {
+        Ok(output) if output.status.success() => {
+            parse_restart_counts(&String::from_utf8_lossy(&output.stdout))
+        }
+        _ => Default::default(),
+    };
+    Ok(parse_listing(&listing, &counts))
+}
+
 async fn sample_metrics(docker_bin: &str, tx: &mpsc::Sender<AgentToPanel>) -> AgentResult<()> {
     let listing = Command::new(docker_bin)
         .args([
@@ -232,6 +356,36 @@ async fn sample_metrics(docker_bin: &str, tx: &mpsc::Sender<AgentToPanel>) -> Ag
         if tx.send(event).await.is_err() {
             break;
         }
+    }
+    Ok(())
+}
+
+async fn tail_caddy_access_log(
+    docker_bin: &str,
+    aggregator: &Arc<Mutex<EdgeAggregator>>,
+) -> AgentResult<()> {
+    let since = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs().to_string();
+    let mut child = Command::new(docker_bin)
+        .args(["logs", "-f", "--since", &since, CADDY_CONTAINER_NAME])
+        .kill_on_drop(true)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    let mut stdout = BufReader::new(child.stdout.take().ok_or("missing stdout")?).lines();
+    let mut stderr = BufReader::new(child.stderr.take().ok_or("missing stderr")?).lines();
+    let (mut out_open, mut err_open) = (true, true);
+    while out_open || err_open {
+        let line = tokio::select! {
+            line = stdout.next_line(), if out_open => match line? {
+                Some(line) => line,
+                None => { out_open = false; continue; }
+            },
+            line = stderr.next_line(), if err_open => match line? {
+                Some(line) => line,
+                None => { err_open = false; continue; }
+            },
+        };
+        aggregator.lock().unwrap().add_line(&line);
     }
     Ok(())
 }

@@ -8,6 +8,8 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
+import { HostDiskUtil } from '../../common/utils/host-disk.util';
+import { StorageBudgetValidator } from '../../common/validators/storage-budget.validator';
 import { TotpUtil } from '../utils/totp.util';
 import * as QRCode from 'qrcode';
 import { AgentStatus, User } from '@prisma/client';
@@ -59,7 +61,12 @@ export class AuthService {
 
   async setupState(): Promise<SetupStateDto> {
     const count = await this.users.count();
-    return { needsSetup: count === 0 };
+    if (count > 0) return { needsSetup: false };
+    const disk = HostDiskUtil.read('/');
+    return {
+      needsSetup: true,
+      hostDisk: disk ? { ...disk, suggestedBudgetGb: HostDiskUtil.suggestBudgetGb(disk) } : null,
+    };
   }
 
   async getUser(userId: string): Promise<AuthUserDto> {
@@ -73,6 +80,14 @@ export class AuthService {
     if (existing > 0) {
       throw new BadRequestException('Setup already completed — sign in instead');
     }
+    if (dto.storageBudgetGb !== undefined) {
+      const problem = StorageBudgetValidator.budgetError(
+        dto.storageBudgetGb,
+        0,
+        HostDiskUtil.read('/')?.totalGb ?? null,
+      );
+      if (problem) throw new BadRequestException(problem);
+    }
     const passwordHash = await argon2.hash(dto.password);
     const user = await this.users.createOwnerWithOrg({
       name: dto.name,
@@ -80,11 +95,11 @@ export class AuthService {
       passwordHash,
       orgName: `${dto.name.split(' ')[0]}'s Organization`,
     });
-    await this.provisionLocalServer(user.orgId);
+    await this.provisionLocalServer(user.orgId, dto.storageBudgetGb);
     return this.buildSession(user, context);
   }
 
-  private async provisionLocalServer(orgId: string): Promise<void> {
+  private async provisionLocalServer(orgId: string, storageBudgetGb?: number): Promise<void> {
     const token = this.configService.get<string>('localBootstrapToken');
     if (!token) return;
 
@@ -96,6 +111,7 @@ export class AuthService {
         name: hostname,
         region: 'Local',
         isLocal: true,
+        storageBudgetGb: storageBudgetGb ?? null,
         status: AgentStatus.enrolling,
         bootstrapToken: token,
         bootstrapExpires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),

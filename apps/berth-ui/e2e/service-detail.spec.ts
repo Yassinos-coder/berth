@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mockApi } from './fixtures/mockApi';
+import { GIT_SERVICE, mockApi } from './fixtures/mockApi';
 
 test.describe('service detail', () => {
   test('falls back to Overview for a removed or unknown tab', async ({ page }) => {
@@ -52,5 +52,49 @@ test.describe('service detail', () => {
     await page.goto('/services/svc-db?tab=settings');
     await expect(page.getByText('Delete this service')).toBeVisible();
     await expect(page.getByText('Preview environments')).toHaveCount(0);
+  });
+});
+
+test.describe('deploy strategy', () => {
+  test('choosing Run once saves the strategy', async ({ page }) => {
+    const calls = await mockApi(page);
+    await page.goto('/services/svc-web?tab=settings');
+
+    await expect(page.getByRole('radio', { name: /Zero downtime/ })).toHaveAttribute('aria-checked', 'true');
+    await page.getByRole('radio', { name: /Run once/ }).click();
+
+    await expect
+      .poll(() => calls.find((call) => call.method === 'PATCH' && call.path === '/services/svc-web')?.body)
+      .toEqual({ deployStrategy: 'recreate' });
+  });
+
+  test('Run once is unavailable while the service is replicated', async ({ page }) => {
+    await mockApi(page, { services: [{ ...GIT_SERVICE, replicas: 3 }] });
+    await page.goto('/services/svc-web?tab=settings');
+
+    await expect(page.getByRole('radio', { name: /Run once/ })).toBeDisabled();
+    await expect(page.getByText('Set replicas to 1 before choosing Run once.')).toBeVisible();
+  });
+
+  test('a run-once service shows it as selected', async ({ page }) => {
+    await mockApi(page, { services: [{ ...GIT_SERVICE, deployStrategy: 'recreate' }] });
+    await page.goto('/services/svc-web?tab=settings');
+
+    await expect(page.getByRole('radio', { name: /Run once/ })).toHaveAttribute('aria-checked', 'true');
+  });
+});
+
+test.describe('automatic rollback', () => {
+  test('is on by default and can be turned off', async ({ page }) => {
+    const calls = await mockApi(page);
+    await page.goto('/services/svc-web?tab=settings');
+
+    const toggle = page.getByRole('switch', { name: 'Roll back automatically' });
+    await expect(toggle).toBeChecked();
+    await toggle.click();
+
+    await expect
+      .poll(() => calls.find((call) => call.method === 'PATCH' && call.path === '/services/svc-web')?.body)
+      .toEqual({ autoRollback: false });
   });
 });

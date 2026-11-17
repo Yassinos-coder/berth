@@ -17,6 +17,9 @@ import { NotificationsService } from '../../notifications/services/notifications
 import { ExecSessionService } from '../exec/exec-session.service';
 import { MetricsRecorderService } from '../../metrics/services/metrics-recorder.service';
 import { CertificateRenewalService } from '../pki/certificate-renewal.service';
+import { AutoRollbackService } from '../rollback/auto-rollback.service';
+import { VolumeUsageService } from '../volumes/volume-usage.service';
+import { EdgeTrafficService } from '../../metrics/services/edge-traffic.service';
 
 @Injectable()
 export class AgentMessageHandler {
@@ -32,6 +35,9 @@ export class AgentMessageHandler {
     private readonly exec: ExecSessionService,
     private readonly metricsRecorder: MetricsRecorderService,
     private readonly certificateRenewal: CertificateRenewalService,
+    private readonly autoRollback: AutoRollbackService,
+    private readonly volumeUsage: VolumeUsageService,
+    private readonly edgeTraffic: EdgeTrafficService,
   ) {}
 
   async handle(serverId: string, message: AgentToPanel): Promise<void> {
@@ -76,6 +82,12 @@ export class AgentMessageHandler {
           netTxMb: message.netTxMb,
         });
         await this.smartResources.observe(message.serviceId, message.memMb);
+        return;
+      case 'EdgeStats':
+        await this.edgeTraffic.record(serverId, message.entries);
+        return;
+      case 'VolumeUsage':
+        await this.volumeUsage.record(serverId, message.volumes);
         return;
       case 'HostUsage':
         await this.prisma.server.updateMany({
@@ -301,6 +313,9 @@ export class AgentMessageHandler {
           detail: `${service.name} stopped unexpectedly and is not running.`,
           severity: 'error',
         });
+        await this.autoRollback.onCrash(serviceId).catch((error) =>
+          this.logger.error(`auto-rollback failed for ${serviceId}`, error),
+        );
       }
     }
   }

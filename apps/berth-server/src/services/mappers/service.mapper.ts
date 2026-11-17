@@ -30,11 +30,18 @@ export class ServiceMapper {
       volumePath: service.volumePath ?? undefined,
       replicas: service.replicas,
       replicaPolicy: ReplicaPolicyValidator.fromStored(service.replicaPolicy),
+      deployStrategy: service.deployStrategy,
+      autoRollback: service.autoRollback,
+      diskLimited: service.volumeLimited,
       domain: service.domain ?? undefined,
       templateKind: service.templateKind ?? undefined,
       containerPort: service.containerPort ?? undefined,
       registryCredentialId: service.registryCredentialId ?? undefined,
       targetPlatform: service.targetPlatform ?? undefined,
+      ...(service.volumeUsedMb !== null && service.volumeTotalMb !== null && service.volumeUsageAt
+        ? { volumeUsage: { usedMb: service.volumeUsedMb, totalMb: service.volumeTotalMb, at: service.volumeUsageAt.toISOString() } }
+        : {}),
+      releaseCommand: service.releaseCommand ?? undefined,
       internalDomains: service.internalDomains,
       previewsEnabled: service.previewsEnabled,
       environmentId: service.environmentId ?? undefined,

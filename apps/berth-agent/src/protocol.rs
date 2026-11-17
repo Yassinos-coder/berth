@@ -22,12 +22,16 @@ pub struct ServiceSpec {
     pub replicas: u32,
     #[serde(default)]
     pub replica_policy: Option<ReplicaPolicy>,
+    #[serde(rename = "deployStrategy", default)]
+    pub deploy_strategy: DeployStrategy,
     #[serde(rename = "templateKind")]
     pub template_kind: Option<String>,
     #[serde(default)]
     pub registry_auth: Option<RegistryAuth>,
     #[serde(default)]
     pub target_platform: Option<String>,
+    #[serde(default)]
+    pub release_command: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -126,6 +130,26 @@ pub struct PortMapping {
 pub struct VolumeMount {
     pub name: String,
     pub mount_path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size_gb: Option<u64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VolumeUsageEntry {
+    pub name: String,
+    pub used_mb: u64,
+    pub total_mb: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EdgeStatEntry {
+    pub domain: String,
+    pub requests: u64,
+    pub status_4xx: u64,
+    pub status_5xx: u64,
+    pub p95_ms: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -144,6 +168,14 @@ pub struct HealthCheck {
     pub interval_seconds: u64,
     pub timeout_seconds: u64,
     pub retries: u32,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DeployStrategy {
+    #[default]
+    Rolling,
+    Recreate,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -340,6 +372,12 @@ pub enum AgentToPanel {
         net_rx_mb: f64,
         #[serde(rename = "netTxMb")]
         net_tx_mb: f64,
+    },
+    VolumeUsage {
+        volumes: Vec<VolumeUsageEntry>,
+    },
+    EdgeStats {
+        entries: Vec<EdgeStatEntry>,
     },
     HostUsage {
         #[serde(rename = "diskUsedGb")]

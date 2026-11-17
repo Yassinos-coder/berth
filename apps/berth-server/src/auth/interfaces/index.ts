@@ -15,6 +15,7 @@ export interface SessionDto {
 
 export interface SetupStateDto {
   needsSetup: boolean;
+  hostDisk?: { totalGb: number; freeGb: number; suggestedBudgetGb: number } | null;
 }
 
 export type LoginOutcome =

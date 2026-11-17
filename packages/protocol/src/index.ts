@@ -10,6 +10,8 @@ export interface ReplicaPolicy {
   cooldownSeconds: number;
 }
 
+export type DeployStrategy = 'rolling' | 'recreate';
+
 export interface ReplicaScalePlan {
   serviceId: string;
   currentReplicas: number;
@@ -34,9 +36,25 @@ export interface ServiceSpec {
   restartPolicy: RestartPolicy;
   replicas: number;
   replicaPolicy?: ReplicaPolicy;
+  deployStrategy?: DeployStrategy;
   templateKind?: string;
   registryAuth?: RegistryAuth;
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
+  releaseCommand?: string;
+}
+
+export interface EdgeStatEntry {
+  domain: string;
+  requests: number;
+  status4xx: number;
+  status5xx: number;
+  p95Ms: number;
+}
+
+export interface VolumeUsageEntry {
+  name: string;
+  usedMb: number;
+  totalMb: number;
 }
 
 export interface RegistryAuth {
@@ -84,6 +102,7 @@ export interface PortMapping {
 export interface VolumeMount {
   name: string;
   mountPath: string;
+  sizeGb?: number;
 }
 
 export interface EnvVar {
@@ -190,6 +209,8 @@ export type AgentToPanel =
       netRxMb: number;
       netTxMb: number;
     }
+  | { type: 'VolumeUsage'; volumes: VolumeUsageEntry[] }
+  | { type: 'EdgeStats'; entries: EdgeStatEntry[] }
   | { type: 'HostUsage'; diskUsedGb: number; diskTotalGb: number }
   | { type: 'ReconcileResult'; applied: string[]; failed: FailedApply[] }
   | {
@@ -202,3 +223,18 @@ export type AgentToPanel =
   | { type: 'RestoreResult'; serviceId: string; success: boolean; error?: string }
   | { type: 'ExecOutput'; sessionId: string; data: string }
   | { type: 'ExecExit'; sessionId: string; exitCode: number | null };
+
+const MIN_RESERVE_GB = 2;
+const RESERVE_FRACTION = 0.15;
+
+export class StorageMath {
+  static reserveGb(budgetGb: number): number {
+    return Math.max(MIN_RESERVE_GB, Math.ceil(budgetGb * RESERVE_FRACTION));
+  }
+
+  static allocatableGb(budgetGb: number): number {
+    return Math.max(0, budgetGb - StorageMath.reserveGb(budgetGb));
+  }
+}
+
+export * from './advisor.js';

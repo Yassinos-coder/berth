@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-17
+
+### Added
+- **AI advisor.** An optional onboarding step (and a Settings card) turns on an advisor that reviews your services and servers and suggests safe improvements, for example giving a service more memory after it peaked near its limit. Pick a provider (Anthropic, OpenAI, Google, Mistral, DeepSeek, Groq, xAI, OpenRouter, local Ollama, or any OpenAI-compatible URL), a model, an API key and a monthly spending cap. A header icon shows the number of suggestions and opens the advisor page, where each one has Apply, Decline and Undo. The advisor never reads environment variables, secrets, repository URLs or logs; keys are stored encrypted and never returned; only three actions can be applied (CPU/memory, disk size, automatic rollback).
+- **Hard storage limits.** Each service with files gets a size you choose at creation and can change later without deleting it. The limit is a hard wall enforced by a sized disk image, so a service cannot write past it. A Berth-wide storage budget is chosen at first setup (for example 25 of 100 GB). Usage is shown on the service with a warning from 80% and an alert at 90%.
+- **Deploy strategies.** Choose zero-downtime (default) or run-once for services that must never overlap.
+- **Automatic rollback** when a new version crashes shortly after going live, with crash detection and container log rotation.
+- **Release command.** A per-service command (for example database migrations) runs once after the build and before the new version starts; if it fails, the deploy stops and the old version keeps running.
+- **Load balancing.** Caddy now spreads requests across all replicas, retries during container swaps, skips a replica that refuses connections, and times out stuck backends.
+- **Build safety.** Builds stop after 30 minutes, are refused when the disk has under 3 GB free, run at low CPU priority, and always clean up their work directory.
+- **Traffic stats and error alerts.** Services with a domain show requests, 4xx/5xx and p95 latency, and an alert is sent when over 5% of requests fail with a server error. Caddy strips visitor addresses, URLs and headers from its logs.
+- **Panel backups.** `berth-backup` backs up the panel database, `.env` and CA certificates nightly (14 kept), with list and restore commands.
+- **Move a service to another server**, with capacity checks and an explicit confirmation when it has files. Offline and recovery alerts are sent when a server drops for more than 2 minutes.
+- **Browser notifications** for finished builds, failed deploys and crashes. Berth asks first, then the browser asks, then the page reloads. Works in Chrome, Edge, Firefox and Safari while a tab is open.
+- A raw ".env / JSON" editor on the Variables tab, and a clearer new-service flow with capacity and storage guidance.
+- Agent install verifies the panel CA with a checksum, so one command can enroll several servers safely.
+
+### Changed
+- First-run setup now has three steps: account, storage, AI advisor (optional).
+- The terminal renders typed text and the connection state correctly.
+- Project and CI use Bun, with new CI jobs for the database, supply chain, agent volumes and end-to-end tests.
+
+### Fixed
+- A later server enrolled by the panel could not trust the CA; the add-server command now includes its checksum.
+- Growing a volume returned success but did nothing.
+- Declined advisor suggestions no longer come back for 30 days.
+- Caddy's error logs no longer record visitor addresses or request URLs.
+
 ## [0.18.0] - 2026-11-17
 
 ### Added

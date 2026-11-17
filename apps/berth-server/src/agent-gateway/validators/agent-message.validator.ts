@@ -9,6 +9,8 @@ const KNOWN_TYPES: Record<AgentToPanel['type'], true> = {
   BuildProgress: true,
   LogChunk: true,
   Metrics: true,
+  VolumeUsage: true,
+  EdgeStats: true,
   HostUsage: true,
   ReconcileResult: true,
   BackupResult: true,

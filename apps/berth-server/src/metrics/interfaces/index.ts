@@ -44,3 +44,33 @@ export interface AlertThresholds {
   diskPct: number;
   minutes: number;
 }
+
+export interface EdgeSampleRow {
+  ts: Date;
+  requests: number;
+  errors4xx: number;
+  errors5xx: number;
+  p95Ms: number;
+}
+
+export interface EdgeTrafficPoint {
+  ts: number;
+  requests: number;
+  errors5xx: number;
+}
+
+export interface EdgeTrafficDto {
+  hasTraffic: boolean;
+  requests: number;
+  errors4xx: number;
+  errors5xx: number;
+  errorRatePct: number;
+  p95Ms: number;
+  series: EdgeTrafficPoint[];
+}
+
+export interface EdgeOwner {
+  serviceId: string;
+  serviceName: string;
+  orgId: string;
+}

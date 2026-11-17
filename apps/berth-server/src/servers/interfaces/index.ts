@@ -8,6 +8,8 @@ export interface ServerUsageDto {
   diskTotalGb: number;
 }
 
+import type { StorageSummary } from '../../common/validators/storage-budget.validator';
+
 export interface ServerDto {
   id: string;
   name: string;
@@ -20,6 +22,7 @@ export interface ServerDto {
   memoryMb: number;
   diskGb: number;
   serviceCount: number;
+  storage: StorageSummary;
   usage: ServerUsageDto;
   lastSeen: string;
   createdAt: string;

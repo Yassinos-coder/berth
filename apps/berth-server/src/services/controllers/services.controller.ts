@@ -19,6 +19,8 @@ import { ConnectionService } from '../services/connection.service';
 import { CreateServiceDto } from '../dto/create-service.dto';
 import { UpdateServiceDto } from '../dto/update-service.dto';
 import { ScaleServiceDto } from '../dto/scale-service.dto';
+import { MoveServiceDto } from '../dto/move-service.dto';
+import { ServiceMoveService } from '../services/service-move.service';
 import { SetEnvDto } from '../dto/set-env.dto';
 import { AddInternalDomainDto } from '../dto/add-internal-domain.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -39,6 +41,7 @@ export class ServicesController {
   constructor(
     private readonly servicesService: ServicesService,
     private readonly connectionService: ConnectionService,
+    private readonly serviceMove: ServiceMoveService,
   ) {}
 
   @Get()
@@ -123,6 +126,17 @@ export class ServicesController {
     @Body() dto: UpdateServiceDto,
   ): Promise<ServiceDto> {
     return this.servicesService.updateSettings(user, id, dto);
+  }
+
+  @Roles(Role.owner, Role.admin, Role.deployer)
+  @Post(':id/move')
+  @HttpCode(200)
+  move(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: MoveServiceDto,
+  ): Promise<ServiceDto> {
+    return this.serviceMove.move(user, id, dto);
   }
 
   @Roles(Role.owner, Role.admin, Role.deployer)

@@ -1,6 +1,7 @@
 import { BaseApiClient } from '@/services/baseApiClient';
 import type {
   Connection,
+  EdgeTraffic,
   LogLine,
   MetricPeak,
   MetricPoint,
@@ -34,8 +35,13 @@ export interface UpdateServicePayload {
   builder?: 'auto' | 'nixpacks' | 'dockerfile';
   registryCredentialId?: string;
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
+  releaseCommand?: string;
   previewsEnabled?: boolean;
   alertsMuted?: boolean;
+  deployStrategy?: 'rolling' | 'recreate';
+  autoRollback?: boolean;
+  diskGb?: number;
+  enforceDiskLimit?: boolean;
   resources?: Pick<Service['resources'], 'cpuCores' | 'memoryMb'>;
   volumePath?: string;
 }
@@ -63,6 +69,14 @@ class ServicesService extends BaseApiClient {
 
   metricsHistory(id: string, range: string): Promise<MetricPoint[]> {
     return this.get<MetricPoint[]>(`/${id}/metrics/history?range=${range}`);
+  }
+
+  move(id: string, payload: { serverId: string; confirmDataLoss?: boolean }): Promise<Service> {
+    return this.post<Service>(`/${id}/move`, payload);
+  }
+
+  traffic(id: string, range: string): Promise<EdgeTraffic> {
+    return this.get<EdgeTraffic>(`/${id}/traffic?range=${range}`);
   }
 
   metricsPeak(id: string): Promise<MetricPeak> {

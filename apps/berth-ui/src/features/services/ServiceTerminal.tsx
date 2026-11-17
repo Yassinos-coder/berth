@@ -5,14 +5,20 @@ import '@xterm/xterm/css/xterm.css';
 import { Eraser, Loader2, RefreshCw, Terminal as TerminalIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import {
+  TERMINAL_OPTIONS,
+  TERMINAL_THEME,
+  TerminalKeys,
+} from '@/features/services/terminalTheme';
 
 type Status = 'connecting' | 'connected' | 'closed' | 'error';
 
-const THEME = {
-  background: '#09090b',
-  foreground: '#f4f4f5',
-  cursor: '#f4f4f5',
-  selectionBackground: 'rgba(244, 244, 245, 0.3)',
+const STATUS_DOT: Record<Status, string> = {
+  connecting: 'bg-warning animate-pulse',
+  connected: 'bg-success',
+  closed: 'bg-muted-foreground',
+  error: 'bg-destructive',
 };
 
 function socketUrl(serviceId: string): string {
@@ -43,17 +49,24 @@ export function ServiceTerminal({ serviceId }: { serviceId: string }) {
   const [generation, setGeneration] = useState(0);
 
   useEffect(() => {
-    const term = new Terminal({
-      cursorBlink: true,
-      fontFamily: 'var(--font-mono)',
-      fontSize: 13,
-      scrollback: 5000,
-      theme: THEME,
-    });
+    const term = new Terminal(TERMINAL_OPTIONS);
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     if (containerRef.current) term.open(containerRef.current);
     fitAddon.fit();
+    void document.fonts?.ready.then(() => {
+      if (termRef.current !== term) return;
+      term.options.fontFamily = TERMINAL_OPTIONS.fontFamily;
+      fitAddon.fit();
+    });
+
+    term.attachCustomKeyEventHandler((event) => {
+      if (TerminalKeys.isCopy(event) && term.hasSelection()) {
+        void navigator.clipboard?.writeText(term.getSelection());
+        return false;
+      }
+      return true;
+    });
 
     term.onData((data) => sendInput(socketRef.current, data));
     term.onResize(({ cols, rows }) => sendResize(socketRef.current, cols, rows));
@@ -98,20 +111,33 @@ export function ServiceTerminal({ serviceId }: { serviceId: string }) {
         }
       } catch { setStatus('error'); }
     };
-    ws.onerror = () => setStatus('error');
-    ws.onclose = () => setStatus((current) => current === 'error' ? current : 'closed');
+    ws.onerror = () => {
+      if (socketRef.current === ws) setStatus('error');
+    };
+    ws.onclose = () => {
+      if (socketRef.current !== ws) return;
+      setStatus((current) => (current === 'error' ? current : 'closed'));
+    };
 
-    return () => { socketRef.current = null; ws.close(); };
+    return () => {
+      socketRef.current = null;
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onerror = null;
+      ws.onclose = null;
+      ws.close();
+    };
   }, [serviceId, generation]);
 
   const isBusy = status === 'connecting';
 
   return (
-    <Card className="overflow-hidden py-0">
+    <Card className="gap-0 overflow-hidden py-0">
       <div className="bg-muted/60 flex items-center justify-between border-b px-4 py-2">
         <div className="flex items-center gap-2 text-sm font-medium">
           <TerminalIcon className="size-4" aria-hidden="true" /> Container shell
-          <span className="text-muted-foreground font-normal">
+          <span className="text-muted-foreground inline-flex items-center gap-1.5 font-normal">
+            <span className={cn('size-2 rounded-full', STATUS_DOT[status])} aria-hidden="true" />
             {status === 'closed' && exitCode !== undefined ? 'session ended' : status}
           </span>
         </div>
@@ -127,7 +153,13 @@ export function ServiceTerminal({ serviceId }: { serviceId: string }) {
         </div>
       </div>
       <CardContent className="p-0">
-        <div ref={containerRef} className="h-[480px] bg-zinc-950 p-2" />
+        <div
+          className="h-[62vh] min-h-[360px] p-3"
+          style={{ backgroundColor: TERMINAL_THEME.background }}
+          onClick={() => termRef.current?.focus()}
+        >
+          <div ref={containerRef} className="size-full" />
+        </div>
       </CardContent>
     </Card>
   );

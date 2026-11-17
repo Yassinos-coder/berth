@@ -19,6 +19,7 @@ export const queryKeys = {
   service: (id: string) => ['services', id] as const,
   serviceLogs: (id: string) => ['services', id, 'logs'] as const,
   serviceMetrics: (id: string) => ['services', id, 'metrics'] as const,
+  serviceTraffic: (id: string, range: string) => ['services', id, 'traffic', range] as const,
   serviceMetricsHistory: (id: string, range: string) =>
     ['services', id, 'metrics', 'history', range] as const,
   deployments: ['deployments'] as const,

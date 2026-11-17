@@ -13,6 +13,22 @@ export function useEnrollServer() {
   });
 }
 
+export function useUpdateServerStorage(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (storageBudgetGb: number) => serversService.updateStorage(id, storageBudgetGb),
+    onSuccess: (server) => {
+      qc.invalidateQueries({ queryKey: queryKeys.servers });
+      qc.invalidateQueries({ queryKey: queryKeys.server(id) });
+      notify.success('Storage budget updated', {
+        description: `Berth may now use up to ${server.storage?.budgetGb ?? ''} GB on ${server.name}.`,
+      });
+    },
+    onError: (error) =>
+      notify.error('Could not update the storage budget', { description: error.message }),
+  });
+}
+
 export function useReenrollServer() {
   return useMutation({
     mutationFn: (id: string) => serversService.reenroll(id),

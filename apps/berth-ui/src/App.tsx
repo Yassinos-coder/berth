@@ -17,6 +17,7 @@ import { DeploymentsPage } from '@/pages/DeploymentsPage';
 import { TemplatesPage } from '@/pages/TemplatesPage';
 import { TeamPage } from '@/pages/TeamPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { AdvisorPage } from '@/pages/AdvisorPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PublicStatusPage } from '@/pages/PublicStatusPage';
 
@@ -47,6 +48,7 @@ export function App() {
         <Route path="proxy-hosts" element={<ProxyHostsPage />} />
         <Route path="deployments" element={<DeploymentsPage />} />
         <Route path="templates" element={<TemplatesPage />} />
+        <Route path="advisor" element={<AdvisorPage />} />
         <Route path="team" element={<TeamPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

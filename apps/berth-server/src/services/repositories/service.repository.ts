@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   Builder,
+  DeployStrategy,
   EnvVar,
   Prisma,
   Server,
@@ -10,6 +11,7 @@ import {
   SourceKind,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageBudgetValidator } from '../../common/validators/storage-budget.validator';
 import type {
   ReplicaScaleClaimInput,
   ReplicaScaleClaimResult,
@@ -60,6 +62,42 @@ export class ServiceRepository {
     });
   }
 
+  moveToServer(
+    orgId: string,
+    id: string,
+    targetServerId: string,
+  ): Promise<ServiceMutationResult<ServiceWithServer>> {
+    return this.prisma.$transaction(async (transaction) => {
+      await this.lockServerCapacity(transaction, targetServerId);
+      const service = await transaction.service.findFirst({ where: { id, orgId } });
+      if (!service) return { status: 'not-found' };
+
+      if (
+        !(await this.hasCapacity(transaction, targetServerId, {
+          cpuCores: service.cpuCores,
+          memoryMb: service.memoryMb,
+          replicas: service.replicas,
+        }))
+      ) {
+        return { status: 'capacity' };
+      }
+      if (
+        service.volumePath &&
+        service.diskGb &&
+        !(await this.storageFits(transaction, targetServerId, service.diskGb))
+      ) {
+        return { status: 'storage' };
+      }
+
+      const moved = await transaction.service.update({
+        where: { id },
+        data: { serverId: targetServerId, state: ServiceState.starting, specHash: null },
+        include: withServer,
+      });
+      return { status: 'saved', value: moved };
+    });
+  }
+
   create(data: {
     orgId: string;
     serverId: string;
@@ -81,6 +119,8 @@ export class ServiceRepository {
     diskGb?: number;
     replicas?: number;
     replicaPolicy?: Prisma.InputJsonValue;
+    deployStrategy?: DeployStrategy;
+    volumeLimited?: boolean;
     domain?: string;
     templateKind?: string;
     containerPort?: number;
@@ -104,6 +144,14 @@ export class ServiceRepository {
         }))
       ) {
         return { status: 'capacity' };
+      }
+
+      if (
+        fields.volumePath &&
+        fields.diskGb &&
+        !(await this.storageFits(transaction, fields.serverId, fields.diskGb))
+      ) {
+        return { status: 'storage' };
       }
 
       const service = await transaction.service.create({
@@ -141,15 +189,20 @@ export class ServiceRepository {
       builder?: Builder;
       registryCredentialId?: string | null;
       targetPlatform?: string | null;
+      releaseCommand?: string | null;
       previewsEnabled?: boolean;
       alertsMuted?: boolean;
       replicas?: number;
       replicaPolicy?: Prisma.InputJsonValue;
+      deployStrategy?: DeployStrategy;
+      autoRollback?: boolean;
       cpuCores?: number;
       memoryMb?: number;
       cpuShares?: number;
       volumeName?: string;
       volumePath?: string | null;
+      diskGb?: number;
+      volumeLimited?: boolean;
     },
   ): Promise<ServiceMutationResult<ServiceWithServer>> {
     return this.prisma.$transaction(async (transaction) => {
@@ -211,6 +264,26 @@ export class ServiceRepository {
           ))
         ) {
           return { status: 'capacity' };
+        }
+      }
+
+      if (data.diskGb !== undefined || data.volumePath !== undefined) {
+        const current = await transaction.service.findFirst({
+          where: { id, orgId },
+          select: { serverId: true, diskGb: true, volumePath: true },
+        });
+        if (!current) return { status: 'not-found' };
+        const nextPath =
+          data.volumePath === undefined ? current.volumePath : data.volumePath;
+        const nextDisk = data.diskGb ?? current.diskGb;
+        const currentDisk = current.volumePath ? (current.diskGb ?? 0) : 0;
+        if (
+          nextPath &&
+          nextDisk &&
+          nextDisk > currentDisk &&
+          !(await this.storageFits(transaction, current.serverId, nextDisk, id))
+        ) {
+          return { status: 'storage' };
         }
       }
 
@@ -370,6 +443,7 @@ export class ServiceRepository {
       where: {
         state: ServiceState.running,
         replicaPolicy: { not: Prisma.DbNull },
+        deployStrategy: DeployStrategy.rolling,
       },
       select: {
         id: true,
@@ -491,6 +565,43 @@ export class ServiceRepository {
         hashtext(${serverId})
       )
     `;
+  }
+
+  async allocatedDiskGb(serverId: string, excludeServiceId?: string): Promise<number> {
+    return this.sumAllocatedDisk(this.prisma, serverId, excludeServiceId);
+  }
+
+  private async sumAllocatedDisk(
+    client: Prisma.TransactionClient | PrismaService,
+    serverId: string,
+    excludeServiceId?: string,
+  ): Promise<number> {
+    const result = await client.service.aggregate({
+      _sum: { diskGb: true },
+      where: {
+        serverId,
+        volumePath: { not: null },
+        diskGb: { not: null },
+        ...(excludeServiceId ? { id: { not: excludeServiceId } } : {}),
+      },
+    });
+    return result._sum.diskGb ?? 0;
+  }
+
+  private async storageFits(
+    transaction: Prisma.TransactionClient,
+    serverId: string,
+    requestedGb: number,
+    excludeServiceId?: string,
+  ): Promise<boolean> {
+    const server = await transaction.server.findUnique({
+      where: { id: serverId },
+      select: { storageBudgetGb: true },
+    });
+    if (!server || server.storageBudgetGb === null) return true;
+    const allocated = await this.sumAllocatedDisk(transaction, serverId, excludeServiceId);
+    const summary = StorageBudgetValidator.summarize(server.storageBudgetGb, allocated);
+    return requestedGb <= (summary.freeGb ?? 0);
   }
 
   private async hasCapacity(

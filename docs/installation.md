@@ -51,6 +51,8 @@ Open **Servers → Add server** in the dashboard and copy the command it shows. 
 curl -fsSL https://yassinos-coder.github.io/berth/agent-install.sh | BERTH_BOOTSTRAP='...' BERTH_PANEL_URL='wss://panel.example.com:4443' sudo bash
 ```
 
+The command also carries your panel's certificate fingerprint, which the new server uses to verify the panel before trusting it. See [Several servers, one panel](/guides/multi-server) for how this works across regions.
+
 The one-time token in the command expires quickly and works once. The agent exchanges it for a certificate, then keeps a secure connection open to your panel. If a token expires, use **Regenerate token** on the server.
 
 ## Update
