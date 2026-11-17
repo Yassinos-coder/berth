@@ -51,10 +51,12 @@ api POST "/services/$SERVICE_ID/redeploy" >/dev/null
 wait_for "service running after redeploy" 60 service_running
 
 api PATCH "/services/$SERVICE_ID" -d '{"resources":{"cpuCores":0.5,"memoryMb":128}}' >/dev/null
-wait_for "service running after resource change" 60 service_running
-
-LIMIT="$(docker inspect --format '{{.HostConfig.Memory}}' "$(docker ps --filter "label=berth.service_id=$SERVICE_ID" --format '{{.Names}}' | head -n1)")"
-[ "$LIMIT" = "134217728" ] || { echo "memory limit not applied live: $LIMIT"; exit 1; }
+container_name() { docker ps --filter "label=berth.service_id=$SERVICE_ID" --format '{{.Names}}' | head -n1; }
+memory_limit_applied() {
+  [ "$(docker inspect --format '{{.HostConfig.Memory}}' "$(container_name)")" = "134217728" ]
+}
+wait_for "memory limit raised live on the running container" 40 memory_limit_applied
+wait_for "service still running after resource change" 12 service_running
 
 api DELETE "/services/$SERVICE_ID" >/dev/null
 echo "install smoke test passed"
