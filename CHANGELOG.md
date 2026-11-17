@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.4] - 2026-11-17
+
+### Fixed
+- `bun.lock` recorded stale workspace versions after each release bump, so a fresh `bun install` always left the working tree modified. The lockfile is now refreshed with every version bump.
+
 ## [0.17.3] - 2026-11-17
 
 ### Changed
