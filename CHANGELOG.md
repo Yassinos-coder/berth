@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.2] - 2026-11-17
+
+### Fixed
+- The `E2E install` workflow checked a service's memory limit immediately after a live resource change, before the agent had applied it. It now waits for the limit to take effect, so a genuine failure shows up as a timeout instead of a race.
+
 ## [0.17.1] - 2026-11-17
 
 ### Fixed
