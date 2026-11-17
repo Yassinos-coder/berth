@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-11-17
+
+### Fixed
+- CI: the AI advisor smoke test now starts from a clean database instead of the one the panel smoke test already set up.
+- CI: the storage hard-wall job builds the test as the runner user and runs only the test binary as root, because root has no Rust toolchain on the runner.
+
 ## [0.19.0] - 2026-11-17
 
 ### Added
