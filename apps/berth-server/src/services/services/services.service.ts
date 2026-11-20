@@ -129,6 +129,7 @@ export class ServicesService {
     const creation = await this.repository.create({
       ...input,
       deployStrategy: dto.deployStrategy,
+      stopGracePeriodSeconds: dto.stopGracePeriodSeconds,
       volumeLimited: Boolean((input.volumePath ?? dto.volumePath) && (input.diskGb ?? dto.diskGb)),
       replicas: dto.replicas ?? input.replicas ?? 1,
       replicaPolicy: dto.replicaPolicy
@@ -257,6 +258,7 @@ export class ServicesService {
       volumeLimited: dto.enforceDiskLimit === true ? true : undefined,
       diskGb: dto.diskGb,
       deployStrategy: dto.deployStrategy,
+      stopGracePeriodSeconds: dto.stopGracePeriodSeconds,
       autoRollback: dto.autoRollback,
       replicas: dto.replicas,
       replicaPolicy: dto.replicaPolicy

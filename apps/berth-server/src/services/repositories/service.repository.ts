@@ -120,6 +120,7 @@ export class ServiceRepository {
     replicas?: number;
     replicaPolicy?: Prisma.InputJsonValue;
     deployStrategy?: DeployStrategy;
+    stopGracePeriodSeconds?: number;
     volumeLimited?: boolean;
     domain?: string;
     templateKind?: string;
@@ -195,6 +196,7 @@ export class ServiceRepository {
       replicas?: number;
       replicaPolicy?: Prisma.InputJsonValue;
       deployStrategy?: DeployStrategy;
+      stopGracePeriodSeconds?: number;
       autoRollback?: boolean;
       cpuCores?: number;
       memoryMb?: number;

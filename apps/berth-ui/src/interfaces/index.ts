@@ -85,6 +85,7 @@ export interface Service {
   replicas: number;
   replicaPolicy?: ReplicaPolicy;
   deployStrategy?: DeployStrategy;
+  stopGracePeriodSeconds?: number;
   autoRollback?: boolean;
   diskLimited?: boolean;
   domain?: string;

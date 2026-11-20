@@ -53,6 +53,7 @@ export interface ServiceDto {
   alertsMuted: boolean;
   replicaPolicy?: ReplicaPolicy;
   deployStrategy: DeployStrategy;
+  stopGracePeriodSeconds: number;
   autoRollback: boolean;
   diskLimited: boolean;
   volumeUsage?: { usedMb: number; totalMb: number; at: string };

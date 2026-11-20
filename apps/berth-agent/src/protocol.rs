@@ -24,6 +24,10 @@ pub struct ServiceSpec {
     pub replica_policy: Option<ReplicaPolicy>,
     #[serde(rename = "deployStrategy", default)]
     pub deploy_strategy: DeployStrategy,
+    /// Seconds a stopped or replaced container gets to finish its work (a call in progress, a queue job)
+    /// before it is killed. 0 keeps the default: replaced containers are removed at once.
+    #[serde(rename = "stopGracePeriodSeconds", default)]
+    pub stop_grace_period_seconds: u32,
     #[serde(rename = "templateKind")]
     pub template_kind: Option<String>,
     #[serde(default)]

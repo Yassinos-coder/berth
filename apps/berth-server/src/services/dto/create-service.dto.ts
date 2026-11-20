@@ -162,6 +162,12 @@ export class CreateServiceDto {
   deployStrategy?: 'rolling' | 'recreate';
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(7200)
+  stopGracePeriodSeconds?: number;
+
+  @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => EnvVarDto)
   env?: EnvVarDto[];

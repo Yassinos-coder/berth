@@ -4,6 +4,7 @@ const MAX_ENV: usize = 200;
 const MAX_PORTS: usize = 50;
 const MAX_VOLUMES: usize = 50;
 const MAX_REPLICAS: u32 = 32;
+const MAX_STOP_GRACE_SECONDS: u32 = 7200;
 
 const MAX_RELEASE_COMMAND: usize = 2000;
 
@@ -23,6 +24,11 @@ pub fn validate_spec(spec: &ServiceSpec) -> Result<(), String> {
     if spec.replicas == 0 || spec.replicas > MAX_REPLICAS {
         return Err(format!(
             "replica count must be between 1 and {MAX_REPLICAS}"
+        ));
+    }
+    if spec.stop_grace_period_seconds > MAX_STOP_GRACE_SECONDS {
+        return Err(format!(
+            "stop grace period must be at most {MAX_STOP_GRACE_SECONDS} seconds"
         ));
     }
     if spec.deploy_strategy == crate::protocol::DeployStrategy::Recreate && spec.replicas > 1 {
@@ -145,6 +151,8 @@ mod tests {
 
     #[test]
     fn a_run_once_service_cannot_be_replicated() {
+        assert!(validate_spec(&spec(json!({ "stopGracePeriodSeconds": 1800 }))).is_ok());
+        assert!(validate_spec(&spec(json!({ "stopGracePeriodSeconds": 7201 }))).is_err());
         assert!(validate_spec(&spec(json!({ "deployStrategy": "recreate", "replicas": 2 }))).is_err());
         assert!(validate_spec(&spec(json!({ "deployStrategy": "recreate", "replicas": 1 }))).is_ok());
         assert!(validate_spec(&spec(json!({ "deployStrategy": "rolling", "replicas": 2 }))).is_ok());

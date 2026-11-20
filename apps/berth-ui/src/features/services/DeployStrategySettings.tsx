@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useUpdateServiceSettings } from '@/hooks/useServicesMutations';
 import { cn } from '@/lib/utils';
@@ -25,6 +26,15 @@ const OPTIONS: StrategyOption[] = [
     description:
       'Stops the old version first, then starts the new one. There is a brief gap, but two copies never run together. Use it for bots, schedulers and anything that trades, sends or charges.',
   },
+];
+
+const GRACE_OPTIONS = [
+  { seconds: 0, label: 'Stop right away' },
+  { seconds: 30, label: '30 seconds' },
+  { seconds: 300, label: '5 minutes' },
+  { seconds: 1800, label: '30 minutes' },
+  { seconds: 3600, label: '1 hour' },
+  { seconds: 7200, label: '2 hours' },
 ];
 
 export class DeployStrategyRules {
@@ -87,6 +97,38 @@ export function DeployStrategySettings({ service }: { service: Service }) {
         {blocked && current === 'rolling' ? (
           <p className="text-muted-foreground text-xs">{blocked}</p>
         ) : null}
+        <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+          <div>
+            <p className="text-sm font-medium">Let the old version finish its work</p>
+            <p className="text-muted-foreground text-xs">
+              After a new version goes live, or when you stop the service, the old
+              one stops taking new work but keeps running until it is done, up to
+              this long. For anything that holds long tasks, like phone calls or
+              queue jobs.
+            </p>
+          </div>
+          <Select
+            value={String(service.stopGracePeriodSeconds ?? 0)}
+            disabled={update.isPending}
+            onValueChange={(value) => update.mutate({ stopGracePeriodSeconds: Number(value) })}
+          >
+            <SelectTrigger className="w-40 shrink-0" aria-label="Let the old version finish its work">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[
+                ...GRACE_OPTIONS,
+                ...(GRACE_OPTIONS.some((option) => option.seconds === (service.stopGracePeriodSeconds ?? 0))
+                  ? []
+                  : [{ seconds: service.stopGracePeriodSeconds ?? 0, label: `${service.stopGracePeriodSeconds} seconds` }]),
+              ].map((option) => (
+                <SelectItem key={option.seconds} value={String(option.seconds)}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
           <div>
             <p className="text-sm font-medium">Roll back automatically</p>

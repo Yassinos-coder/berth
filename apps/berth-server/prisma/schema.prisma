@@ -325,6 +325,7 @@ model Service {
   replicas         Int        @default(1)
   replicaPolicy    Json?
   deployStrategy   DeployStrategy @default(rolling)
+  stopGracePeriodSeconds Int      @default(0)
   autoRollback     Boolean    @default(true)
   volumeLimited    Boolean    @default(false)
   lastReplicaScaleAt DateTime?

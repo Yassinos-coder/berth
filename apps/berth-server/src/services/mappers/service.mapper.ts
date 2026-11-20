@@ -31,6 +31,7 @@ export class ServiceMapper {
       replicas: service.replicas,
       replicaPolicy: ReplicaPolicyValidator.fromStored(service.replicaPolicy),
       deployStrategy: service.deployStrategy,
+      stopGracePeriodSeconds: service.stopGracePeriodSeconds,
       autoRollback: service.autoRollback,
       diskLimited: service.volumeLimited,
       domain: service.domain ?? undefined,

@@ -82,6 +82,7 @@ impl DockerReconciler {
         build_log: Option<&BuildLogSink>,
     ) -> AgentResult<ReconcileOutcome> {
         self.heal_orphaned_next_containers().await?;
+        let _ = self.sweep_drained_containers().await;
 
         let mut current = self.list_managed_containers().await?;
         let mut current_by_service = HashMap::new();
@@ -728,6 +729,9 @@ impl DockerReconciler {
             let Some(service_id) = labels.get(LABEL_SERVICE_ID).cloned() else {
                 continue;
             };
+            if name.contains(DRAINING_MARKER) {
+                continue;
+            }
 
             containers.push(ManagedContainer {
                 id,
@@ -891,6 +895,8 @@ impl DockerReconciler {
             LOG_MAX_FILES.to_string(),
             "--restart".to_string(),
             restart_policy_flag(&spec.restart_policy).to_string(),
+            "--stop-timeout".to_string(),
+            stop_timeout_seconds(spec).to_string(),
             "--cpus".to_string(),
             spec.resources.cpu_cores.to_string(),
             "--memory".to_string(),
@@ -1030,7 +1036,8 @@ impl DockerReconciler {
                 &spec.id,
                 "==> Stopping the previous version first (this service must run only once)",
             );
-            self.docker(&["stop", &old.name]).await?;
+            self.docker(&["stop", "-t", &stop_timeout_seconds(spec).to_string(), &old.name])
+                .await?;
         }
         let container_id = match self
             .run_service(spec, spec_hash, Some(image), &next_name, false)
@@ -1050,7 +1057,7 @@ impl DockerReconciler {
             Ok(()) => {
                 emit_build_line(build_log, &spec.id, "==> Container healthy");
                 self.connect_service_aliases(&next_name, spec).await?;
-                self.remove_container(&old.name).await?;
+                self.retire_old_container(&old.name, spec, build_log).await?;
                 self.docker(&["rename", &next_name, target_name]).await?;
                 Ok((ServiceState::Running, Some(container_id)))
             }
@@ -1410,6 +1417,62 @@ impl DockerReconciler {
             .await
     }
 
+    /// Takes the replaced container out of service. Without a grace period it is removed at once. With one it is
+    /// renamed out of the way (the managed list skips `-draining-` names), told to stop, and left to finish what
+    /// it is doing (live calls, running jobs) for up to the grace period before it is killed and removed.
+    async fn retire_old_container(
+        &self,
+        name: &str,
+        spec: &ServiceSpec,
+        build_log: Option<&BuildLogSink>,
+    ) -> AgentResult<()> {
+        let grace = spec.stop_grace_period_seconds;
+        if grace == 0 || !self.container_running(name).await {
+            return self.remove_container(name).await;
+        }
+
+        let draining = format!("{name}{DRAINING_MARKER}{}", unix_seconds());
+        self.docker(&["rename", name, &draining]).await?;
+        emit_build_line(
+            build_log,
+            &spec.id,
+            &format!("==> The previous version keeps finishing its work for up to {grace} seconds"),
+        );
+
+        let docker_bin = self.docker_bin.clone();
+        tokio::spawn(async move {
+            let _ = Command::new(&docker_bin)
+                .args(["stop", "-t", &grace.to_string(), &draining])
+                .output()
+                .await;
+            let _ = Command::new(&docker_bin).args(["rm", "-f", &draining]).output().await;
+        });
+
+        Ok(())
+    }
+
+    /// Removes drained containers left behind when the agent restarted while one was still finishing.
+    async fn sweep_drained_containers(&self) -> AgentResult<()> {
+        let output = self
+            .docker(&[
+                "ps",
+                "-a",
+                "--filter",
+                &format!("label={LABEL_MANAGED}=true"),
+                "--filter",
+                "status=exited",
+                "--format",
+                "{{.Names}}",
+            ])
+            .await?;
+
+        for name in output.lines().map(str::trim).filter(|name| name.contains(DRAINING_MARKER)) {
+            let _ = self.remove_container(name).await;
+        }
+
+        Ok(())
+    }
+
     async fn remove_container(&self, name: &str) -> AgentResult<()> {
         self.docker_stream(&["rm", "-f", name]).await
     }
@@ -1448,6 +1511,25 @@ impl DockerReconciler {
 
         Err(format!("docker {} failed with status {status}", args.join(" ")).into())
     }
+}
+
+const DRAINING_MARKER: &str = "-draining-";
+/// A container that is stopped with `docker stop` and no explicit timeout waits this long before it is killed.
+const DEFAULT_STOP_TIMEOUT_SECONDS: u32 = 10;
+
+fn stop_timeout_seconds(spec: &ServiceSpec) -> u32 {
+    if spec.stop_grace_period_seconds == 0 {
+        return DEFAULT_STOP_TIMEOUT_SECONDS;
+    }
+
+    spec.stop_grace_period_seconds
+}
+
+fn unix_seconds() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or_default()
 }
 
 fn container_name(service_id: &str) -> String {
@@ -1658,6 +1740,7 @@ fn spec_hash(spec: &ServiceSpec) -> AgentResult<String> {
     stable.replicas = 1;
     stable.replica_policy = None;
     stable.deploy_strategy = crate::protocol::DeployStrategy::default();
+    stable.stop_grace_period_seconds = 0;
     stable.release_command = None;
     // Resource limits are applied live with `docker update`; changing them
     // must not rebuild images or recreate otherwise healthy containers.
@@ -2304,6 +2387,19 @@ mod spec_hash_tests {
             spec_hash(&at(true, &first)).unwrap(),
             spec_hash(&at(true, &second)).unwrap()
         );
+    }
+
+    #[test]
+    fn stop_grace_period_does_not_force_a_redeployment() {
+        let default = spec(json!({}));
+        let patient = spec(json!({ "stopGracePeriodSeconds": 1800 }));
+        assert_eq!(spec_hash(&default).unwrap(), spec_hash(&patient).unwrap());
+    }
+
+    #[test]
+    fn containers_get_the_grace_period_as_their_stop_timeout() {
+        assert_eq!(stop_timeout_seconds(&spec(json!({}))), 10);
+        assert_eq!(stop_timeout_seconds(&spec(json!({ "stopGracePeriodSeconds": 1800 }))), 1800);
     }
 
     #[test]

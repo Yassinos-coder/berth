@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Graceful shutdown.** A per-service "Let the old version finish its work" setting (0 to 2 hours). After a zero-downtime deploy the old version is no longer killed at once: it keeps running until it exits or the time is up, so long tasks such as live calls finish. Stopping and restarting a service wait the same way. Changing it does not redeploy. The panel and agent share it as `stopGracePeriodSeconds`; it is an additive protocol field, so older agents keep working and simply ignore it.
+
 ## [0.19.1] - 2026-11-17
 
 ### Fixed

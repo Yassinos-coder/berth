@@ -85,6 +85,7 @@ export class ReconcilePlanner {
       replicas: service.replicas,
       replicaPolicy: ReplicaPolicyValidator.fromStored(service.replicaPolicy),
       deployStrategy: service.deployStrategy,
+      stopGracePeriodSeconds: service.stopGracePeriodSeconds,
       templateKind: service.templateKind ?? undefined,
       registryAuth: service.registryCredential
         ? {

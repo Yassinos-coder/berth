@@ -34,6 +34,12 @@ Each service chooses how new versions replace old ones (service **Settings → D
 
 A run-once service cannot have more than one replica or autoscaling, because that would defeat the guarantee.
 
+### Graceful shutdown
+
+Set **Let the old version finish its work** on a service (Settings, Deploys) to give it time to wind down instead of being killed. With zero downtime, the new version takes over as before, and the old one then stops taking new work but keeps running until it is done, up to the time you chose (up to 2 hours). Stopping or restarting the service waits the same way. Use it for anything that holds long tasks, such as voice agents on live calls or queue workers. The default, *Stop right away*, keeps the old behaviour. The service must handle `SIGTERM` by finishing its work and exiting; Berth kills it only when the time is up.
+
+The setting is applied when a container is created, so it takes effect from the next deploy. Changing it does not redeploy the service. A container that is still finishing is renamed `…-draining-…` and is no longer managed or counted as a replica.
+
 ## Load balancing and timeouts
 
 Every domain is served through Caddy, which looks up all running replicas of a service about once a second and sends each request to the one with the fewest active connections.

@@ -39,6 +39,7 @@ export interface UpdateServicePayload {
   previewsEnabled?: boolean;
   alertsMuted?: boolean;
   deployStrategy?: 'rolling' | 'recreate';
+  stopGracePeriodSeconds?: number;
   autoRollback?: boolean;
   diskGb?: number;
   enforceDiskLimit?: boolean;

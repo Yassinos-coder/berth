@@ -37,6 +37,7 @@ export interface ServiceSpec {
   replicas: number;
   replicaPolicy?: ReplicaPolicy;
   deployStrategy?: DeployStrategy;
+  stopGracePeriodSeconds?: number;
   templateKind?: string;
   registryAuth?: RegistryAuth;
   targetPlatform?: 'linux/amd64' | 'linux/arm64';
